@@ -24,7 +24,6 @@
 #include <marked_ptr.h>
 #include <shared_ptr.h>
 
-
 namespace atomic_shared_ptr {
     template<class ValueType>
     class TreiberStack {
