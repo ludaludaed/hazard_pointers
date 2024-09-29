@@ -251,11 +251,6 @@ namespace hazard_pointer {
         using KeyCompareHolder = lu::detail::EmptyBaseHolder<KeyCompare>;
         using KeySelectHolder = lu::detail::EmptyBaseHolder<KeySelect>;
 
-        class Node;
-
-        using node_pointer = Node *;
-        using node_marked_pointer = lu::marked_ptr<Node>;
-
         struct Node : public lu::hazard_pointer_obj_base<Node> {
         public:
             template<class... Args>
@@ -267,6 +262,9 @@ namespace hazard_pointer {
             ValueType value;
             std::atomic<lu::marked_ptr<Node>> next{};
         };
+
+        using node_pointer = Node *;
+        using node_marked_pointer = lu::marked_ptr<Node>;
 
         struct position {
             node_pointer cur;
@@ -280,17 +278,12 @@ namespace hazard_pointer {
 
     public:
         using value_type = ValueType;
-        using key_type = KeySelect::key_type;
+        using key_type = KeySelect::type;
 
         using compare = KeyCompare;
         using key_select = KeySelect;
 
-        using guarded_ptr = std::conditional_t<
-                !std::is_same_v<value_type, key_type>,
-                lu::guarded_ptr<ValueType>,
-                lu::guarded_ptr<const ValueType>>;
-
-        using const_guarded_ptr = lu::guarded_ptr<const ValueType>;
+        using guarded_ptr = std::conditional_t<!std::is_same_v<value_type, key_type>, lu::guarded_ptr<ValueType>, lu::guarded_ptr<const ValueType>>;
 
     private:
         static void delete_node(node_pointer node) {
@@ -475,7 +468,7 @@ namespace hazard_pointer {
 
     template<class KeyType, class ValueType>
     struct MapKeySelect {
-        using key_type = KeyType;
+        using type = KeyType;
 
         const KeyType &operator()(const std::pair<KeyType, ValueType> &value) {
             return value.first;
@@ -484,7 +477,7 @@ namespace hazard_pointer {
 
     template<class KeyType>
     struct SetKeySelect {
-        using key_type = KeyType;
+        using type = KeyType;
 
         template<class T, class = std::enable_if_t<std::is_same_v<std::decay_t<T>, KeyType>>>
         T &&operator()(T &&value) {
@@ -493,7 +486,7 @@ namespace hazard_pointer {
     };
 
     template<class ValueType, class KeyCompare = std::less<ValueType>>
-    using ordered_key_list = OrderedList<ValueType, KeyCompare, SetKeySelect<ValueType>>;
+    using ordered_list = OrderedList<ValueType, KeyCompare, SetKeySelect<ValueType>>;
 
     template<class KeyType, class ValueType, class KeyCompare = std::less<ValueType>>
     using ordered_key_value_list = OrderedList<std::pair<const KeyType, ValueType>, KeyCompare, MapKeySelect<KeyType, ValueType>>;
@@ -589,19 +582,23 @@ void abstractStressTest(Func &&func, std::ostream &out) {
 };
 
 int main() {
-    // hazard_pointer::ordered_key_list<int> list;
-    // list.emplace(10);
-    // std::cout << list.contains(10) << std::endl;
-    // list.erase(10);
-    // std::cout << list.contains(10) << std::endl;
+    hazard_pointer::ordered_list<int> list;
+    list.emplace(10);
+    std::cout << list.contains(10) << std::endl;
+    list.erase(10);
+    std::cout << list.contains(10) << std::endl;
 
-    // for (int i = 0; i < 10; ++i) {
-    //     list.insert(i);
-    // }
-    // list.clear();
-    // std::cout << list.empty();
-
-    for (int i = 0; i < 100; ++i) {
-        abstractStressTest(stressTest<atomic_shared_ptr::TreiberStack<int>>);
+    for (int i = 0; i < 10; ++i) {
+        list.insert(i);
     }
+    list.clear();
+    std::cout << list.empty();
+
+    hazard_pointer::ordered_key_value_list<int, int>::key_type l;
+
+    std::cout << typeid(l).name() << std::endl;
+
+    // for (int i = 0; i < 100; ++i) {
+    //     abstractStressTest(stressTest<atomic_shared_ptr::TreiberStack<int>>);
+    // }
 }
