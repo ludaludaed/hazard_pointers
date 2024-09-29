@@ -1294,7 +1294,7 @@ namespace lu {
     struct DefaultKeyOfValue {
         using type = ValueType;
 
-        template<class T, class = std::enable_if_t<std::is_same_v<std::remove_cv_t<std::remove_reference_t<T>>, type>>>
+        template<class T, class = std::enable_if_t<std::is_same_v<std::decay_t<T>, type>>>
         T &&operator()(T &&value) const {
             return std::forward<T>(value);
         }

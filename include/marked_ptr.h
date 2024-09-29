@@ -17,17 +17,17 @@ namespace lu {
     public:
         MarkedPointer() noexcept = default;
 
-        template<class _ValueType, std::enable_if_t<std::is_convertible_v<_ValueType *, ValueType *>, int> = 0>
+        template<class _ValueType, class = std::enable_if_t<std::is_convertible_v<_ValueType *, ValueType *>>>
         MarkedPointer(_ValueType *other) noexcept
             : ptr_(reinterpret_cast<uintptr_t>(other)) {}
 
-        template<class _ValueType, std::enable_if_t<std::is_convertible_v<_ValueType *, ValueType *>, int> = 0>
+        template<class _ValueType, class = std::enable_if_t<std::is_convertible_v<_ValueType *, ValueType *>>>
         MarkedPointer(_ValueType *other, bool bit_value) noexcept
             : ptr_(reinterpret_cast<uintptr_t>(other) | uintptr_t(bit_value)) {}
 
         MarkedPointer(const MarkedPointer &other) = default;
 
-        template<class _ValueType, std::enable_if_t<std::is_convertible_v<_ValueType *, ValueType *>, int> = 0>
+        template<class _ValueType, class = std::enable_if_t<std::is_convertible_v<_ValueType *, ValueType *>>>
         MarkedPointer(const MarkedPointer<_ValueType> &other) noexcept
             : ptr_(other.ptr_) {}
 
@@ -141,7 +141,7 @@ namespace lu {
         template<class _ValueType,
                  class Deleter = std::default_delete<_ValueType>,
                  class Allocator = std::allocator<_ValueType>,
-                 std::enable_if_t<std::is_convertible_v<_ValueType *, ValueType *>, int> = 0>
+                 class = std::enable_if_t<std::is_convertible_v<_ValueType *, ValueType *>>>
         explicit MarkedSharedPointer(_ValueType *value_ptr, Deleter deleter = {}, const Allocator &allocator = {}) noexcept {
             Construct(value_ptr, std::move(deleter), allocator);
         }
@@ -152,14 +152,14 @@ namespace lu {
 
         template<class _ValuePtr,
                  class _ControlBlockPtr,
-                 std::enable_if_t<std::is_convertible_v<_ValuePtr, element_ptr> && std::is_convertible_v<_ControlBlockPtr, control_block_ptr>, int> = 0>
+                 class = std::enable_if_t<std::is_convertible_v<_ValuePtr, element_ptr> && std::is_convertible_v<_ControlBlockPtr, control_block_ptr>>>
         MarkedSharedPointer(const StrongRefCountPointer<_ValuePtr, _ControlBlockPtr> &other) noexcept {
             this->CopyConstruct(other);
         }
 
         template<class _ValuePtr,
                  class _ControlBlockPtr,
-                 std::enable_if_t<std::is_convertible_v<_ValuePtr, element_ptr> && std::is_convertible_v<_ControlBlockPtr, control_block_ptr>, int> = 0>
+                 class = std::enable_if_t<std::is_convertible_v<_ValuePtr, element_ptr> && std::is_convertible_v<_ControlBlockPtr, control_block_ptr>>>
         MarkedSharedPointer(const StrongRefCountPointer<_ValuePtr, _ControlBlockPtr> &other, bool bit_value) noexcept {
             this->CopyConstruct(other);
             this->control_block_ = control_block_ptr(this->control_block_.get(), bit_value);
@@ -171,14 +171,14 @@ namespace lu {
 
         template<class _ValuePtr,
                  class _ControlBlockPtr,
-                 std::enable_if_t<std::is_convertible_v<_ValuePtr, element_ptr> && std::is_convertible_v<_ControlBlockPtr, control_block_ptr>, int> = 0>
+                 class = std::enable_if_t<std::is_convertible_v<_ValuePtr, element_ptr> && std::is_convertible_v<_ControlBlockPtr, control_block_ptr>>>
         MarkedSharedPointer(StrongRefCountPointer<_ValuePtr, _ControlBlockPtr> &&other) noexcept {
             this->MoveConstruct(std::move(other));
         }
 
         template<class _ValuePtr,
                  class _ControlBlockPtr,
-                 std::enable_if_t<std::is_convertible_v<_ValuePtr, element_ptr> && std::is_convertible_v<_ControlBlockPtr, control_block_ptr>, int> = 0>
+                 class = std::enable_if_t<std::is_convertible_v<_ValuePtr, element_ptr> && std::is_convertible_v<_ControlBlockPtr, control_block_ptr>>>
         explicit MarkedSharedPointer(const WeakRefCountPointer<_ValuePtr, _ControlBlockPtr> &other) {
             this->ConstructFromWeak(other);
         }
@@ -195,7 +195,7 @@ namespace lu {
 
         template<class _ValuePtr,
                  class _ControlBlockPtr,
-                 std::enable_if_t<std::is_convertible_v<_ValuePtr, element_ptr> && std::is_convertible_v<_ControlBlockPtr, control_block_ptr>, int> = 0>
+                 class = std::enable_if_t<std::is_convertible_v<_ValuePtr, element_ptr> && std::is_convertible_v<_ControlBlockPtr, control_block_ptr>>>
         MarkedSharedPointer &operator=(const StrongRefCountPointer<_ValuePtr, _ControlBlockPtr> &other) noexcept {
             MarkedSharedPointer temp(other);
             this->swap(temp);
@@ -210,7 +210,7 @@ namespace lu {
 
         template<class _ValuePtr,
                  class _ControlBlockPtr,
-                 std::enable_if_t<std::is_convertible_v<_ValuePtr, element_ptr> && std::is_convertible_v<_ControlBlockPtr, control_block_ptr>, int> = 0>
+                 class = std::enable_if_t<std::is_convertible_v<_ValuePtr, element_ptr> && std::is_convertible_v<_ControlBlockPtr, control_block_ptr>>>
         MarkedSharedPointer &operator=(StrongRefCountPointer<_ValuePtr, _ControlBlockPtr> &&other) noexcept {
             MarkedSharedPointer temp(std::move(other));
             this->swap(temp);
@@ -220,7 +220,7 @@ namespace lu {
         template<class _ValueType,
                  class Deleter = std::default_delete<_ValueType>,
                  class Allocator = std::allocator<_ValueType>,
-                 std::enable_if_t<std::is_convertible_v<_ValueType *, ValueType *>, int> = 0>
+                 class = std::enable_if_t<std::is_convertible_v<_ValueType *, ValueType *>>>
         void reset(_ValueType *value_ptr = {}, Deleter deleter = {}, const Allocator &allocator = {}) noexcept {
             MarkedSharedPointer temp(value_ptr, std::move(deleter), allocator);
             this->swap(temp);

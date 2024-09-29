@@ -1,3 +1,4 @@
+#include "intrusive/empty_base_holder.h"
 #include <algorithm>
 #include <array>
 #include <atomic>
@@ -8,6 +9,7 @@
 #include <functional>
 #include <future>
 #include <iostream>
+#include <map>
 #include <optional>
 #include <ostream>
 #include <set>
@@ -15,6 +17,7 @@
 #include <type_traits>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 #include <hazard_pointer.h>
@@ -241,12 +244,17 @@ namespace hazard_pointer {
         std::atomic<Node *> head_{nullptr};
     };
 
-    template<class ValueType, class Compare>
-    class OrderedList {
+    template<class ValueType, class KeyCompare, class KeySelect>
+    class OrderedList : private lu::detail::EmptyBaseHolder<KeyCompare>,
+                        private lu::detail::EmptyBaseHolder<KeySelect> {
+
+        using KeyCompareHolder = lu::detail::EmptyBaseHolder<KeyCompare>;
+        using KeySelectHolder = lu::detail::EmptyBaseHolder<KeySelect>;
+
         class Node;
 
-        using pointer = Node *;
-        using marked_pointer = lu::marked_ptr<Node>;
+        using node_pointer = Node *;
+        using node_marked_pointer = lu::marked_ptr<Node>;
 
         struct Node : public lu::hazard_pointer_obj_base<Node> {
         public:
@@ -261,9 +269,9 @@ namespace hazard_pointer {
         };
 
         struct position {
-            pointer cur;
-            pointer next;
-            std::atomic<marked_pointer> *prev_pointer;
+            node_pointer cur;
+            node_pointer next;
+            std::atomic<node_marked_pointer> *prev_pointer;
 
             lu::hazard_pointer cur_guard{lu::make_hazard_pointer()};
             lu::hazard_pointer next_guard{lu::make_hazard_pointer()};
@@ -271,18 +279,29 @@ namespace hazard_pointer {
         };
 
     public:
-        using guarded_ptr = lu::guarded_ptr<ValueType>;
+        using value_type = ValueType;
+        using key_type = KeySelect::key_type;
+
+        using compare = KeyCompare;
+        using key_select = KeySelect;
+
+        using guarded_ptr = std::conditional_t<
+                !std::is_same_v<value_type, key_type>,
+                lu::guarded_ptr<ValueType>,
+                lu::guarded_ptr<const ValueType>>;
+
+        using const_guarded_ptr = lu::guarded_ptr<const ValueType>;
 
     private:
-        static void delete_node(pointer node) {
+        static void delete_node(node_pointer node) {
             node->retire();
         }
 
         static bool unlink(position &pos) {
-            marked_pointer next(pos.next);
-            if (pos.cur->next.compare_exchange_weak(next, marked_pointer(next.get(), 1))) {
-                marked_pointer cur(pos.cur);
-                if (pos.prev_pointer->compare_exchange_weak(cur, marked_pointer(pos.next))) {
+            node_marked_pointer next(pos.next);
+            if (pos.cur->next.compare_exchange_weak(next, node_marked_pointer(next.get(), 1))) {
+                node_marked_pointer cur(pos.cur);
+                if (pos.prev_pointer->compare_exchange_weak(cur, node_marked_pointer(pos.next))) {
                     delete_node(cur);
                 }
                 return true;
@@ -290,10 +309,10 @@ namespace hazard_pointer {
             return false;
         }
 
-        static bool link(position &pos, pointer new_node) {
-            marked_pointer cur(pos.cur);
+        static bool link(position &pos, node_pointer new_node) {
+            node_marked_pointer cur(pos.cur);
             new_node->next.store(cur);
-            if (pos.prev_pointer->compare_exchange_weak(cur, marked_pointer(new_node))) {
+            if (pos.prev_pointer->compare_exchange_weak(cur, node_marked_pointer(new_node))) {
                 return true;
             } else {
                 new_node->next.store({});
@@ -301,15 +320,15 @@ namespace hazard_pointer {
             }
         }
 
-        template<class _ValueType, class _Compare>
-        static bool find(std::atomic<marked_pointer> *head, const _ValueType &value, position &pos, _Compare &&comp) {
-            std::atomic<marked_pointer> *prev_pointer;
-            marked_pointer cur{};
+        template<class Compare>
+        static bool find(std::atomic<node_marked_pointer> *head, const value_type &value, position &pos, Compare &&comp) {
+            std::atomic<node_marked_pointer> *prev_pointer;
+            node_marked_pointer cur{};
 
         try_again:
             prev_pointer = head;
 
-            cur = pos.cur_guard.protect(*head, [](marked_pointer ptr) {
+            cur = pos.cur_guard.protect(*head, [](node_marked_pointer ptr) {
                 return ptr.get();
             });
 
@@ -321,7 +340,7 @@ namespace hazard_pointer {
                     return false;
                 }
 
-                marked_pointer next = pos.next_guard.protect(cur->next, [](marked_pointer ptr) {
+                node_marked_pointer next = pos.next_guard.protect(cur->next, [](node_marked_pointer ptr) {
                     return ptr.get();
                 });
 
@@ -330,8 +349,8 @@ namespace hazard_pointer {
                 }
 
                 if (next.get_bit()) {
-                    marked_pointer not_marked_cur(cur.get(), 0);
-                    if (prev_pointer->compare_exchange_weak(not_marked_cur, marked_pointer(next.get(), 0))) {
+                    node_marked_pointer not_marked_cur(cur.get(), 0);
+                    if (prev_pointer->compare_exchange_weak(not_marked_cur, node_marked_pointer(next.get(), 0))) {
                         delete_node(cur);
                     } else {
                         goto try_again;
@@ -352,21 +371,42 @@ namespace hazard_pointer {
         }
 
     public:
+        explicit OrderedList(const compare &compare = {}, const key_select &key_select = {})
+            : KeyCompareHolder(compare),
+              KeySelectHolder(key_select) {}
+
+        OrderedList(const OrderedList &other) = delete;
+
+        OrderedList(OrderedList &&other) = delete;
+
         ~OrderedList() {
             clear();
         }
 
+    private:
+        bool find(const value_type &value, position &pos) {
+            auto comp = KeyCompareHolder::get();
+            auto key_select = KeySelectHolder::get();
+
+            auto compare = [&comp, &key_select](const value_type &left, const value_type &right) {
+                return comp(key_select(left), key_select(right));
+            };
+
+            return find(&head_, value, pos, compare);
+        }
+
+    public:
         bool insert(const ValueType &value) {
             return emplace(value);
         }
 
         template<class... Args>
         bool emplace(Args &&...args) {
-            pointer new_node = new Node(std::forward<Args>(args)...);
+            node_pointer new_node = new Node(std::forward<Args>(args)...);
 
             position pos;
             while (true) {
-                if (find(&head_, new_node->value, pos, Compare{})) {
+                if (find(new_node->value, pos)) {
                     return false;
                 }
                 if (link(pos, new_node)) {
@@ -377,7 +417,7 @@ namespace hazard_pointer {
 
         bool erase(const ValueType &value) {
             position pos;
-            while (find(&head_, value, pos, Compare{})) {
+            while (find(value, pos)) {
                 if (unlink(pos)) {
                     return true;
                 }
@@ -387,7 +427,7 @@ namespace hazard_pointer {
 
         guarded_ptr extract(const ValueType &value) {
             position pos;
-            while (find(&head_, value, pos, Compare{})) {
+            while (find(value, pos)) {
                 if (unlink(pos)) {
                     return guarded_ptr(std::move(pos.cur_guard), &pos.cur->value);
                 }
@@ -399,13 +439,13 @@ namespace hazard_pointer {
             lu::hazard_pointer head_guard = lu::make_hazard_pointer();
             position pos;
             while (true) {
-                auto head = head_guard.protect(head_, [](marked_pointer ptr) {
+                auto head = head_guard.protect(head_, [](node_marked_pointer ptr) {
                     return ptr.get();
                 });
                 if (!head) {
                     break;
                 }
-                if (find(&head_, head->value, pos, Compare{}) && pos.cur == head.get()) {
+                if (find(head->value, pos) && pos.cur == head.get()) {
                     unlink(pos);
                 }
             }
@@ -413,7 +453,7 @@ namespace hazard_pointer {
 
         guarded_ptr find(const ValueType &value) {
             position pos;
-            if (find(&head_, value, pos, Compare{})) {
+            if (find(value, pos)) {
                 return guarded_ptr(std::move(pos.cur_guard), &pos.cur->value);
             } else {
                 return guarded_ptr();
@@ -422,7 +462,7 @@ namespace hazard_pointer {
 
         bool contains(const ValueType &value) {
             position pos;
-            return find(&head_, value, pos, Compare{});
+            return find(value, pos);
         }
 
         bool empty() const {
@@ -430,8 +470,33 @@ namespace hazard_pointer {
         }
 
     private:
-        std::atomic<marked_pointer> head_{};
+        std::atomic<node_marked_pointer> head_{};
     };
+
+    template<class KeyType, class ValueType>
+    struct MapKeySelect {
+        using key_type = KeyType;
+
+        const KeyType &operator()(const std::pair<KeyType, ValueType> &value) {
+            return value.first;
+        }
+    };
+
+    template<class KeyType>
+    struct SetKeySelect {
+        using key_type = KeyType;
+
+        template<class T, class = std::enable_if_t<std::is_same_v<std::decay_t<T>, KeyType>>>
+        T &&operator()(T &&value) {
+            return std::forward<T>(value);
+        }
+    };
+
+    template<class ValueType, class KeyCompare = std::less<ValueType>>
+    using ordered_key_list = OrderedList<ValueType, KeyCompare, SetKeySelect<ValueType>>;
+
+    template<class KeyType, class ValueType, class KeyCompare = std::less<ValueType>>
+    using ordered_key_value_list = OrderedList<std::pair<const KeyType, ValueType>, KeyCompare, MapKeySelect<KeyType, ValueType>>;
 }// namespace hazard_pointer
 
 template<typename TContainer>
@@ -524,17 +589,17 @@ void abstractStressTest(Func &&func, std::ostream &out) {
 };
 
 int main() {
-    hazard_pointer::OrderedList<int, std::less<int>> list;
-    list.emplace(10);
-    std::cout << list.contains(10) << std::endl;
-    list.erase(10);
-    std::cout << list.contains(10) << std::endl;
+    // hazard_pointer::ordered_key_list<int> list;
+    // list.emplace(10);
+    // std::cout << list.contains(10) << std::endl;
+    // list.erase(10);
+    // std::cout << list.contains(10) << std::endl;
 
-    for (int i = 0; i < 10; ++i) {
-        list.insert(i);
-    }
-    list.clear();
-    std::cout << list.empty();
+    // for (int i = 0; i < 10; ++i) {
+    //     list.insert(i);
+    // }
+    // list.clear();
+    // std::cout << list.empty();
 
     for (int i = 0; i < 100; ++i) {
         abstractStressTest(stressTest<atomic_shared_ptr::TreiberStack<int>>);

@@ -361,14 +361,14 @@ namespace lu {
 
         template<class _ValuePtr,
                  class _ControlBlockPtr,
-                 std::enable_if_t<std::is_convertible_v<_ValuePtr, ValuePtr> && std::is_convertible_v<_ControlBlockPtr, ControlBlockPtr>, int> = 0>
+                 class = std::enable_if_t<std::is_convertible_v<_ValuePtr, ValuePtr> && std::is_convertible_v<_ControlBlockPtr, ControlBlockPtr>>>
         bool owner_before(const StrongRefCountPointer<_ValuePtr, _ControlBlockPtr> &other) {
             return control_block_ < other.control_block_;
         }
 
         template<class _ValuePtr,
                  class _ControlBlockPtr,
-                 std::enable_if_t<std::is_convertible_v<_ValuePtr, ValuePtr> && std::is_convertible_v<_ControlBlockPtr, ControlBlockPtr>, int> = 0>
+                 class = std::enable_if_t<std::is_convertible_v<_ValuePtr, ValuePtr> && std::is_convertible_v<_ControlBlockPtr, ControlBlockPtr>>>
         bool owner_before(const WeakRefCountPointer<_ValuePtr, _ControlBlockPtr> &other) {
             return control_block_ < other.control_block_;
         }
@@ -416,7 +416,7 @@ namespace lu {
     protected:
         template<class _ValuePtr,
                  class _ControlBlockPtr,
-                 std::enable_if_t<std::is_convertible_v<_ValuePtr, ValuePtr> && std::is_convertible_v<_ControlBlockPtr, ControlBlockPtr>, int> = 0>
+                 class = std::enable_if_t<std::is_convertible_v<_ValuePtr, ValuePtr> && std::is_convertible_v<_ControlBlockPtr, ControlBlockPtr>>>
         void CopyConstruct(const StrongRefCountPointer<_ValuePtr, _ControlBlockPtr> &other) noexcept {
             value_ = other.value_;
             control_block_ = other.control_block_;
@@ -426,7 +426,7 @@ namespace lu {
 
         template<class _ValuePtr,
                  class _ControlBlockPtr,
-                 std::enable_if_t<std::is_convertible_v<_ValuePtr, ValuePtr> && std::is_convertible_v<_ControlBlockPtr, ControlBlockPtr>, int> = 0>
+                 class = std::enable_if_t<std::is_convertible_v<_ValuePtr, ValuePtr> && std::is_convertible_v<_ControlBlockPtr, ControlBlockPtr>>>
         void MoveConstruct(StrongRefCountPointer<_ValuePtr, _ControlBlockPtr> &&other) noexcept {
             value_ = other.value_;
             control_block_ = other.control_block_;
@@ -437,7 +437,7 @@ namespace lu {
 
         template<class _ValuePtr,
                  class _ControlBlockPtr,
-                 std::enable_if_t<std::is_convertible_v<_ValuePtr, ValuePtr> && std::is_convertible_v<_ControlBlockPtr, ControlBlockPtr>, int> = 0>
+                 class = std::enable_if_t<std::is_convertible_v<_ValuePtr, ValuePtr> && std::is_convertible_v<_ControlBlockPtr, ControlBlockPtr>>>
         void ConstructFromWeak(const WeakRefCountPointer<_ValuePtr, _ControlBlockPtr> &other) {
             if (other.control_block_ && other.control_block_->inc_ref_if_not_zero()) {
                 control_block_ = other.control_block_;
@@ -447,7 +447,7 @@ namespace lu {
 
         template<class _ValuePtr,
                  class _ControlBlockPtr,
-                 std::enable_if_t<std::is_convertible_v<_ValuePtr, ValuePtr> && std::is_convertible_v<_ControlBlockPtr, ControlBlockPtr>, int> = 0>
+                 class = std::enable_if_t<std::is_convertible_v<_ValuePtr, ValuePtr> && std::is_convertible_v<_ControlBlockPtr, ControlBlockPtr>>>
         void SetData(_ValuePtr value, _ControlBlockPtr control_block) noexcept {
             value_ = value;
             control_block_ = control_block;
@@ -521,14 +521,14 @@ namespace lu {
 
         template<class _ValuePtr,
                  class _ControlBlockPtr,
-                 std::enable_if_t<std::is_convertible_v<_ValuePtr, ValuePtr> && std::is_convertible_v<_ControlBlockPtr, ControlBlockPtr>, int> = 0>
+                 class = std::enable_if_t<std::is_convertible_v<_ValuePtr, ValuePtr> && std::is_convertible_v<_ControlBlockPtr, ControlBlockPtr>>>
         bool owner_before(const StrongRefCountPointer<_ValuePtr, _ControlBlockPtr> &other) {
             return control_block_ < other.control_block_;
         }
 
         template<class _ValuePtr,
                  class _ControlBlockPtr,
-                 std::enable_if_t<std::is_convertible_v<_ValuePtr, ValuePtr> && std::is_convertible_v<_ControlBlockPtr, ControlBlockPtr>, int> = 0>
+                 class = std::enable_if_t<std::is_convertible_v<_ValuePtr, ValuePtr> && std::is_convertible_v<_ControlBlockPtr, ControlBlockPtr>>>
         bool owner_before(const WeakRefCountPointer<_ValuePtr, _ControlBlockPtr> &other) {
             return control_block_ < other.control_block_;
         }
@@ -540,7 +540,7 @@ namespace lu {
     protected:
         template<class _ValuePtr,
                  class _ControlBlockPtr,
-                 std::enable_if_t<std::is_convertible_v<_ValuePtr, ValuePtr> && std::is_convertible_v<_ControlBlockPtr, ControlBlockPtr>, int> = 0>
+                 class = std::enable_if_t<std::is_convertible_v<_ValuePtr, ValuePtr> && std::is_convertible_v<_ControlBlockPtr, ControlBlockPtr>>>
         void CopyConstruct(const WeakRefCountPointer<_ValuePtr, _ControlBlockPtr> &other) noexcept {
             if (other.control_block_) {
                 value_ = other.value_;
@@ -551,7 +551,7 @@ namespace lu {
 
         template<class _ValuePtr,
                  class _ControlBlockPtr,
-                 std::enable_if_t<std::is_convertible_v<_ValuePtr, ValuePtr> && std::is_convertible_v<_ControlBlockPtr, ControlBlockPtr>, int> = 0>
+                 class = std::enable_if_t<std::is_convertible_v<_ValuePtr, ValuePtr> && std::is_convertible_v<_ControlBlockPtr, ControlBlockPtr>>>
         void MoveConstruct(WeakRefCountPointer<_ValuePtr, _ControlBlockPtr> &&other) noexcept {
             value_ = other.value_;
             control_block_ = other.control_block_;
@@ -562,7 +562,7 @@ namespace lu {
 
         template<class _ValuePtr,
                  class _ControlBlockPtr,
-                 std::enable_if_t<std::is_convertible_v<_ValuePtr, ValuePtr> && std::is_convertible_v<_ControlBlockPtr, ControlBlockPtr>, int> = 0>
+                 class = std::enable_if_t<std::is_convertible_v<_ValuePtr, ValuePtr> && std::is_convertible_v<_ControlBlockPtr, ControlBlockPtr>>>
         void ConstructFromStrong(const StrongRefCountPointer<_ValuePtr, _ControlBlockPtr> &other) noexcept {
             if (other.control_block_) {
                 value_ = other.value_;
@@ -573,7 +573,7 @@ namespace lu {
 
         template<class _ValuePtr,
                  class _ControlBlockPtr,
-                 std::enable_if_t<std::is_convertible_v<_ValuePtr, ValuePtr> && std::is_convertible_v<_ControlBlockPtr, ControlBlockPtr>, int> = 0>
+                 class = std::enable_if_t<std::is_convertible_v<_ValuePtr, ValuePtr> && std::is_convertible_v<_ControlBlockPtr, ControlBlockPtr>>>
         void SetData(_ValuePtr value, _ControlBlockPtr control_block) noexcept {
             value_ = value;
             control_block_ = control_block;
@@ -649,7 +649,7 @@ namespace lu {
         template<class _ValueType,
                  class Deleter = std::default_delete<_ValueType>,
                  class Allocator = std::allocator<_ValueType>,
-                 std::enable_if_t<std::is_convertible_v<_ValueType *, ValueType *>, int> = 0>
+                 class = std::enable_if_t<std::is_convertible_v<_ValueType *, ValueType *>>>
         explicit SharedPointer(_ValueType *value_ptr, Deleter deleter = {}, const Allocator &allocator = {}) noexcept {
             Construct(value_ptr, std::move(deleter), allocator);
         }
@@ -660,7 +660,7 @@ namespace lu {
 
         template<class _ValuePtr,
                  class _ControlBlockPtr,
-                 std::enable_if_t<std::is_convertible_v<_ValuePtr, element_ptr> && std::is_convertible_v<_ControlBlockPtr, control_block_ptr>, int> = 0>
+                 class = std::enable_if_t<std::is_convertible_v<_ValuePtr, element_ptr> && std::is_convertible_v<_ControlBlockPtr, control_block_ptr>>>
         SharedPointer(const StrongRefCountPointer<_ValuePtr, _ControlBlockPtr> &other) noexcept {
             this->CopyConstruct(other);
         }
@@ -671,14 +671,14 @@ namespace lu {
 
         template<class _ValuePtr,
                  class _ControlBlockPtr,
-                 std::enable_if_t<std::is_convertible_v<_ValuePtr, element_ptr> && std::is_convertible_v<_ControlBlockPtr, control_block_ptr>, int> = 0>
+                 class = std::enable_if_t<std::is_convertible_v<_ValuePtr, element_ptr> && std::is_convertible_v<_ControlBlockPtr, control_block_ptr>>>
         SharedPointer(StrongRefCountPointer<_ValuePtr, _ControlBlockPtr> &&other) noexcept {
             this->MoveConstruct(std::move(other));
         }
 
         template<class _ValuePtr,
                  class _ControlBlockPtr,
-                 std::enable_if_t<std::is_convertible_v<_ValuePtr, element_ptr> && std::is_convertible_v<_ControlBlockPtr, control_block_ptr>, int> = 0>
+                 class = std::enable_if_t<std::is_convertible_v<_ValuePtr, element_ptr> && std::is_convertible_v<_ControlBlockPtr, control_block_ptr>>>
         explicit SharedPointer(const WeakRefCountPointer<_ValuePtr, _ControlBlockPtr> &other) {
             this->ConstructFromWeak(other);
         }
@@ -695,7 +695,7 @@ namespace lu {
 
         template<class _ValuePtr,
                  class _ControlBlockPtr,
-                 std::enable_if_t<std::is_convertible_v<_ValuePtr, element_ptr> && std::is_convertible_v<_ControlBlockPtr, control_block_ptr>, int> = 0>
+                 class = std::enable_if_t<std::is_convertible_v<_ValuePtr, element_ptr> && std::is_convertible_v<_ControlBlockPtr, control_block_ptr>>>
         SharedPointer &operator=(const StrongRefCountPointer<_ValuePtr, _ControlBlockPtr> &other) noexcept {
             SharedPointer temp(other);
             this->swap(temp);
@@ -710,7 +710,7 @@ namespace lu {
 
         template<class _ValuePtr,
                  class _ControlBlockPtr,
-                 std::enable_if_t<std::is_convertible_v<_ValuePtr, element_ptr> && std::is_convertible_v<_ControlBlockPtr, control_block_ptr>, int> = 0>
+                 class = std::enable_if_t<std::is_convertible_v<_ValuePtr, element_ptr> && std::is_convertible_v<_ControlBlockPtr, control_block_ptr>>>
         SharedPointer &operator=(StrongRefCountPointer<_ValuePtr, _ControlBlockPtr> &&other) noexcept {
             SharedPointer temp(std::move(other));
             this->swap(temp);
@@ -720,7 +720,7 @@ namespace lu {
         template<class _ValueType,
                  class Deleter = std::default_delete<_ValueType>,
                  class Allocator = std::allocator<_ValueType>,
-                 std::enable_if_t<std::is_convertible_v<_ValueType *, ValueType *>, int> = 0>
+                 class = std::enable_if_t<std::is_convertible_v<_ValueType *, ValueType *>>>
         void reset(_ValueType *value_ptr = {}, Deleter deleter = {}, const Allocator &allocator = {}) noexcept {
             SharedPointer temp(value_ptr, std::move(deleter), allocator);
             this->swap(temp);
@@ -784,7 +784,7 @@ namespace lu {
 
         template<class _ValuePtr,
                  class _ControlBlockPtr,
-                 std::enable_if_t<std::is_convertible_v<_ValuePtr, element_ptr> && std::is_convertible_v<_ControlBlockPtr, control_block_ptr>, int> = 0>
+                 class = std::enable_if_t<std::is_convertible_v<_ValuePtr, element_ptr> && std::is_convertible_v<_ControlBlockPtr, control_block_ptr>>>
         explicit WeakPointer(const StrongRefCountPointer<_ValuePtr, _ControlBlockPtr> &other) noexcept {
             this->ConstructFromStrong(other);
         }
@@ -795,7 +795,7 @@ namespace lu {
 
         template<class _ValuePtr,
                  class _ControlBlockPtr,
-                 std::enable_if_t<std::is_convertible_v<_ValuePtr, element_ptr> && std::is_convertible_v<_ControlBlockPtr, control_block_ptr>, int> = 0>
+                 class = std::enable_if_t<std::is_convertible_v<_ValuePtr, element_ptr> && std::is_convertible_v<_ControlBlockPtr, control_block_ptr>>>
         WeakPointer(const WeakRefCountPointer<_ValuePtr, _ControlBlockPtr> &other) noexcept {
             this->CopyConstruct(other);
         }
@@ -806,7 +806,7 @@ namespace lu {
 
         template<class _ValuePtr,
                  class _ControlBlockPtr,
-                 std::enable_if_t<std::is_convertible_v<_ValuePtr, element_ptr> && std::is_convertible_v<_ControlBlockPtr, control_block_ptr>, int> = 0>
+                 class = std::enable_if_t<std::is_convertible_v<_ValuePtr, element_ptr> && std::is_convertible_v<_ControlBlockPtr, control_block_ptr>>>
         WeakPointer(WeakRefCountPointer<_ValuePtr, _ControlBlockPtr> &&other) noexcept {
             this->MoveConstruct(std::move(other));
         }
@@ -823,7 +823,7 @@ namespace lu {
 
         template<class _ValuePtr,
                  class _ControlBlockPtr,
-                 std::enable_if_t<std::is_convertible_v<_ValuePtr, element_ptr> && std::is_convertible_v<_ControlBlockPtr, control_block_ptr>, int> = 0>
+                 class = std::enable_if_t<std::is_convertible_v<_ValuePtr, element_ptr> && std::is_convertible_v<_ControlBlockPtr, control_block_ptr>>>
         WeakPointer &operator=(const WeakRefCountPointer<_ValuePtr, _ControlBlockPtr> &other) noexcept {
             WeakPointer temp(other);
             this->swap(temp);
@@ -838,7 +838,7 @@ namespace lu {
 
         template<class _ValuePtr,
                  class _ControlBlockPtr,
-                 std::enable_if_t<std::is_convertible_v<_ValuePtr, element_ptr> && std::is_convertible_v<_ControlBlockPtr, control_block_ptr>, int> = 0>
+                 class = std::enable_if_t<std::is_convertible_v<_ValuePtr, element_ptr> && std::is_convertible_v<_ControlBlockPtr, control_block_ptr>>>
         WeakPointer &operator=(WeakRefCountPointer<_ValuePtr, _ControlBlockPtr> &&other) noexcept {
             WeakPointer temp(std::move(other));
             this->swap(temp);
@@ -847,7 +847,7 @@ namespace lu {
 
         template<class _ValuePtr,
                  class _ControlBlockPtr,
-                 std::enable_if_t<std::is_convertible_v<_ValuePtr, element_ptr> && std::is_convertible_v<_ControlBlockPtr, control_block_ptr>, int> = 0>
+                 class = std::enable_if_t<std::is_convertible_v<_ValuePtr, element_ptr> && std::is_convertible_v<_ControlBlockPtr, control_block_ptr>>>
         WeakPointer &operator=(const StrongRefCountPointer<_ValuePtr, _ControlBlockPtr> &other) noexcept {
             WeakPointer temp(other);
             this->swap(temp);
