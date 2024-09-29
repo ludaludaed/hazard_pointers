@@ -244,6 +244,69 @@ namespace hazard_pointer {
         std::atomic<Node *> head_{nullptr};
     };
 
+    template<class ValueType>
+    class MSQueue {
+        struct Node : lu::hazard_pointer_obj_base<Node> {
+            ValueType value{};
+            std::atomic<Node *> next{};
+
+            Node() = default;
+
+            template<class... Args>
+            Node(Args &&...args)
+                : value(std::forward<Args>(args)...) {
+            }
+        };
+
+    public:
+        MSQueue() {
+            auto dummy_node = new Node();
+            head_.store(dummy_node);
+            tail_.store(dummy_node);
+        }
+
+        template<class... Args>
+        void push(Args &&...args) {
+            auto new_node = new Node(std::forward<Args>(args)...);
+
+            lu::hazard_pointer tail_guard = lu::make_hazard_pointer();
+            lu::hazard_pointer tail_next_guard = lu::make_hazard_pointer();
+
+            while (true) {
+                auto tail = tail_guard.protect(tail_);
+                auto tail_next = tail_next_guard.protect(tail->next);
+                if (tail_next) {
+                    tail_.compare_exchange_weak(tail, tail_next);
+                } else {
+                    if (tail->next.compare_exchange_weak(tail_next, new_node)) {
+                        tail_.compare_exchange_weak(tail, new_node);
+                        return;
+                    }
+                }
+            }
+        }
+
+        std::optional<ValueType> pop() {
+            lu::hazard_pointer head_guard = lu::make_hazard_pointer();
+            lu::hazard_pointer head_next_guard = lu::make_hazard_pointer();
+            while (true) {
+                auto head = head_guard.protect(head_);
+                auto head_next = head_next_guard.protect(head->next);
+                if (!head_next) {
+                    return std::nullopt;
+                }
+                if (head_.compare_exchange_weak(head, head_next)) {
+                    head->retire();
+                    return {std::move(head_next->value)};
+                }
+            }
+        }
+
+    private:
+        std::atomic<Node *> head_;
+        std::atomic<Node *> tail_;
+    };
+
     template<class ValueType, class KeyCompare, class KeySelect>
     class OrderedList : private lu::detail::EmptyBaseHolder<KeyCompare>,
                         private lu::detail::EmptyBaseHolder<KeySelect> {
@@ -582,23 +645,19 @@ void abstractStressTest(Func &&func, std::ostream &out) {
 };
 
 int main() {
-    hazard_pointer::ordered_list<int> list;
-    list.emplace(10);
-    std::cout << list.contains(10) << std::endl;
-    list.erase(10);
-    std::cout << list.contains(10) << std::endl;
+    // hazard_pointer::ordered_list<int> list;
+    // list.emplace(10);
+    // std::cout << list.contains(10) << std::endl;
+    // list.erase(10);
+    // std::cout << list.contains(10) << std::endl;
 
-    for (int i = 0; i < 10; ++i) {
-        list.insert(i);
-    }
-    list.clear();
-    std::cout << list.empty();
-
-    hazard_pointer::ordered_key_value_list<int, int>::key_type l;
-
-    std::cout << typeid(l).name() << std::endl;
-
-    // for (int i = 0; i < 100; ++i) {
-    //     abstractStressTest(stressTest<atomic_shared_ptr::TreiberStack<int>>);
+    // for (int i = 0; i < 10; ++i) {
+    //     list.insert(i);
     // }
+    // list.clear();
+    // std::cout << list.empty();
+
+    for (int i = 0; i < 100; ++i) {
+        abstractStressTest(stressTest<hazard_pointer::MSQueue<int>>);
+    }
 }
