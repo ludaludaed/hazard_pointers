@@ -269,9 +269,7 @@ namespace hazard_pointer {
         template<class... Args>
         void push(Args &&...args) {
             auto new_node = new Node(std::forward<Args>(args)...);
-
             lu::hazard_pointer tail_guard = lu::make_hazard_pointer();
-            lu::hazard_pointer tail_next_guard = lu::make_hazard_pointer();
 
             while (true) {
                 auto tail = tail_guard.protect(tail_);

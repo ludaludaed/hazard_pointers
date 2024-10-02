@@ -16,17 +16,15 @@
 #include "intrusive/unordered_set.h"
 
 namespace lu {
-    class HazardPointerDomain;
-
     class hazard_tag {};
 
-    using hazard_hook = lu::unordered_set_base_hook<lu::tag<hazard_tag>>;
+    using HazardPointerHook = lu::unordered_set_base_hook<lu::tag<hazard_tag>>;
 
-    class HazardPointerObjBaseBase : public hazard_hook {
-        friend class lu::HazardPointerDomain;
+    class HazardPointerObject : public HazardPointerHook {
+        friend class HazardPointerDomain;
 
     public:
-        virtual ~HazardPointerObjBaseBase() {}
+        virtual ~HazardPointerObject() {}
 
     private:
         virtual void destroy() noexcept = 0;
@@ -46,13 +44,13 @@ namespace lu {
             }
         };
 
-        using retired_set = lu::unordered_set<HazardObj, lu::base_hook<hazard_hook>, lu::key_of_value<KeyOfValue>>;
+        using SetOfRetired = lu::unordered_set<HazardObj, lu::base_hook<HazardPointerHook>, lu::key_of_value<KeyOfValue>>;
 
     public:
         using retired_element = HazardObj;
 
-        using iterator = typename retired_set::iterator;
-        using const_iterator = typename retired_set::const_iterator;
+        using iterator = typename SetOfRetired::iterator;
+        using const_iterator = typename SetOfRetired::const_iterator;
 
         using pointer = retired_element *;
         using const_pointer = const retired_element *;
@@ -65,7 +63,7 @@ namespace lu {
 
     public:
         RetiredSet() noexcept
-            : retired_set_(typename retired_set::bucket_traits(buckets_.data(), buckets_.size())) {}
+            : retired_set_(typename SetOfRetired::bucket_traits(buckets_.data(), buckets_.size())) {}
 
         RetiredSet(const RetiredSet &) = delete;
 
@@ -125,8 +123,8 @@ namespace lu {
         }
 
     private:
-        std::array<typename retired_set::bucket_type, NumOfBuckets> buckets_{};
-        retired_set retired_set_;
+        std::array<typename SetOfRetired::bucket_type, NumOfBuckets> buckets_{};
+        SetOfRetired retired_set_;
     };
 
     template<class HazardObj>
@@ -223,7 +221,7 @@ namespace lu {
     class HazardPointerDomain {
         friend class HazardPointer;
 
-        using HazardObj = HazardPointerObjBaseBase;
+        using HazardObj = HazardPointerObject;
         using ProtectionHolder = ProtectionHolder<HazardObj>;
 
     private:
@@ -450,24 +448,24 @@ namespace lu {
             return !protection_ || protection_->empty();
         }
 
-        template<class Ptr>
+        template<class Ptr, class = std::enable_if_t<std::is_base_of_v<HazardPointerObject, typename std::pointer_traits<Ptr>::element_type>>>
         Ptr protect(const std::atomic<Ptr> &src) noexcept {
             return protect(src, [](auto &&p) { return std::forward<decltype(p)>(p); });
         }
 
-        template<class Ptr, class Func>
+        template<class Ptr, class Func, class = std::enable_if_t<std::is_base_of_v<HazardPointerObject, typename std::pointer_traits<Ptr>::element_type>>>
         Ptr protect(const std::atomic<Ptr> &src, Func &&func) noexcept {
             auto ptr = src.load();
             while (!try_protect(ptr, src, std::forward<Func>(func))) {}
             return ptr;
         }
 
-        template<class Ptr>
+        template<class Ptr, class = std::enable_if_t<std::is_base_of_v<HazardPointerObject, typename std::pointer_traits<Ptr>::element_type>>>
         bool try_protect(Ptr &ptr, const std::atomic<Ptr> &src) noexcept {
             return try_protect(ptr, src, [](auto &&p) { return std::forward<decltype(p)>(p); });
         }
 
-        template<class Ptr, class Func>
+        template<class Ptr, class Func, class = std::enable_if_t<std::is_base_of_v<HazardPointerObject, typename std::pointer_traits<Ptr>::element_type>>>
         bool try_protect(Ptr &ptr, const std::atomic<Ptr> &src, Func &&func) noexcept {
             assert(protection_ && "hazard_ptr must be initialized");
             auto old = ptr;
@@ -480,7 +478,7 @@ namespace lu {
             return true;
         }
 
-        template<class Ptr>
+        template<class Ptr, class = std::enable_if_t<std::is_base_of_v<HazardPointerObject, typename std::pointer_traits<Ptr>::element_type>>>
         void reset_protection(const Ptr ptr) noexcept {
             assert(protection_ && "hazard_ptr must be initialized");
             protection_->protect(ptr);
@@ -507,7 +505,7 @@ namespace lu {
     };
 
     template<class ValueType, class Deleter>
-    class HazardPointerObjBase : public HazardPointerObjBaseBase {
+    class HazardPointerObjBase : public HazardPointerObject {
     protected:
         HazardPointerObjBase() noexcept = default;
 
@@ -523,7 +521,7 @@ namespace lu {
         void retire(Deleter deleter = Deleter(), HazardPointerDomain &domain = get_default_domain()) noexcept {
             deleter_ = std::move(deleter);
             auto &thread_data = domain.get_thread_data();
-            thread_data.retire(static_cast<HazardPointerObjBaseBase *>(this));
+            thread_data.retire(static_cast<HazardPointerObject *>(this));
         }
 
     private:
