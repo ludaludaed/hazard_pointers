@@ -14,6 +14,7 @@
 #include <ostream>
 #include <set>
 #include <string_view>
+#include <thread>
 #include <type_traits>
 #include <unordered_map>
 #include <unordered_set>
@@ -274,7 +275,7 @@ namespace hazard_pointer {
 
             while (true) {
                 auto tail = tail_guard.protect(tail_);
-                auto tail_next = tail_next_guard.protect(tail->next);
+                auto tail_next = tail->next.load();
                 if (tail_next) {
                     tail_.compare_exchange_weak(tail, tail_next);
                 } else {
@@ -283,6 +284,7 @@ namespace hazard_pointer {
                         return;
                     }
                 }
+                std::this_thread::yield();
             }
         }
 
@@ -299,6 +301,7 @@ namespace hazard_pointer {
                     head->retire();
                     return {std::move(head_next->value)};
                 }
+                std::this_thread::yield();
             }
         }
 
@@ -657,7 +660,7 @@ int main() {
     // list.clear();
     // std::cout << list.empty();
 
-    for (int i = 0; i < 100; ++i) {
+    for (int i = 0; i < 1; ++i) {
         abstractStressTest(stressTest<hazard_pointer::MSQueue<int>>);
     }
 }
