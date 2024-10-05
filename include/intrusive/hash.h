@@ -1,8 +1,8 @@
 #ifndef __INTRUSIVE_HASH_H__
 #define __INTRUSIVE_HASH_H__
 
-#include <cstdint>
-#include <memory>
+#include <type_traits>
+
 
 namespace lu_adl {
     template<class ValueType>

@@ -14,6 +14,17 @@ namespace lu {
     public:
         static constexpr bool is_always_lock_free = true;
 
+    private:
+        static std::memory_order get_default_failure(std::memory_order success) {
+            if (success == std::memory_order_acq_rel) {
+                return std::memory_order_acquire;
+            }
+            if (success == std::memory_order_release) {
+                return std::memory_order_relaxed;
+            }
+            return success;
+        }
+
     public:
         AtomicRefCountPointer() = default;
 
@@ -67,8 +78,7 @@ namespace lu {
             return RefCountTraits::create_ptr(old_ptr);
         }
 
-        bool compare_exchange_weak(ref_count_ptr &expected, ref_count_ptr desired,
-                                   std::memory_order success = std::memory_order_seq_cst, std::memory_order failure = std::memory_order_seq_cst) noexcept {
+        bool compare_exchange_weak(ref_count_ptr &expected, ref_count_ptr desired, std::memory_order success, std::memory_order failure) noexcept {
             auto expected_ptr = RefCountTraits::get_control_block(expected);
             auto desired_ptr = RefCountTraits::get_control_block(desired);
             if (control_block_.compare_exchange_weak(expected_ptr, desired_ptr, success, failure)) {
@@ -83,8 +93,7 @@ namespace lu {
             }
         }
 
-        bool compare_exchange_strong(ref_count_ptr &expected, ref_count_ptr desired,
-                                     std::memory_order success = std::memory_order_seq_cst, std::memory_order failure = std::memory_order_seq_cst) noexcept {
+        bool compare_exchange_strong(ref_count_ptr &expected, ref_count_ptr desired, std::memory_order success, std::memory_order failure) noexcept {
             auto expected_ptr = RefCountTraits::get_control_block(expected);
             auto desired_ptr = RefCountTraits::get_control_block(desired);
             if (control_block_.compare_exchange_strong(expected_ptr, desired_ptr, success, failure)) {
@@ -97,6 +106,14 @@ namespace lu {
                 expected = load();
                 return false;
             }
+        }
+
+        bool compare_exchange_weak(ref_count_ptr &expected, ref_count_ptr desired, std::memory_order success = std::memory_order_seq_cst) noexcept {
+            return compare_exchange_weak(expected, desired, success, get_default_failure(success));
+        }
+
+        bool compare_exchange_strong(ref_count_ptr &expected, ref_count_ptr desired, std::memory_order success = std::memory_order_seq_cst) noexcept {
+            return compare_exchange_strong(expected, desired, success, get_default_failure(success));
         }
 
     private:

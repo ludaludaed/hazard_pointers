@@ -10,6 +10,7 @@
 #include <future>
 #include <iostream>
 #include <map>
+#include <memory>
 #include <optional>
 #include <ostream>
 #include <set>
@@ -657,8 +658,7 @@ int main() {
     // }
     // list.clear();
     // std::cout << list.empty();
-
     for (int i = 0; i < 1; ++i) {
-        abstractStressTest(stressTest<hazard_pointer::MSQueue<int>>);
+        abstractStressTest(stressTest<atomic_shared_ptr::MSQueue<int>>);
     }
 }

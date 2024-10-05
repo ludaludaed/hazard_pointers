@@ -14,6 +14,7 @@
 #include "intrusive/options.h"
 #include "intrusive/unordered_set.h"
 
+
 namespace lu {
     class hazard_tag {};
 
@@ -133,8 +134,8 @@ namespace lu {
             hazard_ptr_.store(new_ptr);
         }
 
-        inline void reset() {
-            hazard_ptr_.store(nullptr);
+        inline void clear() {
+            hazard_ptr_.store({});
         }
 
         inline const HazardObj *get_protected() const {
@@ -142,11 +143,11 @@ namespace lu {
         }
 
         inline bool empty() const {
-            return hazard_ptr_.load() == nullptr;
+            return !hazard_ptr_.load();
         }
 
     private:
-        std::atomic<const HazardObj *> hazard_ptr_{nullptr};
+        std::atomic<const HazardObj *> hazard_ptr_{};
     };
 
     template<class HazardObj, size_t Size>
@@ -188,7 +189,7 @@ namespace lu {
         }
 
         void release(reference hazard_pointer) noexcept {
-            hazard_pointer.reset();
+            hazard_pointer.clear();
             free_list_.push_front(hazard_pointer);
         }
 
@@ -288,7 +289,7 @@ namespace lu {
 
             void scan() noexcept {
                 auto current_thread_data = domain_.head_.load();
-                while (current_thread_data != nullptr) {
+                while (current_thread_data) {
                     if (current_thread_data->acquired()) {
                         auto &protections = current_thread_data->protections_list_;
                         for (auto it = protections.begin(); it != protections.end(); ++it) {
@@ -317,7 +318,7 @@ namespace lu {
 
             void help_scan() noexcept {
                 auto current_thread_data = domain_.head_.load();
-                while (current_thread_data != nullptr) {
+                while (current_thread_data) {
                     if (current_thread_data->try_acquire()) {
                         current_thread_data->scan();
                         merge(*current_thread_data);
@@ -338,23 +339,18 @@ namespace lu {
             RetiredList retired_set_{};
 
             std::atomic<bool> in_use_{true};
-            HazardThreadData *next_{nullptr};
+            HazardThreadData *next_{};
         };
 
         struct HazardThreadDataOwner {
-        public:
-            explicit HazardThreadDataOwner(HazardThreadData *thread_data)
-                : thread_data(thread_data) {}
-
             ~HazardThreadDataOwner() {
-                if (thread_data != nullptr) {
+                if (thread_data) {
                     thread_data->help_scan();
                     thread_data->release();
                 }
             }
 
-        public:
-            HazardThreadData *thread_data;
+            HazardThreadData *thread_data{};
         };
 
     public:
@@ -370,7 +366,7 @@ namespace lu {
 
         ~HazardPointerDomain() {
             HazardThreadData *current = head_.load();
-            while (current != nullptr) {
+            while (current) {
                 HazardThreadData *next = current->next_;
                 delete current;
                 current = next;
@@ -379,10 +375,10 @@ namespace lu {
 
     public:
         HazardThreadData &get_thread_data() noexcept {
-            static thread_local HazardThreadDataOwner owner(nullptr);
-            if (owner.thread_data == nullptr) {
+            static thread_local HazardThreadDataOwner owner;
+            if (!owner.thread_data) {
                 HazardThreadData *current = head_.load();
-                while (current != nullptr) {
+                while (current) {
                     if (current->try_acquire()) {
                         owner.thread_data = current;
                         return *owner.thread_data;
@@ -400,7 +396,7 @@ namespace lu {
         }
 
     private:
-        std::atomic<HazardThreadData *> head_{nullptr};
+        std::atomic<HazardThreadData *> head_{};
     };
 
     inline HazardPointerDomain &get_default_domain() {
@@ -424,7 +420,7 @@ namespace lu {
 
         HazardPointer(HazardPointer &&other) noexcept
             : domain_(other.domain_), protection_(other.protection_) {
-            other.protection_ = nullptr;
+            other.protection_ = {};
         }
 
         HazardPointer &operator=(const HazardPointer &) = delete;
@@ -485,7 +481,7 @@ namespace lu {
 
         void reset_protection(nullptr_t = nullptr) noexcept {
             assert(protection_ && "hazard_ptr must be initialized");
-            protection_->reset();
+            protection_->clear();
         }
 
         void swap(HazardPointer &other) noexcept {
@@ -500,7 +496,7 @@ namespace lu {
 
     private:
         HazardPointerDomain *domain_;
-        ProtectionHolder *protection_{nullptr};
+        ProtectionHolder *protection_{};
     };
 
     template<class ValueType, class Deleter>
