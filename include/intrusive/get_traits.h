@@ -1,11 +1,6 @@
 #ifndef __INTRUSIVE_GET_TRAITS_H__
 #define __INTRUSIVE_GET_TRAITS_H__
 
-#include "base_value_traits.h"
-#include "generic_hook.h"
-#include <type_traits>
-
-
 namespace lu {
     namespace detail {
         template<class ValueType, class ProtoValueTraits>

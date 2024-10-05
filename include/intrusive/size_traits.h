@@ -13,9 +13,9 @@ namespace lu {
             static constexpr bool is_const_size = true;
 
         public:
-            inline void increase(size_type n) {size_ += n;}
+            inline void increase(size_type n) { size_ += n; }
 
-            inline void decrease(size_type n) {size_ -= n;}
+            inline void decrease(size_type n) { size_ -= n; }
 
             inline void increment() { ++size_; }
 

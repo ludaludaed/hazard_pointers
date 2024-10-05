@@ -6,7 +6,6 @@
 #include <atomic>
 #include <cassert>
 #include <cstddef>
-#include <cstdint>
 #include <memory>
 #include <type_traits>
 #include <utility>
@@ -537,13 +536,6 @@ namespace lu {
         return HazardPointer(&domain);
     }
 
-    template<class ValueType, class Deleter = std::default_delete<ValueType>>
-    using hazard_pointer_obj_base = HazardPointerObjBase<ValueType, Deleter>;
-
-    using hazard_pointer_domain = HazardPointerDomain;
-
-    using hazard_pointer = HazardPointer;
-
     template<class ValueType>
     class GuardedPointer {
     public:
@@ -556,7 +548,7 @@ namespace lu {
     public:
         GuardedPointer() = default;
 
-        GuardedPointer(hazard_pointer guard, pointer ptr)
+        GuardedPointer(HazardPointer guard, pointer ptr)
             : guard_(std::move(guard)), ptr_(ptr) {}
 
         GuardedPointer(const GuardedPointer &) = delete;
@@ -580,9 +572,16 @@ namespace lu {
         }
 
     private:
-        hazard_pointer guard_{};
+        HazardPointer guard_{};
         pointer ptr_{};
     };
+
+    template<class ValueType, class Deleter = std::default_delete<ValueType>>
+    using hazard_pointer_obj_base = HazardPointerObjBase<ValueType, Deleter>;
+
+    using hazard_pointer_domain = HazardPointerDomain;
+
+    using hazard_pointer = HazardPointer;
 
     template<class ValueType>
     using guarded_ptr = GuardedPointer<ValueType>;

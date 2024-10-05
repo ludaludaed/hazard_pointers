@@ -1,7 +1,6 @@
 #ifndef __INTRUSIVE_EMPTY_BASE_HOLDER_H__
 #define __INTRUSIVE_EMPTY_BASE_HOLDER_H__
 
-#include <memory>
 #include <type_traits>
 
 
@@ -26,10 +25,10 @@ namespace lu {
                 : value_(std::forward<Args>(args)...) {}
 
             EmptyBaseHolder(const EmptyBaseHolder &other) noexcept(std::is_nothrow_copy_constructible_v<ValueType>)
-                : value_(other.value_){};
+                : value_(other.value_) {};
 
             EmptyBaseHolder(EmptyBaseHolder &&other) noexcept(std::is_nothrow_move_constructible_v<ValueType>)
-                : value_(std::move(other.value_)){};
+                : value_(std::move(other.value_)) {};
 
             EmptyBaseHolder &operator=(const EmptyBaseHolder &other) {
                 value_ = other.value_;
@@ -65,10 +64,10 @@ namespace lu {
                 : ValueType(std::forward<Args>(args)...) {}
 
             EmptyBaseHolder(const EmptyBaseHolder &other) noexcept(std::is_nothrow_copy_constructible_v<ValueType>)
-                : ValueType(other.get()){};
+                : ValueType(other.get()) {};
 
             EmptyBaseHolder(EmptyBaseHolder &&other) noexcept(std::is_nothrow_move_constructible_v<ValueType>)
-                : ValueType(std::move(other.get())){};
+                : ValueType(std::move(other.get())) {};
 
             EmptyBaseHolder &operator=(const EmptyBaseHolder &other) {
                 ValueType::operator=(other.get());

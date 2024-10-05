@@ -3,6 +3,7 @@
 
 #include "node_holder.h"
 #include "utils.h"
+
 #include <type_traits>
 
 
@@ -50,7 +51,7 @@ namespace lu {
                 NodeAlgo::init(as_node_ptr());
             }
 
-            GenericHook& operator=(const GenericHook &) noexcept {
+            GenericHook &operator=(const GenericHook &) noexcept {
                 return *this;
             }
 

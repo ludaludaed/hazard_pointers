@@ -1,17 +1,13 @@
 #ifndef __INTRUSIVE_HASH_TABLE_H__
 #define __INTRUSIVE_HASH_TABLE_H__
 
-#include <array>
 #include <cassert>
 #include <cstddef>
-#include <cstdint>
-#include <functional>
 #include <iterator>
 #include <memory>
 #include <type_traits>
 #include <utility>
 
-#include "appliers.h"
 #include "base_value_traits.h"
 #include "empty_base_holder.h"
 #include "empty_base_tags.h"

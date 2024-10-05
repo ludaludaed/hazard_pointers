@@ -109,9 +109,6 @@ namespace lu {
     };
 
     template<class ValueType>
-    using marked_ptr = MarkedPointer<ValueType>;
-
-    template<class ValueType>
     class MarkedSharedPointer : public StrongRefCountPointer<ValueType *, MarkedPointer<ControlBlock>> {
         using Base = StrongRefCountPointer<ValueType *, MarkedPointer<ControlBlock>>;
 
@@ -285,6 +282,9 @@ namespace lu {
             return control_block->inc_ref_if_not_zero();
         }
     };
+
+    template<class ValueType>
+    using marked_ptr = MarkedPointer<ValueType>;
 
     template<class ValueType>
     using marked_shared_ptr = MarkedSharedPointer<ValueType>;

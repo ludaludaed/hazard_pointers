@@ -12,7 +12,7 @@ namespace lu {
         class key_hash_tag {};
 
         class key_equal_tag {};
-    }
-}
+    }// namespace detail
+}// namespace lu
 
 #endif

@@ -2,7 +2,6 @@
 #define __INTRUSIVE_OPTIONS_H__
 
 #include "appliers.h"
-#include "base_value_traits.h"
 
 
 namespace lu {

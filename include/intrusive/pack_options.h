@@ -1,8 +1,6 @@
 #ifndef __INTRUSIVE_PACK_OPTIONS_H__
 #define __INTRUSIVE_PACK_OPTIONS_H__
 
-#include <cstddef>
-
 namespace lu {
     template<class... Types>
     struct typelist {};
