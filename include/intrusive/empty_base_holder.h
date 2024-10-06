@@ -2,6 +2,7 @@
 #define __INTRUSIVE_EMPTY_BASE_HOLDER_H__
 
 #include <type_traits>
+#include <memory>
 
 
 namespace lu {
