@@ -29,8 +29,18 @@
 #include <marked_ptr.h>
 #include <shared_ptr.h>
 
+struct EmptyBackOff {
+    void operator()() const {}
+};
+
+struct YieldBackOff {
+    void operator()() const {
+        std::this_thread::yield();
+    }
+};
+
 namespace atomic_shared_ptr {
-    template<class ValueType>
+    template<class ValueType, class BackOff>
     class TreiberStack {
         struct Node {
             ValueType value{};
@@ -44,14 +54,20 @@ namespace atomic_shared_ptr {
 
     public:
         void push(ValueType value) {
+            BackOff back_off;
             auto new_node = lu::make_shared<Node>(value);
             auto head = head_.load();
-            do {
-                new_node->next = head;
-            } while (!head_.compare_exchange_weak(head, new_node));
+            new_node->next = head;
+            while (true) {
+                if (head_.compare_exchange_weak(new_node->next, new_node)) {
+                    return;
+                }
+                back_off();
+            }
         }
 
         std::optional<ValueType> pop() {
+            BackOff back_off;
             while (true) {
                 lu::shared_ptr<Node> head = head_.load();
                 if (!head) {
@@ -60,6 +76,7 @@ namespace atomic_shared_ptr {
                 if (head_.compare_exchange_weak(head, head->next)) {
                     return {head->value};
                 }
+                back_off();
             }
         }
 
@@ -67,7 +84,7 @@ namespace atomic_shared_ptr {
         lu::atomic_shared_ptr<Node> head_{};
     };
 
-    template<class ValueType>
+    template<class ValueType, class BackOff>
     class MSQueue {
         struct Node {
             ValueType value{};
@@ -89,23 +106,25 @@ namespace atomic_shared_ptr {
         }
 
         void push(ValueType value) {
+            BackOff back_off;
             auto new_item = lu::make_shared<Node>(value);
-            lu::shared_ptr<Node> tail;
             while (true) {
-                tail = tail_.load();
+                auto tail = tail_.load();
                 if (tail->next.load()) {
                     tail_.compare_exchange_weak(tail, tail->next.load());
                 } else {
                     lu::shared_ptr<Node> null;
                     if (tail->next.compare_exchange_weak(null, new_item)) {
-                        break;
+                        tail_.compare_exchange_weak(tail, new_item);
+                        return;
                     }
                 }
+                back_off();
             }
-            tail_.compare_exchange_weak(tail, new_item);
         }
 
         std::optional<ValueType> pop() {
+            BackOff back_off;
             while (true) {
                 auto head = head_.load();
                 auto head_next = head->next.load();
@@ -115,6 +134,7 @@ namespace atomic_shared_ptr {
                 if (head_.compare_exchange_weak(head, head_next)) {
                     return {head_next->value};
                 }
+                back_off();
             }
         }
 
@@ -210,35 +230,44 @@ namespace atomic_shared_ptr {
 }// namespace atomic_shared_ptr
 
 namespace hazard_pointer {
-    template<class ValueType>
+    template<class ValueType, class BackOff>
     class TreiberStack {
         struct Node : public lu::hazard_pointer_obj_base<Node> {
+            template<class... Args>
+            Node(Args &&...args)
+                : value(std::forward<Args>(args)...) {}
+
             ValueType value;
-            Node *next{nullptr};
+            Node *next{};
         };
 
     public:
         void push(ValueType value) {
-            auto new_node = new Node;
-            new_node->value = value;
+            BackOff back_off;
+            auto new_node = new Node(value);
             auto head = head_.load();
-            do {
-                new_node->next = head;
-            } while (!head_.compare_exchange_strong(head, new_node));
+            new_node->next = head;
+            while (true) {
+                if (head_.compare_exchange_weak(new_node->next, new_node)) {
+                    return;
+                }
+                back_off();
+            }
         }
 
         std::optional<ValueType> pop() {
-            auto haz_ptr = lu::make_hazard_pointer();
+            BackOff back_off;
+            auto head_guard = lu::make_hazard_pointer();
             while (true) {
-                Node *head = haz_ptr.protect(head_);
+                auto head = head_guard.protect(head_);
                 if (!head) {
                     return std::nullopt;
                 }
                 if (head_.compare_exchange_strong(head, head->next)) {
-                    std::optional<ValueType> res{head->value};
                     head->retire();
-                    return res;
+                    return {std::move(head->value)};
                 }
+                back_off();
             }
         }
 
@@ -246,7 +275,7 @@ namespace hazard_pointer {
         std::atomic<Node *> head_{nullptr};
     };
 
-    template<class ValueType>
+    template<class ValueType, class BackOff>
     class MSQueue {
         struct Node : lu::hazard_pointer_obj_base<Node> {
             ValueType value{};
@@ -269,8 +298,10 @@ namespace hazard_pointer {
 
         template<class... Args>
         void push(Args &&...args) {
+            BackOff back_off;
+
             auto new_node = new Node(std::forward<Args>(args)...);
-            lu::hazard_pointer tail_guard = lu::make_hazard_pointer();
+            auto tail_guard = lu::make_hazard_pointer();
 
             while (true) {
                 auto tail = tail_guard.protect(tail_);
@@ -283,13 +314,14 @@ namespace hazard_pointer {
                         return;
                     }
                 }
-                std::this_thread::yield();
+                back_off();
             }
         }
 
         std::optional<ValueType> pop() {
-            lu::hazard_pointer head_guard = lu::make_hazard_pointer();
-            lu::hazard_pointer head_next_guard = lu::make_hazard_pointer();
+            BackOff back_off;
+            auto head_guard = lu::make_hazard_pointer();
+            auto head_next_guard = lu::make_hazard_pointer();
             while (true) {
                 auto head = head_guard.protect(head_);
                 auto head_next = head_next_guard.protect(head->next);
@@ -300,7 +332,7 @@ namespace hazard_pointer {
                     head->retire();
                     return {std::move(head_next->value)};
                 }
-                std::this_thread::yield();
+                back_off();
             }
         }
 
@@ -309,7 +341,7 @@ namespace hazard_pointer {
         std::atomic<Node *> tail_;
     };
 
-    template<class ValueType, class KeyCompare, class KeySelect>
+    template<class ValueType, class KeyCompare, class KeySelect, class BackOff>
     class OrderedList : private lu::detail::EmptyBaseHolder<KeyCompare>,
                         private lu::detail::EmptyBaseHolder<KeySelect> {
 
@@ -383,6 +415,8 @@ namespace hazard_pointer {
             std::atomic<node_marked_pointer> *prev_pointer;
             node_marked_pointer cur{};
 
+            BackOff back_off;
+
         try_again:
             prev_pointer = head;
 
@@ -403,6 +437,7 @@ namespace hazard_pointer {
                 });
 
                 if (prev_pointer->load().all() != cur.get()) {
+                    back_off();
                     goto try_again;
                 }
 
@@ -411,6 +446,7 @@ namespace hazard_pointer {
                     if (prev_pointer->compare_exchange_weak(not_marked_cur, node_marked_pointer(next.get(), 0))) {
                         delete_node(cur);
                     } else {
+                        back_off();
                         goto try_again;
                     }
                 } else {
@@ -460,6 +496,7 @@ namespace hazard_pointer {
 
         template<class... Args>
         bool emplace(Args &&...args) {
+            BackOff back_off;
             node_pointer new_node = new Node(std::forward<Args>(args)...);
 
             position pos;
@@ -470,25 +507,30 @@ namespace hazard_pointer {
                 if (link(pos, new_node)) {
                     return true;
                 }
+                back_off();
             }
         }
 
         bool erase(const ValueType &value) {
+            BackOff back_off;
             position pos;
             while (find(value, pos)) {
                 if (unlink(pos)) {
                     return true;
                 }
+                back_off();
             }
             return false;
         }
 
         guarded_ptr extract(const ValueType &value) {
+            BackOff back_off;
             position pos;
             while (find(value, pos)) {
                 if (unlink(pos)) {
                     return guarded_ptr(std::move(pos.cur_guard), &pos.cur->value);
                 }
+                back_off();
             }
             return guarded_ptr();
         }
@@ -550,11 +592,11 @@ namespace hazard_pointer {
         }
     };
 
-    template<class ValueType, class KeyCompare = std::less<ValueType>>
-    using ordered_list = OrderedList<ValueType, KeyCompare, SetKeySelect<ValueType>>;
+    template<class ValueType, class KeyCompare = std::less<ValueType>, class BackOff = YieldBackOff>
+    using ordered_list = OrderedList<ValueType, KeyCompare, SetKeySelect<ValueType>, BackOff>;
 
-    template<class KeyType, class ValueType, class KeyCompare = std::less<ValueType>>
-    using ordered_key_value_list = OrderedList<std::pair<const KeyType, ValueType>, KeyCompare, MapKeySelect<KeyType, ValueType>>;
+    template<class KeyType, class ValueType, class KeyCompare = std::less<ValueType>, class BackOff = YieldBackOff>
+    using ordered_key_value_list = OrderedList<std::pair<const KeyType, ValueType>, KeyCompare, MapKeySelect<KeyType, ValueType>, BackOff>;
 }// namespace hazard_pointer
 
 template<typename TContainer>
@@ -659,6 +701,6 @@ int main() {
     // list.clear();
     // std::cout << list.empty();
     for (int i = 0; i < 1; ++i) {
-        abstractStressTest(stressTest<atomic_shared_ptr::MSQueue<int>>);
+        abstractStressTest(stressTest<hazard_pointer::MSQueue<int, YieldBackOff>>);
     }
 }
