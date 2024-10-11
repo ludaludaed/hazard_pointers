@@ -701,6 +701,6 @@ int main() {
     // list.clear();
     // std::cout << list.empty();
     for (int i = 0; i < 1; ++i) {
-        abstractStressTest(stressTest<hazard_pointer::MSQueue<int, YieldBackOff>>);
+        abstractStressTest(stressTest<hazard_pointer::TreiberStack<int, YieldBackOff>>);
     }
 }

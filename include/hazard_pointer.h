@@ -331,7 +331,7 @@ namespace lu {
 
         private:
             constexpr static std::size_t scan_threshold = 64;
-            std::size_t num_of_retires_{0};
+            std::size_t num_of_retires_{};
 
             HazardPointerDomain &domain_;
 
