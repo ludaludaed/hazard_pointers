@@ -131,23 +131,23 @@ namespace lu {
     class ProtectionHolder : public lu::forward_list_hook<> {
     public:
         inline void protect(const HazardObj *new_ptr) {
-            hazard_ptr_.store(new_ptr);
+            protected_.store(new_ptr);
         }
 
         inline void clear() {
-            hazard_ptr_.store({});
+            protected_.store({});
         }
 
         inline const HazardObj *get_protected() const {
-            return hazard_ptr_.load();
+            return protected_.load();
         }
 
         inline bool empty() const {
-            return !hazard_ptr_.load();
+            return !protected_.load();
         }
 
     private:
-        std::atomic<const HazardObj *> hazard_ptr_{};
+        std::atomic<const HazardObj *> protected_{};
     };
 
     template<class HazardObj, size_t Size>
@@ -183,14 +183,14 @@ namespace lu {
     public:
         reference acquire() noexcept {
             assert(!full());
-            reference hazard_pointer = free_list_.front();
+            reference protection = free_list_.front();
             free_list_.pop_front();
-            return hazard_pointer;
+            return protection;
         }
 
-        void release(reference hazard_pointer) noexcept {
-            hazard_pointer.clear();
-            free_list_.push_front(hazard_pointer);
+        void release(reference protection) noexcept {
+            protection.clear();
+            free_list_.push_front(protection);
         }
 
         bool full() const noexcept {
@@ -386,10 +386,12 @@ namespace lu {
                     current = current->next_;
                 }
                 HazardThreadData *new_thread_data = new HazardThreadData(*this);
-                HazardThreadData *head = head_.load();
-                do {
-                    new_thread_data->next_ = head;
-                } while (!head_.compare_exchange_strong(head, new_thread_data));
+                new_thread_data->next_ = head_.load();
+                while (true) {
+                    if (head_.compare_exchange_weak(new_thread_data->next_, new_thread_data)) {
+                        break;
+                    }
+                }
                 owner.thread_data = new_thread_data;
             }
             return *owner.thread_data;

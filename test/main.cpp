@@ -686,7 +686,7 @@ void abstractStressTest(Func &&func, std::ostream &out) {
         out << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << ",";
     }
     out << std::endl;
-};
+}
 
 int main() {
     // hazard_pointer::ordered_list<int> list;
