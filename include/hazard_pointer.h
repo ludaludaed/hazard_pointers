@@ -86,6 +86,10 @@ namespace lu {
             retired_set_.erase(position);
         }
 
+        void erase(reference element) noexcept {
+            retired_set_.erase(retired_set_.iterator_to(element));
+        }
+
         bool contains(key_type key) const noexcept {
             return retired_set_.find(key) != retired_set_.end();
         }
@@ -247,7 +251,7 @@ namespace lu {
 
         private:
             void destroy_retired(HazardObj &to_erase) {
-                retired_set_.erase(&to_erase);
+                retired_set_.erase(to_erase);
                 to_erase.destroy();
                 --num_of_retires_;
             }
