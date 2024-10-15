@@ -16,9 +16,9 @@
 
 
 namespace lu {
-    class hazard_tag {};
+    class HazardPointerTag {};
 
-    using HazardPointerHook = lu::unordered_set_base_hook<lu::tag<hazard_tag>>;
+    using HazardPointerHook = lu::unordered_set_base_hook<lu::tag<HazardPointerTag>>;
 
     class HazardPointerObject : public HazardPointerHook {
         friend class HazardPointerDomain;
@@ -33,18 +33,21 @@ namespace lu {
         bool protected_{false};
     };
 
+    template<class ValueType>
+    struct RawPointerKey {
+        using type = const ValueType *;
+
+        const ValueType *operator()(const ValueType &value) const noexcept {
+            return &value;
+        }
+    };
+
     template<class HazardObj, size_t NumOfBuckets>
     class RetiredSet {
     private:
-        struct KeyOfValue {
-            using type = const HazardObj *;
-
-            const HazardObj *operator()(const HazardObj &node) const {
-                return &node;
-            }
-        };
-
-        using SetOfRetired = lu::unordered_set<HazardObj, lu::base_hook<HazardPointerHook>, lu::key_of_value<KeyOfValue>>;
+        using SetOfRetired = lu::unordered_set<HazardObj,
+                                               lu::base_hook<HazardPointerHook>,
+                                               lu::key_of_value<RawPointerKey<HazardObj>>>;
 
     public:
         using retired_element = HazardObj;
@@ -82,12 +85,12 @@ namespace lu {
             retired_set_.erase(key);
         }
 
-        void erase(const_iterator position) noexcept {
-            retired_set_.erase(position);
-        }
-
         void erase(reference element) noexcept {
             retired_set_.erase(retired_set_.iterator_to(element));
+        }
+
+        void erase(const_iterator position) noexcept {
+            retired_set_.erase(position);
         }
 
         bool contains(key_type key) const noexcept {
@@ -186,7 +189,7 @@ namespace lu {
 
     public:
         reference acquire() noexcept {
-            assert(!full());
+            assert(free_list_.empty() && "List of protections full");
             reference protection = free_list_.front();
             free_list_.pop_front();
             return protection;
@@ -250,18 +253,6 @@ namespace lu {
             }
 
         private:
-            void destroy_retired(HazardObj &to_erase) {
-                retired_set_.erase(to_erase);
-                to_erase.destroy();
-                --num_of_retires_;
-            }
-
-            void merge(HazardThreadData &other) noexcept {
-                num_of_retires_ += other.num_of_retires_;
-                other.num_of_retires_ = 0;
-                retired_set_.merge(other.retired_set_);
-            }
-
             bool acquired() noexcept {
                 return in_use_.load();
             }
@@ -274,9 +265,20 @@ namespace lu {
                 in_use_.store(false);
             }
 
+            void destroy_retired(HazardObj &to_erase) noexcept {
+                retired_set_.erase(to_erase);
+                to_erase.destroy();
+                --num_of_retires_;
+            }
+
+            void merge(HazardThreadData &other) noexcept {
+                num_of_retires_ += other.num_of_retires_;
+                other.num_of_retires_ = 0;
+                retired_set_.merge(other.retired_set_);
+            }
+
         public:
             ProtectionHolder *acquire_protection() noexcept {
-                assert(!protections_list_.full());
                 return &protections_list_.acquire();
             }
 
@@ -505,39 +507,6 @@ namespace lu {
         ProtectionHolder *protection_{};
     };
 
-    template<class ValueType, class Deleter>
-    class HazardPointerObjBase : public HazardPointerObject {
-    protected:
-        HazardPointerObjBase() noexcept = default;
-
-        HazardPointerObjBase(const HazardPointerObjBase &) noexcept = default;
-
-        HazardPointerObjBase(HazardPointerObjBase &&) noexcept = default;
-
-        HazardPointerObjBase &operator=(const HazardPointerObjBase &) noexcept = default;
-
-        HazardPointerObjBase &operator=(HazardPointerObjBase &&) noexcept = default;
-
-    public:
-        void retire(Deleter deleter = Deleter(), HazardPointerDomain &domain = get_default_domain()) noexcept {
-            deleter_ = std::move(deleter);
-            auto &thread_data = domain.get_thread_data();
-            thread_data.retire(static_cast<HazardPointerObject *>(this));
-        }
-
-    private:
-        void destroy() noexcept override {
-            deleter_(static_cast<ValueType *>(this));
-        }
-
-    private:
-        Deleter deleter_{};
-    };
-
-    inline HazardPointer make_hazard_pointer(HazardPointerDomain &domain = get_default_domain()) {
-        return HazardPointer(&domain);
-    }
-
     template<class ValueType>
     class GuardedPointer {
     public:
@@ -577,6 +546,39 @@ namespace lu {
         HazardPointer guard_{};
         pointer ptr_{};
     };
+
+    template<class ValueType, class Deleter>
+    class HazardPointerObjBase : public HazardPointerObject {
+    protected:
+        HazardPointerObjBase() noexcept = default;
+
+        HazardPointerObjBase(const HazardPointerObjBase &) noexcept = default;
+
+        HazardPointerObjBase(HazardPointerObjBase &&) noexcept = default;
+
+        HazardPointerObjBase &operator=(const HazardPointerObjBase &) noexcept = default;
+
+        HazardPointerObjBase &operator=(HazardPointerObjBase &&) noexcept = default;
+
+    public:
+        void retire(Deleter deleter = Deleter(), HazardPointerDomain &domain = get_default_domain()) noexcept {
+            deleter_ = std::move(deleter);
+            auto &thread_data = domain.get_thread_data();
+            thread_data.retire(static_cast<HazardPointerObject *>(this));
+        }
+
+    private:
+        void destroy() noexcept override {
+            deleter_(static_cast<ValueType *>(this));
+        }
+
+    private:
+        Deleter deleter_{};
+    };
+
+    inline HazardPointer make_hazard_pointer(HazardPointerDomain &domain = get_default_domain()) {
+        return HazardPointer(&domain);
+    }
 
     template<class ValueType, class Deleter = std::default_delete<ValueType>>
     using hazard_pointer_obj_base = HazardPointerObjBase<ValueType, Deleter>;
