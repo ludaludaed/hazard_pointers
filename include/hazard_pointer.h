@@ -189,7 +189,7 @@ namespace lu {
 
     public:
         reference acquire() noexcept {
-            assert(free_list_.empty() && "List of protections full");
+            assert(!free_list_.empty() && "List of protections full");
             reference protection = free_list_.front();
             free_list_.pop_front();
             return protection;
