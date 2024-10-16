@@ -23,14 +23,23 @@ namespace lu {
     class HazardPointerObject : public HazardPointerHook {
         friend class HazardPointerDomain;
 
-    public:
-        virtual ~HazardPointerObject() {}
+        template<class, class>
+        friend class HazardPointerObjBase;
+
+        using ReclaimFuncPtr = void (*)(HazardPointerObject *value);
 
     private:
-        virtual void destroy() noexcept = 0;
+        void reclaim() {
+            reclaim_func_(this);
+        }
+
+        void set_reclaimer(ReclaimFuncPtr reclaim_func) {
+            reclaim_func_ = reclaim_func;
+        }
 
     private:
         bool protected_{false};
+        ReclaimFuncPtr reclaim_func_;
     };
 
     template<class ValueType>
@@ -81,16 +90,8 @@ namespace lu {
             retired_set_.insert(value);
         }
 
-        void erase(key_type key) noexcept {
-            retired_set_.erase(key);
-        }
-
         void erase(reference element) noexcept {
             retired_set_.erase(retired_set_.iterator_to(element));
-        }
-
-        void erase(const_iterator position) noexcept {
-            retired_set_.erase(position);
         }
 
         bool contains(key_type key) const noexcept {
@@ -268,7 +269,7 @@ namespace lu {
 
             void destroy_retired(HazardObj &to_erase) noexcept {
                 retired_set_.erase(to_erase);
-                to_erase.destroy();
+                to_erase.reclaim();
                 --num_of_retires_;
             }
 
@@ -549,7 +550,22 @@ namespace lu {
     };
 
     template<class ValueType, class Deleter>
-    class HazardPointerObjBase : public HazardPointerObject {
+    class HazardPointerDeleter {
+    protected:
+        void set_deleter(Deleter deleter) {
+            deleter_ = std::move(deleter);
+        }
+
+        void do_delete(ValueType *value) {
+            deleter_(value);
+        }
+
+    private:
+        Deleter deleter_;
+    };
+
+    template<class ValueType, class Deleter>
+    class HazardPointerObjBase : public HazardPointerObject, private HazardPointerDeleter<ValueType, Deleter> {
     protected:
         HazardPointerObjBase() noexcept = default;
 
@@ -563,18 +579,23 @@ namespace lu {
 
     public:
         void retire(Deleter deleter = Deleter(), HazardPointerDomain &domain = get_default_domain()) noexcept {
-            deleter_ = std::move(deleter);
+            assert(!retired_.exchange(true, std::memory_order_relaxed)); // double retire check
+            this->set_deleter(std::move(deleter));
+            this->set_reclaimer(reclaim_func);
             auto &thread_data = domain.get_thread_data();
-            thread_data.retire(static_cast<HazardPointerObject *>(this));
+            thread_data.retire(this);
         }
 
     private:
-        void destroy() noexcept override {
-            deleter_(static_cast<ValueType *>(this));
+        static void reclaim_func(HazardPointerObject *obj) {
+            auto obj_base = static_cast<HazardPointerObjBase<ValueType, Deleter> *>(obj);
+            auto value = static_cast<ValueType *>(obj);
+            obj_base->do_delete(value);
         }
-
+#ifndef NDEBUG
     private:
-        Deleter deleter_{};
+        std::atomic<bool> retired_{false};
+#endif
     };
 
     inline HazardPointer make_hazard_pointer(HazardPointerDomain &domain = get_default_domain()) {
