@@ -189,13 +189,14 @@ namespace lu {
 
     public:
         reference acquire() noexcept {
-            assert(!free_list_.empty() && "List of protections full");
+            assert(!free_list_.empty() && "List of protections is full");
             reference protection = free_list_.front();
             free_list_.pop_front();
             return protection;
         }
 
         void release(reference protection) noexcept {
+            assert((array_.data() <= &protection) && (array_.data() + array_.size() > &protection) && "Can't release protection from other thread");
             protection.reset();
             free_list_.push_front(protection);
         }
@@ -311,14 +312,13 @@ namespace lu {
 
                 auto current = retired_set_.begin();
                 while (current != retired_set_.end()) {
+                    auto next = std::next(current);
                     if (current->protected_) {
                         current->protected_ = false;
-                        ++current;
                     } else {
-                        auto next = std::next(current);
                         destroy_retired(*current);
-                        current = next;
                     }
+                    current = next;
                 }
             }
 
