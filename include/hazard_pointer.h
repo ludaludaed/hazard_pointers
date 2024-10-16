@@ -77,7 +77,7 @@ namespace lu {
         RetiredSet &operator=(RetiredSet &&other) = delete;
 
     public:
-        void push(reference value) noexcept {
+        void insert(reference value) noexcept {
             retired_set_.insert(value);
         }
 
@@ -94,7 +94,7 @@ namespace lu {
         }
 
         bool contains(key_type key) const noexcept {
-            return retired_set_.find(key) != retired_set_.end();
+            return retired_set_.contains(key);
         }
 
         iterator find(key_type key) noexcept {
@@ -137,15 +137,15 @@ namespace lu {
     template<class HazardObj>
     class ProtectionHolder : public lu::forward_list_hook<> {
     public:
-        inline void protect(const HazardObj *new_ptr) {
+        using pointer = HazardObj *;
+        using const_pointer = const HazardObj *;
+
+    public:
+        inline void reset(const_pointer new_ptr = {}) {
             protected_.store(new_ptr);
         }
 
-        inline void clear() {
-            protected_.store({});
-        }
-
-        inline const HazardObj *get_protected() const {
+        inline const_pointer get_protected() const {
             return protected_.load();
         }
 
@@ -154,7 +154,7 @@ namespace lu {
         }
 
     private:
-        std::atomic<const HazardObj *> protected_{};
+        std::atomic<const_pointer> protected_{};
     };
 
     template<class HazardObj, size_t Size>
@@ -196,7 +196,7 @@ namespace lu {
         }
 
         void release(reference protection) noexcept {
-            protection.clear();
+            protection.reset();
             free_list_.push_front(protection);
         }
 
@@ -287,7 +287,7 @@ namespace lu {
             }
 
             void retire(HazardObj *retired_ptr) noexcept {
-                retired_set_.push(*retired_ptr);
+                retired_set_.insert(*retired_ptr);
                 if (++num_of_retires_ >= scan_threshold) [[unlikely]] {
                     scan();
                 }
@@ -337,9 +337,10 @@ namespace lu {
 
         private:
             constexpr static std::size_t scan_threshold = 64;
-            std::size_t num_of_retires_{};
 
             HazardPointerDomain &domain_;
+
+            std::size_t num_of_retires_{};
 
             ProtectedList protections_list_{};
             RetiredList retired_set_{};
@@ -484,12 +485,12 @@ namespace lu {
         template<class Ptr, class = std::enable_if_t<std::is_base_of_v<HazardPointerObject, typename std::pointer_traits<Ptr>::element_type>>>
         void reset_protection(const Ptr ptr) noexcept {
             assert(protection_ && "hazard_ptr must be initialized");
-            protection_->protect(ptr);
+            protection_->reset(ptr);
         }
 
         void reset_protection(nullptr_t = nullptr) noexcept {
             assert(protection_ && "hazard_ptr must be initialized");
-            protection_->clear();
+            protection_->reset();
         }
 
         void swap(HazardPointer &other) noexcept {

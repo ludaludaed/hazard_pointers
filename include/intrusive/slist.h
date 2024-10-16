@@ -5,11 +5,14 @@
 #include "empty_base_holder.h"
 #include "empty_base_tags.h"
 #include "generic_hook.h"
+#include "intrusive/utils.h"
 #include "size_traits.h"
 #include "utils.h"
 
 #include <algorithm>
 #include <cassert>
+#include <cstddef>
+#include <format>
 #include <functional>
 #include <memory>
 #include <utility>
@@ -469,6 +472,7 @@ namespace lu {
         IntrusiveSlist(const IntrusiveSlist &other) = delete;
 
         IntrusiveSlist(IntrusiveSlist &&other) noexcept {
+            Construct();
             swap(other);
         }
 
@@ -516,6 +520,14 @@ namespace lu {
             return Algo::count(GetNilPtr()) - 1;
         }
 
+        size_type GetSize() const noexcept {
+            return GetSize(get_bool_t<SizeTraits::is_const_size>{});
+        }
+
+        void SetSize(size_type new_size) noexcept {
+            return SizeTraitsHolder::get().set_size(new_size);
+        }
+
         node_ptr InsertAfter(node_ptr prev, node_ptr new_node) noexcept {
             Algo::link_after(prev, new_node);
             SizeTraitsHolder::get().increment();
@@ -561,25 +573,25 @@ namespace lu {
 
         template<class Comp>
         void Sort(Comp &&comp) {
-            Algo::sort(GetNilPtr(), [&value_traits = ValueTraitsHolder::get(), &comp = comp](node_ptr left, node_ptr right) {
-                return comp(*value_traits.to_value_ptr(left), *value_traits.to_value_ptr(right));
-            });
+            const value_traits &_value_traits = ValueTraitsHolder::get();
+            auto node_comp = [&_value_traits, &comp](node_ptr left, node_ptr right) {
+                return comp(*_value_traits.to_value_ptr(left), *_value_traits.to_value_ptr(right));
+            };
+            Algo::sort(GetNilPtr(), node_comp);
         }
 
         template<class Comp>
         void Merge(IntrusiveSlist &other, Comp &&comp) noexcept {
-            const_iterator prev = cbefore_begin();
-            const_iterator current = cbegin();
-            while (current != cend() && !other.empty()) {
-                if (comp(*other.cbegin(), *current)) {
-                    splice_after(prev, other, other.cbefore_begin());
-                    ++prev;
-                } else {
-                    ++prev;
-                    ++current;
-                }
+            if constexpr (SizeTraits::is_const_size) {
+                size_type new_size = GetSize() + other.GetSize();
+                SetSize(new_size);
+                other.SetSize(0);
             }
-            splice_after(prev, other);
+            const value_traits &_value_traits = ValueTraitsHolder::get();
+            auto node_comp = [&_value_traits, &comp](node_ptr left, node_ptr right) {
+                return comp(*_value_traits.to_value_ptr(left), *_value_traits.to_value_ptr(right));
+            };
+            Algo::merge(GetNilPtr(), other.GetNilPtr(), node_comp);
         }
 
         template<class BinaryPredicate>
@@ -817,7 +829,7 @@ namespace lu {
         }
 
         size_type size() const noexcept {
-            return GetSize(get_bool_t<SizeTraits::is_const_size>{});
+            return GetSize();
         }
 
     public:

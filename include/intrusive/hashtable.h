@@ -740,6 +740,7 @@ namespace lu {
         IntrusiveHashtable(const IntrusiveHashtable &other) = delete;
 
         IntrusiveHashtable(IntrusiveHashtable &&other) noexcept {
+            Construct();
             swap(other);
         }
 
@@ -787,7 +788,6 @@ namespace lu {
             const key_of_value &_key_of_value = KeyOfValueHolder::get();
             return _key_of_value(value);
         }
-
 
         inline std::size_t GetHash(node_ptr node) const noexcept {
             return GetHash(node, get_bool_t<node_traits::store_hash>{});
@@ -1066,6 +1066,23 @@ namespace lu {
             insert(first, last);
         }
 
+        void rehash(const bucket_traits &new_bucket_traits) {
+            const value_traits &_value_traits = ValueTraitsHolder::get();
+            BucketTraitsHolder::get() = new_bucket_traits;
+
+            node_ptr current = GetFirst();
+            Algo::init(GetNilPtr());
+            SizeTraitsHolder::get().set_size(0);
+
+            while (current) {
+                node_ptr next = node_traits::get_next(current);
+                Algo::init(current);
+                pointer value_ptr = _value_traits.to_value_ptr(current);
+                InsertByRehash(*value_ptr);
+                current = next;
+            }
+        }
+
     public:
         iterator find(const key_type &key) noexcept {
             return iterator(Find(key), GetValueTraitsPtr());
@@ -1077,6 +1094,10 @@ namespace lu {
 
         size_type count(const key_type &key) const {
             return Count(key);
+        }
+
+        bool contains(const key_type &key) const noexcept {
+            return Find(key);
         }
 
         std::pair<iterator, iterator> equal_range(const key_type &key) {
@@ -1119,24 +1140,6 @@ namespace lu {
                 node = node_traits::get_prev(node);
             }
             return const_local_iterator(node, GetValueTraitsPtr());
-        }
-
-    public:
-        void rehash(const bucket_traits &new_bucket_traits) {
-            const value_traits &_value_traits = ValueTraitsHolder::get();
-            BucketTraitsHolder::get() = new_bucket_traits;
-
-            node_ptr current = GetFirst();
-            Algo::init(GetNilPtr());
-            SizeTraitsHolder::get().set_size(0);
-
-            while (current) {
-                node_ptr next = node_traits::get_next(current);
-                Algo::init(current);
-                pointer value_ptr = _value_traits.to_value_ptr(current);
-                InsertByRehash(*value_ptr);
-                current = next;
-            }
         }
 
     public:

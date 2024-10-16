@@ -1,9 +1,11 @@
 #include "intrusive/empty_base_holder.h"
+#include "intrusive/options.h"
 #include <algorithm>
 #include <array>
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <forward_list>
 #include <fstream>
 #include <functional>
@@ -28,6 +30,81 @@
 #include <intrusive/unordered_set.h>
 #include <marked_ptr.h>
 #include <shared_ptr.h>
+
+struct A : lu::forward_list_hook<> {
+    int a;
+};
+
+void slist_test() {
+    auto comp = [](const A &left, const A &right) {
+        return left.a < right.a;
+    };
+
+    std::vector<A>
+            vec(20);
+    for (int i = 0; i < vec.size(); ++i) {
+        vec[i].a = rand() % 100;
+    }
+
+    std::reverse(vec.begin(), vec.end());
+
+    lu::forward_list<A> list_a;
+    lu::forward_list<A> list_b;
+
+    for (int i = 0; i < 10; ++i) {
+        list_a.push_front(vec[i]);
+    }
+
+    for (int i = 10; i < 20; ++i) {
+        list_b.push_front(vec[i]);
+    }
+
+    for (auto it = list_a.begin(); it != list_a.end(); ++it) {
+        std::cout << it->a << " ";
+    }
+
+    std::cout << std::endl;
+
+    for (auto it = list_b.begin(); it != list_b.end(); ++it) {
+        std::cout << it->a << " ";
+    }
+
+    std::cout << std::endl;
+
+    list_a.sort(comp);
+    list_b.sort(comp);
+
+    std::swap(list_a, list_b);
+
+    for (auto it = list_a.begin(); it != list_a.end(); ++it) {
+        std::cout << it->a << " ";
+    }
+
+    std::cout << std::endl;
+
+    for (auto it = list_b.begin(); it != list_b.end(); ++it) {
+        std::cout << it->a << " ";
+    }
+
+    std::cout << std::endl;
+
+    list_a.merge(list_b, comp);
+
+    for (auto it = list_a.begin(); it != list_a.end(); ++it) {
+        std::cout << it->a << " ";
+    }
+
+    std::cout << std::endl;
+
+    for (auto it = list_b.begin(); it != list_b.end(); ++it) {
+        std::cout << it->a << " ";
+    }
+
+    std::cout << std::endl;
+
+    std::cout << list_a.empty() << " " << list_b.empty() << std::endl;
+    std::cout << list_a.size() << " " << list_b.size() << std::endl;
+}
 
 struct EmptyBackOff {
     void operator()() const {}
