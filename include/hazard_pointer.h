@@ -13,6 +13,7 @@
 #include "intrusive/forward_list.h"
 #include "intrusive/options.h"
 #include "intrusive/unordered_set.h"
+#include "marked_ptr.h"
 
 
 namespace lu {
@@ -26,20 +27,33 @@ namespace lu {
         template<class, class>
         friend class HazardPointerObjBase;
 
+        using ReclaimFunc = void(HazardObject *value);
         using ReclaimFuncPtr = void (*)(HazardObject *value);
 
     private:
         void reclaim() {
-            reclaim_func_(this);
+            auto reclaim_func = reclaim_func_.get();
+            reclaim_func(this);
         }
 
-        void set_reclaimer(ReclaimFuncPtr reclaim_func) {
+        void set_reclaimer(ReclaimFuncPtr reclaim_func) noexcept {
             reclaim_func_ = reclaim_func;
         }
 
+        bool get_protection() const noexcept {
+            return reclaim_func_.get_bit();
+        }
+
+        void set_protection() noexcept {
+            reclaim_func_.set_bit();
+        }
+
+        void clear_protection() noexcept {
+            reclaim_func_.clear_bit();
+        }
+
     private:
-        ReclaimFuncPtr reclaim_func_;
-        bool protected_{false};
+        marked_ptr<ReclaimFunc> reclaim_func_;
     };
 
     template<class ValueType>
@@ -296,7 +310,7 @@ namespace lu {
                             auto protection = it->get_protected();
                             auto found = retired_set_.find(protection);
                             if (found != retired_set_.end()) {
-                                found->protected_ = true;
+                                found->set_protection();
                             }
                         }
                     }
@@ -306,8 +320,8 @@ namespace lu {
                 auto current = retired_set_.begin();
                 while (current != retired_set_.end()) {
                     auto next = std::next(current);
-                    if (current->protected_) {
-                        current->protected_ = false;
+                    if (current->get_protection()) {
+                        current->clear_protection();
                     } else {
                         destroy_retired(*current);
                     }
@@ -569,7 +583,7 @@ namespace lu {
 
     public:
         void retire(Deleter deleter = Deleter(), HazardPointerDomain &domain = get_default_domain()) noexcept {
-            assert(!retired_.exchange(true, std::memory_order_relaxed));// double retire check
+            assert(!retired_.exchange(true, std::memory_order_relaxed) && "Can't do double retire");
             this->set_deleter(std::move(deleter));
             this->set_reclaimer(reclaim_func);
             auto &thread_data = domain.get_thread_data();

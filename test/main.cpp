@@ -28,7 +28,7 @@
 #include <intrusive/forward_list.h>
 #include <intrusive/hashtable.h>
 #include <intrusive/unordered_set.h>
-#include <marked_ptr.h>
+#include <marked_shared_ptr.h>
 #include <shared_ptr.h>
 
 struct A : lu::forward_list_hook<> {
@@ -779,6 +779,7 @@ int main() {
     // std::cout << list.empty();
     std::cout << sizeof(lu::unordered_set_base_hook<lu::store_hash<false>>) << std::endl;
     std::cout << sizeof(lu::hazard_pointer_obj_base<int>) << std::endl;
+
     for (int i = 0; i < 1; ++i) {
         abstractStressTest(stressTest<hazard_pointer::TreiberStack<int, YieldBackOff>>);
     }
