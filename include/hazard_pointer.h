@@ -18,7 +18,7 @@
 namespace lu {
     class HazardPointerTag {};
 
-    using HazardPointerHook = lu::unordered_set_base_hook<lu::tag<HazardPointerTag>>;
+    using HazardPointerHook = lu::unordered_set_base_hook<lu::tag<HazardPointerTag>, lu::store_hash<false>>;
 
     class HazardObject : public HazardPointerHook {
         friend class HazardPointerDomain;
@@ -38,8 +38,8 @@ namespace lu {
         }
 
     private:
-        bool protected_{false};
         ReclaimFuncPtr reclaim_func_;
+        bool protected_{false};
     };
 
     template<class ValueType>
