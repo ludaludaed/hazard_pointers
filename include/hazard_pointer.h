@@ -5,7 +5,6 @@
 #include <array>
 #include <atomic>
 #include <cassert>
-#include <cmath>
 #include <cstddef>
 #include <memory>
 #include <type_traits>
@@ -14,7 +13,6 @@
 #include "intrusive/forward_list.h"
 #include "intrusive/options.h"
 #include "intrusive/unordered_set.h"
-#include "marked_ptr.h"
 
 
 namespace lu {
