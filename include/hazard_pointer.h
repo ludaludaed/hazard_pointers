@@ -5,6 +5,7 @@
 #include <array>
 #include <atomic>
 #include <cassert>
+#include <cmath>
 #include <cstddef>
 #include <memory>
 #include <type_traits>
@@ -32,8 +33,7 @@ namespace lu {
 
     private:
         void reclaim() {
-            auto reclaim_func = reclaim_func_.get();
-            reclaim_func(this);
+            reclaim_func_(this);
         }
 
         void set_reclaimer(ReclaimFuncPtr reclaim_func) noexcept {
@@ -41,19 +41,20 @@ namespace lu {
         }
 
         bool get_protection() const noexcept {
-            return reclaim_func_.get_bit();
+            return protected_;
         }
 
         void set_protection() noexcept {
-            reclaim_func_.set_bit();
+            protected_ = true;
         }
 
         void clear_protection() noexcept {
-            reclaim_func_.clear_bit();
+            protected_ = false;
         }
 
     private:
-        marked_ptr<ReclaimFunc> reclaim_func_;
+        ReclaimFuncPtr reclaim_func_{};
+        bool protected_{false};
     };
 
     template<class ValueType>
@@ -71,19 +72,16 @@ namespace lu {
         using SetOfRetired = lu::unordered_set<HazardObject, lu::base_hook<HazardPointerHook>, lu::key_of_value<RawPointerKey<HazardObject>>>;
 
     public:
-        using retired_element = HazardObject;
+        using value_type = HazardObject;
+        using key_type = const HazardObject *;
+
+        using pointer = value_type *;
+        using const_pointer = const value_type *;
+        using reference = value_type &;
+        using const_reference = const value_type &;
 
         using iterator = typename SetOfRetired::iterator;
         using const_iterator = typename SetOfRetired::const_iterator;
-
-        using pointer = retired_element *;
-        using const_pointer = const retired_element *;
-
-        using reference = retired_element &;
-        using const_reference = const retired_element &;
-
-        using value_type = retired_element;
-        using key_type = const_pointer;
 
     public:
         RetiredSet() noexcept
@@ -245,7 +243,7 @@ namespace lu {
             friend class HazardThreadDataOwner;
 
             using ProtectionsList = ProtectionsList<8>;
-            using RetiredList = RetiredSet<64>;
+            using RetiredSet = RetiredSet<64>;
 
         public:
             explicit HazardThreadData(HazardPointerDomain &domain) noexcept
@@ -350,7 +348,7 @@ namespace lu {
             std::size_t num_of_retires_{};
 
             ProtectionsList protections_list_{};
-            RetiredList retired_set_{};
+            RetiredSet retired_set_{};
 
             std::atomic<bool> in_use_{true};
             HazardThreadData *next_{};
@@ -556,7 +554,7 @@ namespace lu {
     template<class ValueType, class Deleter>
     class HazardPointerDeleter {
     protected:
-        void set_deleter(Deleter deleter) {
+        void set_deleter(Deleter deleter) noexcept(std::is_nothrow_move_assignable_v<Deleter>) {
             deleter_ = std::move(deleter);
         }
 

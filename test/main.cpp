@@ -765,6 +765,10 @@ void abstractStressTest(Func &&func, std::ostream &out) {
     out << std::endl;
 }
 
+struct D : lu::hazard_pointer_obj_base<D> {
+
+};
+
 int main() {
     // hazard_pointer::ordered_list<int> list;
     // list.emplace(10);
