@@ -38,15 +38,15 @@ namespace lu {
             reclaim_func_ = reclaim_func;
         }
 
-        bool get_protection() const noexcept {
+        bool is_protected() const noexcept {
             return protected_;
         }
 
-        void set_protection() noexcept {
+        void make_protected() noexcept {
             protected_ = true;
         }
 
-        void clear_protection() noexcept {
+        void make_unprotected() noexcept {
             protected_ = false;
         }
 
@@ -183,7 +183,7 @@ namespace lu {
 
     public:
         ProtectionsList() noexcept
-            : array_(), free_list_(array_.begin(), array_.end()) {}
+            : data_(), free_list_(data_.begin(), data_.end()) {}
 
         ProtectionsList(const ProtectionsList &) = delete;
 
@@ -194,17 +194,17 @@ namespace lu {
         ProtectionsList &operator=(ProtectionsList &&other) = delete;
 
     public:
-        reference acquire() noexcept {
+        pointer acquire() noexcept {
             assert(!free_list_.empty() && "List of protections is full");
             reference protection = free_list_.front();
             free_list_.pop_front();
-            return protection;
+            return &protection;
         }
 
-        void release(reference protection) noexcept {
+        void release(pointer protection) noexcept {
             assert((array_.data() <= &protection) && (array_.data() + array_.size() > &protection) && "Can't release protection from other thread");
-            protection.reset();
-            free_list_.push_front(protection);
+            protection->reset();
+            free_list_.push_front(*protection);
         }
 
         bool full() const noexcept {
@@ -212,23 +212,23 @@ namespace lu {
         }
 
         iterator begin() noexcept {
-            return array_.begin();
+            return data_.begin();
         }
 
         iterator end() noexcept {
-            return array_.end();
+            return data_.end();
         }
 
         const_iterator begin() const noexcept {
-            return array_.begin();
+            return data_.begin();
         }
 
         const_iterator end() const noexcept {
-            return array_.end();
+            return data_.end();
         }
 
     private:
-        std::array<value_type, Size> array_;
+        Array data_;
         FreeList free_list_;
     };
 
@@ -283,11 +283,11 @@ namespace lu {
 
         public:
             ProtectionHolder *acquire_protection() noexcept {
-                return &protections_list_.acquire();
+                return protections_list_.acquire();
             }
 
             void release_protection(ProtectionHolder *protection) noexcept {
-                protections_list_.release(*protection);
+                protections_list_.release(protection);
             }
 
             void retire(HazardObject *retired_ptr) noexcept {
@@ -298,7 +298,7 @@ namespace lu {
             }
 
             void scan() noexcept {
-                auto current_thread_data = domain_.head_.load();
+                auto current_thread_data = domain_.get_head();
                 while (current_thread_data) {
                     if (current_thread_data->acquired()) {
                         auto &protections = current_thread_data->protections_list_;
@@ -306,7 +306,7 @@ namespace lu {
                             auto protection = it->get_protected();
                             auto found = retired_set_.find(protection);
                             if (found != retired_set_.end()) {
-                                found->set_protection();
+                                found->make_protected();
                             }
                         }
                     }
@@ -316,8 +316,8 @@ namespace lu {
                 auto current = retired_set_.begin();
                 while (current != retired_set_.end()) {
                     auto next = std::next(current);
-                    if (current->get_protection()) {
-                        current->clear_protection();
+                    if (current->is_protected()) {
+                        current->make_unprotected();
                     } else {
                         destroy_retired(*current);
                     }
@@ -326,7 +326,7 @@ namespace lu {
             }
 
             void help_scan() noexcept {
-                auto current_thread_data = domain_.head_.load();
+                auto current_thread_data = domain_.get_head();
                 while (current_thread_data) {
                     if (current_thread_data->try_acquire()) {
                         current_thread_data->scan();
@@ -384,19 +384,19 @@ namespace lu {
         }
 
     public:
-        HazardThreadData &get_thread_data() noexcept {
+        HazardThreadData *get_thread_data() noexcept {
             static thread_local HazardThreadDataOwner owner;
             if (!owner.thread_data) {
-                HazardThreadData *current = head_.load();
+                HazardThreadData *current = get_head();
                 while (current) {
                     if (current->try_acquire()) {
                         owner.thread_data = current;
-                        return *owner.thread_data;
+                        return owner.thread_data;
                     }
                     current = current->next_;
                 }
                 HazardThreadData *new_thread_data = new HazardThreadData(*this);
-                new_thread_data->next_ = head_.load();
+                new_thread_data->next_ = get_head();
                 while (true) {
                     if (head_.compare_exchange_weak(new_thread_data->next_, new_thread_data)) {
                         break;
@@ -404,7 +404,11 @@ namespace lu {
                 }
                 owner.thread_data = new_thread_data;
             }
-            return *owner.thread_data;
+            return owner.thread_data;
+        }
+
+        HazardThreadData* get_head() noexcept {
+            return head_.load();
         }
 
     private:
@@ -424,7 +428,7 @@ namespace lu {
 
         explicit HazardPointer(HazardPointerDomain *domain) noexcept
             : domain_(domain),
-              protection_(domain_->get_thread_data().acquire_protection()) {}
+              protection_(domain_->get_thread_data()->acquire_protection()) {}
 
         HazardPointer(const HazardPointer &) = delete;
 
@@ -443,8 +447,8 @@ namespace lu {
 
         ~HazardPointer() {
             if (protection_) {
-                auto &thread_data = domain_->get_thread_data();
-                thread_data.release_protection(protection_);
+                auto thread_data = domain_->get_thread_data();
+                thread_data->release_protection(protection_);
             }
         }
 
@@ -579,11 +583,11 @@ namespace lu {
 
     public:
         void retire(Deleter deleter = Deleter(), HazardPointerDomain &domain = get_default_domain()) noexcept {
-            assert(!retired_.exchange(true, std::memory_order_relaxed) && "Can't do double retire");
+            assert(!retired_.exchange(true, std::memory_order_relaxed) && "Double retire is not allowed");
             this->set_deleter(std::move(deleter));
             this->set_reclaimer(reclaim_func);
-            auto &thread_data = domain.get_thread_data();
-            thread_data.retire(this);
+            auto thread_data = domain.get_thread_data();
+            thread_data->retire(this);
         }
 
     private:
