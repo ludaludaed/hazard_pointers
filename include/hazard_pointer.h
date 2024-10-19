@@ -66,8 +66,9 @@ namespace lu {
 
     template<size_t NumOfBuckets>
     class RetiredSet {
-    private:
         using SetOfRetired = lu::unordered_set<HazardObject, lu::base_hook<HazardPointerHook>, lu::key_of_value<RawPointerKey<HazardObject>>>;
+        using BucketTraits = typename SetOfRetired::bucket_traits;
+        using BucketsData = std::array<typename SetOfRetired::bucket_type, NumOfBuckets>;
 
     public:
         using value_type = HazardObject;
@@ -83,7 +84,7 @@ namespace lu {
 
     public:
         RetiredSet() noexcept
-            : retired_set_(typename SetOfRetired::bucket_traits(buckets_.data(), buckets_.size())) {}
+            : retired_set_(BucketTraits(buckets_.data(), buckets_.size())) {}
 
         RetiredSet(const RetiredSet &) = delete;
 
@@ -139,7 +140,7 @@ namespace lu {
         }
 
     private:
-        std::array<typename SetOfRetired::bucket_type, NumOfBuckets> buckets_{};
+        BucketsData buckets_{};
         SetOfRetired retired_set_;
     };
 
@@ -147,6 +148,13 @@ namespace lu {
     public:
         using pointer = HazardObject *;
         using const_pointer = const HazardObject *;
+
+    public:
+        ProtectionHolder() = default;
+
+        ProtectionHolder(const ProtectionHolder& other) = delete;
+
+        ProtectionHolder(ProtectionHolder&& other) = delete;
 
     public:
         inline void reset(const_pointer new_ptr = {}) {
