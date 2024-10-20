@@ -206,16 +206,19 @@ namespace lu {
 
     public:
         pointer acquire() noexcept {
-            assert(!free_list_.empty() && "List of protections is full");
-            reference protection = free_list_.front();
-            free_list_.pop_front();
-            return &protection;
+            if (free_list_.empty()) [[unlikely]] {
+                return {};
+            } else {
+                pointer record = &free_list_.front();
+                free_list_.pop_front();
+                return record;
+            }
         }
 
-        void release(pointer protection) noexcept {
+        void release(pointer record) noexcept {
             assert((array_.data() <= &protection) && (array_.data() + array_.size() > &protection) && "Can't release protection from other thread");
-            protection->reset();
-            free_list_.push_front(*protection);
+            record->reset();
+            free_list_.push_front(*record);
         }
 
         bool full() const noexcept {
@@ -463,6 +466,10 @@ namespace lu {
     public:
         bool empty() const noexcept {
             return !protection_ || protection_->empty();
+        }
+
+        explicit operator bool() const noexcept {
+            return empty();
         }
 
         template<class Ptr, class = std::enable_if_t<std::is_base_of_v<HazardObject, typename std::pointer_traits<Ptr>::element_type>>>
