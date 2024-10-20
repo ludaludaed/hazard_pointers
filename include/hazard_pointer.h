@@ -206,19 +206,20 @@ namespace lu {
 
     public:
         pointer acquire() noexcept {
-            if (free_list_.empty()) [[unlikely]] {
-                return {};
-            } else {
-                pointer record = &free_list_.front();
+            pointer record{};
+            if (!free_list_.empty()) [[likely]] {
+                record = &free_list_.front();
                 free_list_.pop_front();
-                return record;
             }
+            return record;
         }
 
         void release(pointer record) noexcept {
-            assert((array_.data() <= &protection) && (array_.data() + array_.size() > &protection) && "Can't release protection from other thread");
-            record->reset();
-            free_list_.push_front(*record);
+            assert((data_.data() <= record) && (data_.data() + data_.size() > record) && "Can't release protection from other thread");
+            if (record) [[likely]] {
+                record->reset();
+                free_list_.push_front(*record);
+            }
         }
 
         bool full() const noexcept {
