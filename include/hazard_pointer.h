@@ -56,7 +56,7 @@ namespace lu {
     };
 
     template<class ValueType>
-    struct RawPointerKey {
+    struct RawPointerKeyOfValue {
         using type = const ValueType *;
 
         const ValueType *operator()(const ValueType &value) const noexcept {
@@ -64,11 +64,13 @@ namespace lu {
         }
     };
 
-    template<size_t NumOfBuckets>
     class RetiredSet {
-        using SetOfRetired = lu::unordered_set<HazardObject, lu::base_hook<HazardPointerHook>, lu::key_of_value<RawPointerKey<HazardObject>>>;
+        static constexpr std::size_t num_of_buckets = 64;
+
+        using SetOfRetired = lu::unordered_set<HazardObject, lu::base_hook<HazardPointerHook>, lu::key_of_value<RawPointerKeyOfValue<HazardObject>>>;
+
+        using BucketsData = std::array<typename SetOfRetired::bucket_type, num_of_buckets>;
         using BucketTraits = typename SetOfRetired::bucket_traits;
-        using BucketsData = std::array<typename SetOfRetired::bucket_type, NumOfBuckets>;
 
     public:
         using value_type = HazardObject;
@@ -144,24 +146,24 @@ namespace lu {
         SetOfRetired retired_set_;
     };
 
-    class ProtectionHolder : public lu::forward_list_hook<> {
+    class HazardRecord : public lu::forward_list_hook<> {
     public:
         using pointer = HazardObject *;
         using const_pointer = const HazardObject *;
 
     public:
-        ProtectionHolder() = default;
+        HazardRecord() = default;
 
-        ProtectionHolder(const ProtectionHolder& other) = delete;
+        HazardRecord(const HazardRecord &other) = delete;
 
-        ProtectionHolder(ProtectionHolder&& other) = delete;
+        HazardRecord(HazardRecord &&other) = delete;
 
     public:
         inline void reset(const_pointer new_ptr = {}) {
             protected_.store(new_ptr);
         }
 
-        inline const_pointer get_protected() const {
+        inline const_pointer get() const {
             return protected_.load();
         }
 
@@ -173,13 +175,14 @@ namespace lu {
         std::atomic<const_pointer> protected_{};
     };
 
-    template<size_t Size>
     class ProtectionsList {
-        using FreeList = lu::forward_list<ProtectionHolder>;
-        using Array = std::array<ProtectionHolder, Size>;
+        static constexpr std::size_t num_of_protections = 4;
+
+        using FreeList = lu::forward_list<HazardRecord>;
+        using Array = std::array<HazardRecord, num_of_protections>;
 
     public:
-        using value_type = ProtectionHolder;
+        using value_type = HazardRecord;
 
         using reference = typename Array::reference;
         using const_reference = typename Array::const_reference;
@@ -248,9 +251,6 @@ namespace lu {
             friend class HazardPointerDomain;
             friend class HazardThreadDataOwner;
 
-            using ProtectionsList = ProtectionsList<8>;
-            using RetiredSet = RetiredSet<64>;
-
         public:
             explicit HazardThreadData(HazardPointerDomain &domain) noexcept
                 : domain_(domain) {}
@@ -290,11 +290,11 @@ namespace lu {
             }
 
         public:
-            ProtectionHolder *acquire_protection() noexcept {
+            HazardRecord *acquire_protection() noexcept {
                 return protections_list_.acquire();
             }
 
-            void release_protection(ProtectionHolder *protection) noexcept {
+            void release_protection(HazardRecord *protection) noexcept {
                 protections_list_.release(protection);
             }
 
@@ -311,7 +311,7 @@ namespace lu {
                     if (current_thread_data->acquired()) {
                         auto &protections = current_thread_data->protections_list_;
                         for (auto it = protections.begin(); it != protections.end(); ++it) {
-                            auto protection = it->get_protected();
+                            auto protection = it->get();
                             auto found = retired_set_.find(protection);
                             if (found != retired_set_.end()) {
                                 found->make_protected();
@@ -415,7 +415,7 @@ namespace lu {
             return owner.thread_data;
         }
 
-        HazardThreadData* get_head() noexcept {
+        HazardThreadData *get_head() noexcept {
             return head_.load();
         }
 
@@ -518,7 +518,7 @@ namespace lu {
 
     private:
         HazardPointerDomain *domain_;
-        ProtectionHolder *protection_{};
+        HazardRecord *protection_{};
     };
 
     template<class ValueType>
