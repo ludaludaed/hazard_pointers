@@ -251,6 +251,10 @@ namespace lu {
             explicit HazardThreadData(HazardPointerDomain &domain) noexcept
                 : domain_(domain) {}
 
+            HazardThreadData(const HazardThreadData &) = delete;
+
+            HazardThreadData(HazardThreadData &&) = delete;
+
             ~HazardThreadData() {
                 clear();
             }
@@ -388,6 +392,21 @@ namespace lu {
             }
         }
 
+        void retire(HazardObject *retired) {
+            auto thread_data = get_thread_data();
+            thread_data->retire(retired);
+        }
+
+        HazardRecord *try_acquire_record() noexcept {
+            auto thread_data = get_thread_data();
+            return thread_data->try_acquire_record();
+        }
+
+        void release_record(HazardRecord *record) noexcept {
+            auto thread_data = get_thread_data();
+            thread_data->release_record(record);
+        }
+
     private:
         HazardThreadData *allocate_thread_data() {
             return new HazardThreadData(*this);
@@ -397,7 +416,6 @@ namespace lu {
             delete thread_data;
         }
 
-    public:
         HazardThreadData *get_thread_data() noexcept {
             static thread_local HazardThreadDataOwner owner;
             if (!owner.thread_data) {
@@ -440,7 +458,7 @@ namespace lu {
 
         explicit HazardPointer(HazardPointerDomain *domain) noexcept
             : domain_(domain),
-              record_(domain_->get_thread_data()->try_acquire_record()) {}
+              record_(domain_->try_acquire_record()) {}
 
         HazardPointer(const HazardPointer &) = delete;
 
@@ -459,8 +477,7 @@ namespace lu {
 
         ~HazardPointer() {
             if (record_) {
-                auto thread_data = domain_->get_thread_data();
-                thread_data->release_record(record_);
+                domain_->release_record(record_);
             }
         }
 
@@ -598,8 +615,7 @@ namespace lu {
             assert(!retired_.exchange(true, std::memory_order_relaxed) && "Double retire is not allowed");
             this->set_deleter(std::move(deleter));
             this->set_reclaimer(reclaim_func);
-            auto thread_data = domain.get_thread_data();
-            thread_data->retire(this);
+            domain.retire(this);
         }
 
     private:
