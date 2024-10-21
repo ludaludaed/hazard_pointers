@@ -92,10 +92,6 @@ namespace lu {
 
         RetiredSet(RetiredSet &&other) = delete;
 
-        RetiredSet &operator=(const RetiredSet &) = delete;
-
-        RetiredSet &operator=(RetiredSet &&other) = delete;
-
     public:
         void insert(reference value) noexcept {
             retired_set_.insert(value);
@@ -175,11 +171,11 @@ namespace lu {
         std::atomic<const_pointer> protected_{};
     };
 
-    class ProtectionsList {
-        static constexpr std::size_t num_of_protections = 4;
+    class HazardRecords {
+        static constexpr std::size_t num_of_records = 4;
 
         using FreeList = lu::forward_list<HazardRecord>;
-        using Array = std::array<HazardRecord, num_of_protections>;
+        using Array = std::array<HazardRecord, num_of_records>;
 
     public:
         using value_type = HazardRecord;
@@ -193,16 +189,12 @@ namespace lu {
         using const_iterator = typename Array::const_iterator;
 
     public:
-        ProtectionsList() noexcept
+        HazardRecords() noexcept
             : data_(), free_list_(data_.begin(), data_.end()) {}
 
-        ProtectionsList(const ProtectionsList &) = delete;
+        HazardRecords(const HazardRecords &) = delete;
 
-        ProtectionsList(ProtectionsList &&other) = delete;
-
-        ProtectionsList &operator=(const ProtectionsList &) = delete;
-
-        ProtectionsList &operator=(ProtectionsList &&other) = delete;
+        HazardRecords(HazardRecords &&other) = delete;
 
     public:
         pointer acquire() noexcept {
@@ -215,7 +207,7 @@ namespace lu {
         }
 
         void release(pointer record) noexcept {
-            assert((data_.data() <= record) && (data_.data() + data_.size() > record) && "Can't release protection from other thread");
+            assert((data_.data() <= record) && (data_.data() + data_.size() > record) && "Can't release hazard record from other thread");
             if (record) [[likely]] {
                 record->reset();
                 free_list_.push_front(*record);
@@ -260,12 +252,7 @@ namespace lu {
                 : domain_(domain) {}
 
             ~HazardThreadData() {
-                auto current = retired_set_.begin();
-                while (current != retired_set_.end()) {
-                    auto next = std::next(current);
-                    destroy_retired(*current);
-                    current = next;
-                }
+                clear();
             }
 
         private:
@@ -281,8 +268,9 @@ namespace lu {
                 in_use_.store(false);
             }
 
+        private:
             void destroy_retired(HazardObject &to_erase) noexcept {
-                retired_set_.erase(to_erase);
+                retires_.erase(to_erase);
                 to_erase.reclaim();
                 --num_of_retires_;
             }
@@ -290,20 +278,29 @@ namespace lu {
             void merge(HazardThreadData &other) noexcept {
                 num_of_retires_ += other.num_of_retires_;
                 other.num_of_retires_ = 0;
-                retired_set_.merge(other.retired_set_);
+                retires_.merge(other.retires_);
             }
 
         public:
-            HazardRecord *acquire_protection() noexcept {
-                return protections_list_.acquire();
+            void clear() {
+                auto current = retires_.begin();
+                while (current != retires_.end()) {
+                    auto next = std::next(current);
+                    destroy_retired(*current);
+                    current = next;
+                }
             }
 
-            void release_protection(HazardRecord *protection) noexcept {
-                protections_list_.release(protection);
+            HazardRecord *try_acquire_record() noexcept {
+                return records_.acquire();
+            }
+
+            void release_record(HazardRecord *record) noexcept {
+                records_.release(record);
             }
 
             void retire(HazardObject *retired_ptr) noexcept {
-                retired_set_.insert(*retired_ptr);
+                retires_.insert(*retired_ptr);
                 if (++num_of_retires_ >= scan_threshold) [[unlikely]] {
                     scan();
                 }
@@ -313,11 +310,11 @@ namespace lu {
                 auto current_thread_data = domain_.get_head();
                 while (current_thread_data) {
                     if (current_thread_data->acquired()) {
-                        auto &protections = current_thread_data->protections_list_;
-                        for (auto it = protections.begin(); it != protections.end(); ++it) {
-                            auto protection = it->get();
-                            auto found = retired_set_.find(protection);
-                            if (found != retired_set_.end()) {
+                        auto &records = current_thread_data->records_;
+                        for (auto it = records.begin(); it != records.end(); ++it) {
+                            auto record = it->get();
+                            auto found = retires_.find(record);
+                            if (found != retires_.end()) {
                                 found->make_protected();
                             }
                         }
@@ -325,8 +322,8 @@ namespace lu {
                     current_thread_data = current_thread_data->next_;
                 }
 
-                auto current = retired_set_.begin();
-                while (current != retired_set_.end()) {
+                auto current = retires_.begin();
+                while (current != retires_.end()) {
                     auto next = std::next(current);
                     if (current->is_protected()) {
                         current->make_unprotected();
@@ -357,8 +354,8 @@ namespace lu {
 
             std::size_t num_of_retires_{};
 
-            ProtectionsList protections_list_{};
-            RetiredSet retired_set_{};
+            HazardRecords records_{};
+            RetiredSet retires_{};
 
             std::atomic<bool> in_use_{true};
             HazardThreadData *next_{};
@@ -382,17 +379,22 @@ namespace lu {
 
         HazardPointerDomain(HazardPointerDomain &&other) = delete;
 
-        HazardPointerDomain &operator=(const HazardPointerDomain &other) = delete;
-
-        HazardPointerDomain &operator=(HazardPointerDomain &&other) = delete;
-
         ~HazardPointerDomain() {
-            HazardThreadData *current = head_.load();
+            HazardThreadData *current = get_head();
             while (current) {
                 HazardThreadData *next = current->next_;
-                delete current;
+                free_thread_data(current);
                 current = next;
             }
+        }
+
+    private:
+        HazardThreadData *allocate_thread_data() {
+            return new HazardThreadData(*this);
+        }
+
+        void free_thread_data(HazardThreadData *thread_data) {
+            delete thread_data;
         }
 
     public:
@@ -407,7 +409,7 @@ namespace lu {
                     }
                     current = current->next_;
                 }
-                HazardThreadData *new_thread_data = new HazardThreadData(*this);
+                HazardThreadData *new_thread_data = allocate_thread_data();
                 new_thread_data->next_ = get_head();
                 while (true) {
                     if (head_.compare_exchange_weak(new_thread_data->next_, new_thread_data)) {
@@ -434,19 +436,17 @@ namespace lu {
 
     class HazardPointer {
     public:
-        HazardPointer() noexcept
-            : domain_(),
-              protection_() {}
+        HazardPointer() = default;
 
         explicit HazardPointer(HazardPointerDomain *domain) noexcept
             : domain_(domain),
-              protection_(domain_->get_thread_data()->acquire_protection()) {}
+              record_(domain_->get_thread_data()->try_acquire_record()) {}
 
         HazardPointer(const HazardPointer &) = delete;
 
         HazardPointer(HazardPointer &&other) noexcept
-            : domain_(other.domain_), protection_(other.protection_) {
-            other.protection_ = {};
+            : domain_(other.domain_), record_(other.record_) {
+            other.record_ = {};
         }
 
         HazardPointer &operator=(const HazardPointer &) = delete;
@@ -458,15 +458,15 @@ namespace lu {
         }
 
         ~HazardPointer() {
-            if (protection_) {
+            if (record_) {
                 auto thread_data = domain_->get_thread_data();
-                thread_data->release_protection(protection_);
+                thread_data->release_record(record_);
             }
         }
 
     public:
         bool empty() const noexcept {
-            return !protection_ || protection_->empty();
+            return !record_ || record_->empty();
         }
 
         explicit operator bool() const noexcept {
@@ -492,7 +492,7 @@ namespace lu {
 
         template<class Ptr, class Func, class = std::enable_if_t<std::is_base_of_v<HazardObject, typename std::pointer_traits<Ptr>::element_type>>>
         bool try_protect(Ptr &ptr, const std::atomic<Ptr> &src, Func &&func) noexcept {
-            assert(protection_ && "hazard_ptr must be initialized");
+            assert(record_ && "hazard_ptr must be initialized");
             auto old = ptr;
             reset_protection(func(old));
             ptr = src.load();
@@ -505,18 +505,18 @@ namespace lu {
 
         template<class Ptr, class = std::enable_if_t<std::is_base_of_v<HazardObject, typename std::pointer_traits<Ptr>::element_type>>>
         void reset_protection(const Ptr ptr) noexcept {
-            assert(protection_ && "hazard_ptr must be initialized");
-            protection_->reset(ptr);
+            assert(record_ && "hazard_ptr must be initialized");
+            record_->reset(ptr);
         }
 
         void reset_protection(nullptr_t = nullptr) noexcept {
-            assert(protection_ && "hazard_ptr must be initialized");
-            protection_->reset();
+            assert(record_ && "hazard_ptr must be initialized");
+            record_->reset();
         }
 
         void swap(HazardPointer &other) noexcept {
             std::swap(domain_, other.domain_);
-            std::swap(protection_, other.protection_);
+            std::swap(record_, other.record_);
         }
 
     public:
@@ -525,8 +525,8 @@ namespace lu {
         }
 
     private:
-        HazardPointerDomain *domain_;
-        HazardRecord *protection_{};
+        HazardPointerDomain *domain_{};
+        HazardRecord *record_{};
     };
 
     template<class ValueType>
@@ -592,10 +592,6 @@ namespace lu {
         HazardPointerObjBase(const HazardPointerObjBase &) noexcept = default;
 
         HazardPointerObjBase(HazardPointerObjBase &&) noexcept = default;
-
-        HazardPointerObjBase &operator=(const HazardPointerObjBase &) noexcept = default;
-
-        HazardPointerObjBase &operator=(HazardPointerObjBase &&) noexcept = default;
 
     public:
         void retire(Deleter deleter = Deleter(), HazardPointerDomain &domain = get_default_domain()) noexcept {
