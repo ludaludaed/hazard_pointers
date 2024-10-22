@@ -366,6 +366,7 @@ namespace lu {
                 if (thread_data) [[likely]] {
                     thread_data->help_scan();
                     thread_data->release();
+                    thread_data = {};
                 }
             }
 
@@ -389,6 +390,15 @@ namespace lu {
             }
         }
 
+        void attach_thread() {
+            get_thread_data();
+        }
+
+        void detach_thread() {
+            auto &owner = get_thread_data_owner();
+            owner.detach();
+        }
+
         void retire(HazardObject *retired) {
             auto thread_data = get_thread_data();
             thread_data->retire(retired);
@@ -402,11 +412,6 @@ namespace lu {
         void release_record(HazardRecord *record) noexcept {
             auto thread_data = get_thread_data();
             thread_data->release_record(record);
-        }
-
-        void detach_thread() {
-            auto &owner = get_thread_data_owner();
-            owner.detach();
         }
 
     private:
