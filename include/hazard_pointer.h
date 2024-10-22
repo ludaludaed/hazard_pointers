@@ -18,7 +18,7 @@
 namespace lu {
     class HazardPointerTag {};
 
-    using HazardPointerHook = lu::unordered_set_base_hook<lu::tag<HazardPointerTag>, lu::store_hash<false>>;
+    using HazardPointerHook = lu::unordered_set_base_hook<lu::tag<HazardPointerTag>, lu::store_hash<false>, lu::is_auto_unlink<false>>;
 
     class HazardObject : public HazardPointerHook {
         friend class HazardPointerDomain;
@@ -28,6 +28,10 @@ namespace lu {
 
         using ReclaimFunc = void(HazardObject *value);
         using ReclaimFuncPtr = void (*)(HazardObject *value);
+
+        ~HazardObject() {
+            assert(!this->is_linked());
+        }
 
     private:
         void reclaim() {
@@ -115,6 +119,10 @@ namespace lu {
 
         void merge(RetiredSet &other) noexcept {
             retired_set_.merge(other.retired_set_);
+        }
+
+        std::size_t size() const {
+            return retired_set_.size();
         }
 
         bool empty() const noexcept {
@@ -276,13 +284,6 @@ namespace lu {
             void destroy_retired(HazardObject &to_erase) noexcept {
                 retires_.erase(to_erase);
                 to_erase.reclaim();
-                --num_of_retires_;
-            }
-
-            void merge(HazardThreadData &other) noexcept {
-                num_of_retires_ += other.num_of_retires_;
-                other.num_of_retires_ = 0;
-                retires_.merge(other.retires_);
             }
 
         public:
@@ -305,25 +306,24 @@ namespace lu {
 
             void retire(HazardObject *retired_ptr) noexcept {
                 retires_.insert(*retired_ptr);
-                if (++num_of_retires_ >= scan_threshold) [[unlikely]] {
+                if (retires_.size() >= scan_threshold) [[unlikely]] {
                     scan();
                 }
             }
 
             void scan() noexcept {
-                auto current_thread_data = domain_.get_head();
-                while (current_thread_data) {
-                    if (current_thread_data->acquired()) {
-                        auto &records = current_thread_data->records_;
-                        for (auto it = records.begin(); it != records.end(); ++it) {
-                            auto record = it->get();
-                            auto found = retires_.find(record);
-                            if (found != retires_.end()) {
-                                found->make_protected();
-                            }
+                for (auto current = domain_.get_head(); current; current = current->next_) {
+                    if (!current->acquired()) {
+                        continue;
+                    }
+                    auto &records = current->records_;
+                    for (auto it = records.begin(); it != records.end(); ++it) {
+                        auto record = it->get();
+                        auto found = retires_.find(record);
+                        if (found != retires_.end()) {
+                            found->make_protected();
                         }
                     }
-                    current_thread_data = current_thread_data->next_;
                 }
 
                 auto current = retires_.begin();
@@ -339,14 +339,12 @@ namespace lu {
             }
 
             void help_scan() noexcept {
-                auto current_thread_data = domain_.get_head();
-                while (current_thread_data) {
-                    if (current_thread_data->try_acquire()) {
-                        current_thread_data->scan();
-                        merge(*current_thread_data);
-                        current_thread_data->release();
+                for (auto current = domain_.get_head(); current; current = current->next_) {
+                    if (current->try_acquire()) {
+                        current->scan();
+                        retires_.merge(current->retires_);
+                        current->release();
                     }
-                    current_thread_data = current_thread_data->next_;
                 }
                 scan();
             }
@@ -355,8 +353,6 @@ namespace lu {
             constexpr static std::size_t scan_threshold = 64;
 
             HazardPointerDomain &domain_;
-
-            std::size_t num_of_retires_{};
 
             HazardRecords records_{};
             RetiredSet retires_{};
@@ -367,7 +363,7 @@ namespace lu {
 
         struct HazardThreadDataOwner {
             ~HazardThreadDataOwner() {
-                if (thread_data) {
+                if (thread_data) [[likely]] {
                     thread_data->help_scan();
                     thread_data->release();
                 }

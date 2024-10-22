@@ -21,7 +21,7 @@ namespace lu {
 
             inline void decrement() { --size_; }
 
-            inline void get_size() const { return size_; }
+            inline size_type get_size() const { return size_; }
 
             inline void set_size(size_type size) { size_ = size; }
 
@@ -44,7 +44,7 @@ namespace lu {
 
             inline void decrement() {}
 
-            inline void get_size() const {
+            inline size_type get_size() const {
                 return size_type{};
             }
 
