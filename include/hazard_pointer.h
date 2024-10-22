@@ -304,8 +304,8 @@ namespace lu {
                 records_.release(record);
             }
 
-            void retire(HazardObject *retired_ptr) noexcept {
-                retires_.insert(*retired_ptr);
+            void retire(HazardObject *retired) noexcept {
+                retires_.insert(*retired);
                 if (retires_.size() >= scan_threshold) [[unlikely]] {
                     scan();
                 }
