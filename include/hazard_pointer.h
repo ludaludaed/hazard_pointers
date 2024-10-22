@@ -248,9 +248,6 @@ namespace lu {
     };
 
     class HazardPointerDomain {
-        friend class HazardPointer;
-
-    private:
         class HazardThreadData {
             friend class HazardPointerDomain;
             friend class HazardThreadDataOwner;
@@ -280,10 +277,9 @@ namespace lu {
                 in_use_.store(false);
             }
 
-        private:
-            void destroy_retired(HazardObject &to_erase) noexcept {
-                retires_.erase(to_erase);
-                to_erase.reclaim();
+            void destroy_retired(HazardObject &retired) noexcept {
+                retires_.erase(retired);
+                retired.reclaim();
             }
 
         public:
@@ -362,7 +358,17 @@ namespace lu {
         };
 
         struct HazardThreadDataOwner {
+            HazardThreadDataOwner() = default;
+
+            HazardThreadDataOwner(HazardThreadDataOwner &&) = delete;
+
+            HazardThreadDataOwner(const HazardThreadDataOwner &) = delete;
+
             ~HazardThreadDataOwner() {
+                detach();
+            }
+
+            void detach() {
                 if (thread_data) [[likely]] {
                     thread_data->help_scan();
                     thread_data->release();
@@ -383,6 +389,7 @@ namespace lu {
             HazardThreadData *current = get_head();
             while (current) {
                 HazardThreadData *next = current->next_;
+                assert(!current->acquired());
                 free_thread_data(current);
                 current = next;
             }
@@ -403,6 +410,11 @@ namespace lu {
             thread_data->release_record(record);
         }
 
+        void detach_thread() {
+            auto &owner = get_thread_data_owner();
+            owner.detach();
+        }
+
     private:
         HazardThreadData *allocate_thread_data() {
             return new HazardThreadData(*this);
@@ -413,7 +425,7 @@ namespace lu {
         }
 
         HazardThreadData *get_thread_data() noexcept {
-            static thread_local HazardThreadDataOwner owner;
+            auto &owner = get_thread_data_owner();
             if (!owner.thread_data) {
                 HazardThreadData *current = get_head();
                 while (current) {
@@ -437,6 +449,11 @@ namespace lu {
 
         HazardThreadData *get_head() noexcept {
             return head_.load();
+        }
+
+        HazardThreadDataOwner &get_thread_data_owner() {
+            static thread_local HazardThreadDataOwner owner;
+            return owner;
         }
 
     private:
