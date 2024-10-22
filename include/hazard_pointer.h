@@ -358,12 +358,6 @@ namespace lu {
         };
 
         struct HazardThreadDataOwner {
-            HazardThreadDataOwner() = default;
-
-            HazardThreadDataOwner(HazardThreadDataOwner &&) = delete;
-
-            HazardThreadDataOwner(const HazardThreadDataOwner &) = delete;
-
             ~HazardThreadDataOwner() {
                 detach();
             }
