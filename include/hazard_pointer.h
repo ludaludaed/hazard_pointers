@@ -292,7 +292,7 @@ namespace lu {
                 }
             }
 
-            HazardRecord *try_acquire_record() noexcept {
+            HazardRecord *acquire_record() noexcept {
                 return records_.acquire();
             }
 
@@ -404,9 +404,9 @@ namespace lu {
             thread_data->retire(retired);
         }
 
-        HazardRecord *try_acquire_record() noexcept {
+        HazardRecord *acquire_record() noexcept {
             auto thread_data = get_thread_data();
-            return thread_data->try_acquire_record();
+            return thread_data->acquire_record();
         }
 
         void release_record(HazardRecord *record) noexcept {
@@ -470,7 +470,7 @@ namespace lu {
 
         explicit HazardPointer(HazardPointerDomain *domain) noexcept
             : domain_(domain),
-              record_(domain_->try_acquire_record()) {}
+              record_(domain_->acquire_record()) {}
 
         HazardPointer(const HazardPointer &) = delete;
 
@@ -655,6 +655,14 @@ namespace lu {
 
     template<class ValueType>
     using guarded_ptr = GuardedPointer<ValueType>;
+
+    inline void attach_thread(HazardPointerDomain &domain = get_default_domain()) {
+        domain.attach_thread();
+    }
+
+    inline void detach_thread(HazardPointerDomain &domain = get_default_domain()) {
+        domain.detach_thread();
+    }
 }// namespace lu
 
 #endif
