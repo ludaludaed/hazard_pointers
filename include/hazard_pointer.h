@@ -73,8 +73,9 @@ namespace lu {
 
         using SetOfRetired = lu::unordered_set<HazardObject, lu::base_hook<HazardPointerHook>, lu::key_of_value<RawPointerKeyOfValue<HazardObject>>>;
 
-        using BucketsData = std::array<typename SetOfRetired::bucket_type, num_of_buckets>;
+        using BucketType = typename SetOfRetired::bucket_type;
         using BucketTraits = typename SetOfRetired::bucket_traits;
+        using Buckets = std::array<BucketType, num_of_buckets>;
 
     public:
         using value_type = HazardObject;
@@ -146,7 +147,7 @@ namespace lu {
         }
 
     private:
-        BucketsData buckets_{};
+        Buckets buckets_{};
         SetOfRetired retired_set_;
     };
 
@@ -182,7 +183,6 @@ namespace lu {
     class HazardRecords {
         static constexpr std::size_t num_of_records = 4;
 
-        using FreeList = lu::forward_list<HazardRecord>;
         using Array = std::array<HazardRecord, num_of_records>;
 
     public:
@@ -244,7 +244,7 @@ namespace lu {
 
     private:
         Array data_;
-        FreeList free_list_;
+        lu::forward_list<HazardRecord> free_list_;
     };
 
     class HazardPointerDomain {
@@ -337,7 +337,6 @@ namespace lu {
             void help_scan() noexcept {
                 for (auto current = domain_.get_head(); current; current = current->next_) {
                     if (current->try_acquire()) {
-                        current->scan();
                         retires_.merge(current->retires_);
                         current->release();
                     }

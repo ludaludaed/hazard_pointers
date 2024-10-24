@@ -47,7 +47,9 @@ namespace lu {
         using compare = KeyCompare;
         using key_select = KeySelect;
 
-        using guarded_ptr = std::conditional_t<!std::is_same_v<value_type, key_type>, lu::guarded_ptr<ValueType>, lu::guarded_ptr<const ValueType>>;
+        constexpr static bool is_key_value = !std::is_same_v<value_type, key_type>;
+
+        using guarded_ptr = std::conditional_t<is_key_value, lu::guarded_ptr<ValueType>, lu::guarded_ptr<const ValueType>>;
 
     private:
         static void delete_node(node_pointer node) {
@@ -156,19 +158,12 @@ namespace lu {
             return find(&head_, value, pos, compare);
         }
 
-    public:
-        bool insert(const ValueType &value) {
-            return emplace(value);
-        }
-
-        template<class... Args>
-        bool emplace(Args &&...args) {
+        bool insert_node(node_pointer new_node) {
             BackOff back_off;
-            node_pointer new_node = new Node(std::forward<Args>(args)...);
-
             position pos;
             while (true) {
                 if (find(new_node->value, pos)) {
+                    delete new_node;
                     return false;
                 }
                 if (link(pos, new_node)) {
@@ -178,7 +173,33 @@ namespace lu {
             }
         }
 
-        bool erase(const ValueType &value) {
+    public:
+        template<class _ValueType, class = std::enable_if_t<!is_key_value>>
+        bool insert(_ValueType &&value) {
+            return emplace(std::forward<_ValueType>(value));
+        }
+
+        template<class _ValueType, class = std::enable_if_t<is_key_value>>
+        bool insert(const key_type &key, _ValueType &&value) {
+            node_pointer new_node = new Node(key, std::forward<_ValueType>(value));
+            if (!insert_node(new_node)) {
+                delete new_node;
+                return false;
+            }
+            return true;
+        }
+
+        template<class... Args>
+        bool emplace(Args &&...args) {
+            node_pointer new_node = new Node(std::forward<Args>(args)...);
+            if (!insert_node(new_node)) {
+                delete new_node;
+                return false;
+            }
+            return true;
+        }
+
+        bool erase(const key_type &value) {
             BackOff back_off;
             position pos;
             while (find(value, pos)) {
@@ -190,7 +211,7 @@ namespace lu {
             return false;
         }
 
-        guarded_ptr extract(const ValueType &value) {
+        guarded_ptr extract(const key_type &value) {
             BackOff back_off;
             position pos;
             while (find(value, pos)) {
@@ -218,7 +239,7 @@ namespace lu {
             }
         }
 
-        guarded_ptr find(const ValueType &value) {
+        guarded_ptr find(const key_type &value) {
             position pos;
             if (find(value, pos)) {
                 return guarded_ptr(std::move(pos.cur_guard), &pos.cur->value);
@@ -227,7 +248,7 @@ namespace lu {
             }
         }
 
-        bool contains(const ValueType &value) {
+        bool contains(const key_type &value) {
             position pos;
             return find(value, pos);
         }

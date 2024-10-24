@@ -1,3 +1,4 @@
+#include "back_off.h"
 #include "intrusive/empty_base_holder.h"
 #include "intrusive/options.h"
 #include <algorithm>
@@ -26,6 +27,7 @@
 #include <unordered_set>
 #include <utility>
 #include <vector>
+#include <span>
 
 #include <hazard_pointer.h>
 #include <intrusive/forward_list.h>
@@ -390,13 +392,14 @@ void stressTest(int actions, int threads) {
 
 template<class Func>
 void abstractStressTest(Func &&func) {
-    for (int i = 1; i <= std::thread::hardware_concurrency(); i++) {
+    std::size_t num_of_threads = std::thread::hardware_concurrency();
+    for (int i = 1; i <= num_of_threads; i++) {
         std::cout << "\t" << i;
     }
     std::cout << std::endl;
     for (int i = 500000; i <= 6000000; i += 500000) {
         std::cout << i << "\t";
-        for (int j = 1; j <= std::thread::hardware_concurrency(); j++) {
+        for (int j = 1; j <= num_of_threads; j++) {
             std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
             func(i, j);
             std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
@@ -404,18 +407,6 @@ void abstractStressTest(Func &&func) {
         }
         std::cout << std::endl;
     }
-}
-
-template<class Func>
-void abstractStressTest(Func &&func, std::ostream &out) {
-    int actions = 4000000;
-    for (int j = 1; j <= std::thread::hardware_concurrency() * 2; j++) {
-        std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
-        func(actions, j);
-        std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
-        out << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << ",";
-    }
-    out << std::endl;
 }
 
 int main() {
@@ -434,6 +425,6 @@ int main() {
     std::cout << sizeof(lu::hazard_pointer_obj_base<int>) << std::endl;
 
     for (int i = 0; i < 1; ++i) {
-        abstractStressTest(stressTest<hazard_pointer::MSQueue<int, lu::YieldBackOff>>);
+        abstractStressTest(stressTest<hazard_pointer::TreiberStack<int, lu::YieldBackOff>>);
     }
 }
