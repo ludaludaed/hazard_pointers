@@ -326,10 +326,10 @@ namespace lu {
         using pointer = typename std::pointer_traits<VoidPointer>::template rebind<HashtableNode>;
         using const_pointer = typename std::pointer_traits<pointer>::template rebind<const HashtableNode>;
 
-        pointer next_{};
-        pointer prev_{};
+        pointer next{};
+        pointer prev{};
 
-        std::size_t hash_{};
+        std::size_t hash{};
     };
 
     template<class VoidPointer>
@@ -337,8 +337,8 @@ namespace lu {
         using pointer = typename std::pointer_traits<VoidPointer>::template rebind<HashtableNode>;
         using const_pointer = typename std::pointer_traits<pointer>::template rebind<const HashtableNode>;
 
-        pointer next_{};
-        pointer prev_{};
+        pointer next{};
+        pointer prev{};
     };
 
     template<class VoidPointer, bool StoreHash>
@@ -352,27 +352,27 @@ namespace lu {
 
     public:
         static void set_next(node_ptr this_node, node_ptr next) {
-            this_node->next_ = next;
+            this_node->next = next;
         }
 
         static node_ptr get_next(const_node_ptr this_node) {
-            return this_node->next_;
+            return this_node->next;
         }
 
         static void set_prev(node_ptr this_node, node_ptr prev) {
-            this_node->prev_ = prev;
+            this_node->prev = prev;
         }
 
         static node_ptr get_prev(const_node_ptr this_node) {
-            return this_node->prev_;
+            return this_node->prev;
         }
 
         static std::size_t get_hash(const_node_ptr this_node) {
-            return this_node->hash_;
+            return this_node->hash;
         }
 
         static void set_hash(node_ptr this_node, std::size_t hash) {
-            this_node->hash_ = hash;
+            this_node->hash = hash;
         }
     };
 

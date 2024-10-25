@@ -260,7 +260,7 @@ namespace lu {
         using pointer = typename std::pointer_traits<VoidPointer>::template rebind<SlistNode>;
         using const_pointer = typename std::pointer_traits<pointer>::template rebind<const SlistNode>;
 
-        pointer next_{};
+        pointer next{};
     };
 
     template<class VoidPointer>
@@ -272,11 +272,11 @@ namespace lu {
 
     public:
         static void set_next(node_ptr this_node, node_ptr next) {
-            this_node->next_ = next;
+            this_node->next = next;
         }
 
         static node_ptr get_next(const_node_ptr this_node) {
-            return this_node->next_;
+            return this_node->next;
         }
     };
 
