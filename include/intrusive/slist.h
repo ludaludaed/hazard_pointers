@@ -256,7 +256,10 @@ namespace lu {
     };
 
     template<class VoidPointer>
-    struct SlistNode {
+    class SlistNode {
+        template<class>
+        friend class SlistNodeTraits;
+
         using pointer = typename std::pointer_traits<VoidPointer>::template rebind<SlistNode>;
         using const_pointer = typename std::pointer_traits<pointer>::template rebind<const SlistNode>;
 
@@ -879,9 +882,9 @@ namespace lu {
 
     template<class VoidPointer, class Tag, bool IsAutoUnlink>
     class SlistBaseHook : public detail::GenericHook<CircularSlistAlgo<SlistNodeTraits<VoidPointer>>, SlistNodeTraits<VoidPointer>, Tag, IsAutoUnlink>,
-                          public std::conditional_t<std::is_same_v<Tag, default_hook_tag>,
+                          public std::conditional_t<std::is_same_v<Tag, DefaultHookTag>,
                                                     DefaultSlistHook<detail::GenericHook<CircularSlistAlgo<SlistNodeTraits<VoidPointer>>, SlistNodeTraits<VoidPointer>, Tag, IsAutoUnlink>>,
-                                                    detail::not_default_hook> {};
+                                                    detail::NotDefaultHook> {};
 
     struct SlistDefaults {
         using proto_value_traits = DefaultSlistHookApplier;
@@ -890,7 +893,7 @@ namespace lu {
 
     struct SlistHookDefaults {
         using void_pointer = void *;
-        using tag = default_hook_tag;
+        using tag = DefaultHookTag;
         static const bool is_auto_unlink = true;
     };
 }// namespace lu

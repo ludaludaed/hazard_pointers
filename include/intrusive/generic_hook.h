@@ -9,10 +9,10 @@
 
 namespace lu {
 
-    class default_hook_tag {};
+    class DefaultHookTag {};
 
     namespace detail {
-        class not_default_hook {};
+        class NotDefaultHook {};
 
         template<class Hook>
         inline void DeleterImpl(Hook &hook, std::true_type) {

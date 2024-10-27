@@ -322,7 +322,10 @@ namespace lu {
     };
 
     template<class VoidPointer, bool StoreHash>
-    struct HashtableNode {
+    class HashtableNode {
+        template<class, bool>
+        friend class HashtableNodeTraits;
+
         using pointer = typename std::pointer_traits<VoidPointer>::template rebind<HashtableNode>;
         using const_pointer = typename std::pointer_traits<pointer>::template rebind<const HashtableNode>;
 
@@ -333,7 +336,10 @@ namespace lu {
     };
 
     template<class VoidPointer>
-    struct HashtableNode<VoidPointer, false> {
+    class HashtableNode<VoidPointer, false> {
+        template<class, bool>
+        friend class HashtableNodeTraits;
+
         using pointer = typename std::pointer_traits<VoidPointer>::template rebind<HashtableNode>;
         using const_pointer = typename std::pointer_traits<pointer>::template rebind<const HashtableNode>;
 
@@ -1285,9 +1291,9 @@ namespace lu {
 
     template<class VoidPointer, class Tag, bool StoreHash, bool IsAutoUnlink>
     class HashtableBaseHook : public detail::GenericHook<HashtableAlgo<HashtableNodeTraits<VoidPointer, StoreHash>>, HashtableNodeTraits<VoidPointer, StoreHash>, Tag, IsAutoUnlink>,
-                              public std::conditional_t<std::is_same_v<Tag, default_hook_tag>,
+                              public std::conditional_t<std::is_same_v<Tag, DefaultHookTag>,
                                                         HashtableDefaultHook<detail::GenericHook<HashtableAlgo<HashtableNodeTraits<VoidPointer, StoreHash>>, HashtableNodeTraits<VoidPointer, StoreHash>, Tag, IsAutoUnlink>>,
-                                                        detail::not_default_hook> {};
+                                                        detail::NotDefaultHook> {};
 
     template<class ValueType>
     struct DefaultKeyOfValue {
@@ -1354,7 +1360,7 @@ namespace lu {
 
     struct HashtableHookDefaults {
         using void_pointer = void *;
-        using tag = default_hook_tag;
+        using tag = DefaultHookTag;
         static const bool store_hash = true;
         static const bool is_auto_unlink = true;
     };
