@@ -215,7 +215,8 @@ namespace lu {
         }
 
         void release(pointer record) noexcept {
-            assert((data_.data() <= record) && (data_.data() + data_.size() > record) && "Can't release hazard record from other thread");
+            assert((data_.data() <= record) && (data_.data() + data_.size() > record) &&
+                   "Can't release hazard record from other thread");
             if (record) [[likely]] {
                 record->reset();
                 free_list_.push_front(*record);
@@ -250,6 +251,7 @@ namespace lu {
     class HazardPointerDomain {
         class HazardThreadData {
             friend class HazardPointerDomain;
+
             friend class HazardThreadDataOwner;
 
         public:
@@ -286,9 +288,8 @@ namespace lu {
             void clear() {
                 auto current = retires_.begin();
                 while (current != retires_.end()) {
-                    auto next = std::next(current);
-                    destroy_retired(*current);
-                    current = next;
+                    auto prev = current++;
+                    destroy_retired(*prev);
                 }
             }
 
@@ -307,7 +308,7 @@ namespace lu {
                 }
             }
 
-            void scan() noexcept {
+            void scan() {
                 for (auto current = domain_.get_head(); current; current = current->next_) {
                     if (!current->acquired()) {
                         continue;
@@ -324,17 +325,16 @@ namespace lu {
 
                 auto current = retires_.begin();
                 while (current != retires_.end()) {
-                    auto next = std::next(current);
-                    if (current->is_protected()) {
-                        current->make_unprotected();
+                    auto prev = current++;
+                    if (prev->is_protected()) {
+                        prev->make_unprotected();
                     } else {
-                        destroy_retired(*current);
+                        destroy_retired(*prev);
                     }
-                    current = next;
                 }
             }
 
-            void help_scan() noexcept {
+            void help_scan() {
                 for (auto current = domain_.get_head(); current; current = current->next_) {
                     if (current->try_acquire()) {
                         retires_.merge(current->retires_);
@@ -382,8 +382,8 @@ namespace lu {
         ~HazardPointerDomain() {
             HazardThreadData *current = get_head();
             while (current) {
-                HazardThreadData *next = current->next_;
                 assert(!current->acquired());
+                HazardThreadData *next = current->next_;
                 free_thread_data(current);
                 current = next;
             }
@@ -635,6 +635,7 @@ namespace lu {
             auto value = static_cast<ValueType *>(obj);
             obj_base->do_delete(value);
         }
+
 #ifndef NDEBUG
     private:
         std::atomic<bool> retired_{false};
