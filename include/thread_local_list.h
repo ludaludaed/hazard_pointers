@@ -3,19 +3,165 @@
 
 #include <atomic>
 #include <functional>
+#include <utility>
 
 
 namespace lu {
-    struct LazyListNode {
-        using pointer = LazyListNode *;
-        using const_pointer = const LazyListNode *;
+    template<class ValueType>
+    struct ThreadLocalNode {
+        using pointer = ThreadLocalNode *;
+        using const_pointer = const ThreadLocalNode *;
 
-        std::atomic<bool> is_active{};
+        template<class... Args>
+        explicit ThreadLocalNode(Args&&... args)
+            : value(std::forward<Args>(args)...) {}
+
+        bool try_acquire() {
+            return is_active.exchange(true, std::memory_order_acquire);
+        }
+
+        bool is_acquired() const {
+            return is_active.load(std::memory_order_relaxed);
+        }
+
+        void release() {
+            return is_active.store(false, std::memory_order_release);
+        }
+
+    public:
+        std::atomic<bool> is_active{true};
         pointer next{};
+        ValueType value;
+    };
+
+    template<class Types>
+    class ThreadLocalListIterator {
+        template<class>
+        friend class ThreadLocalList;
+
+        template<class>
+        friend class ThreadLocalListConstIterator;
+
+    public:
+        using value_type = typename Types::value_type;
+        using pointer = typename Types::pointer;
+        using reference = typename Types::reference;
+        using difference_type = typename Types::difference_type;
+        using iterator_category = std::forward_iterator_tag;
+
+        using node_ptr = typename Types::node_ptr;
+
+    private:
+        explicit ThreadLocalListIterator(node_ptr current_node) noexcept
+            : current_node_(current_node) {}
+
+    public:
+        ThreadLocalListIterator() noexcept = default;
+
+        ThreadLocalListIterator &operator++() noexcept {
+            Increment();
+            return *this;
+        }
+
+        ThreadLocalListIterator operator++(int) noexcept {
+            ThreadLocalListIterator result = *this;
+            Increment();
+            return result;
+        }
+
+        inline reference operator*() const noexcept {
+            return *operator->();
+        }
+
+        inline pointer operator->() const noexcept {
+            return current_node_->value;
+        }
+
+        friend bool operator==(const ThreadLocalListIterator &left, const ThreadLocalListIterator &right) {
+            return left.current_node_ == right.current_node_;
+        }
+
+        friend bool operator!=(const ThreadLocalListIterator &left, const ThreadLocalListIterator &right) {
+            return !(left == right);
+        }
+
+    private:
+        void Increment() {
+            current_node_ = current_node_->next;
+        }
+
+    private:
+        node_ptr current_node_{};
+    };
+
+    template<class Types>
+    class ThreadLocalListConstIterator {
+        template<class>
+        friend class ThreadLocalList;
+
+    private:
+        using NonConstIter = ThreadLocalListIterator<Types>;
+
+    public:
+        using value_type = typename Types::value_type;
+        using pointer = typename Types::const_pointer;
+        using reference = typename Types::const_reference;
+        using difference_type = typename Types::difference_type;
+        using iterator_category = std::forward_iterator_tag;
+
+        using node_ptr = typename Types::node_ptr;
+
+    private:
+        explicit ThreadLocalListConstIterator(node_ptr current_node) noexcept
+            : current_node_(current_node) {}
+
+    public:
+        ThreadLocalListConstIterator() noexcept = default;
+
+        ThreadLocalListConstIterator(const NonConstIter &other) noexcept
+            : current_node_(other.current_node_) {}
+
+        ThreadLocalListConstIterator &operator++() noexcept {
+            Increment();
+            return *this;
+        }
+
+        ThreadLocalListConstIterator operator++(int) noexcept {
+            ThreadLocalListConstIterator result = *this;
+            Increment();
+            return result;
+        }
+
+        inline reference operator*() const noexcept {
+            return *operator->();
+        }
+
+        inline pointer operator->() const noexcept {
+            return current_node_->value;
+        }
+
+        friend bool operator==(const ThreadLocalListConstIterator &left, const ThreadLocalListConstIterator &right) {
+            return left.current_node_ == right.current_node_;
+        }
+
+        friend bool operator!=(const ThreadLocalListConstIterator &left, const ThreadLocalListConstIterator &right) {
+            return !(left == right);
+        }
+
+    private:
+        void Increment() {
+            current_node_ = current_node_->next;
+        }
+
+    private:
+        node_ptr current_node_{};
     };
 
     template<class ValueType>
-    class LazyList {
+    class ThreadLocalList {
+    private:
+        using Self = ThreadLocalList<ValueType>;
+
     public:
         using value_type = ValueType;
 
@@ -25,72 +171,86 @@ namespace lu {
         using reference = value_type &;
         using const_reference = const value_type &;
 
-        using iterator = void;
-        using const_iterator = void;
+        using iterator = ThreadLocalListIterator<Self>;
+        using const_iterator = ThreadLocalListConstIterator<Self>;
 
-        using node = LazyListNode;
+        using node = ThreadLocalNode<ValueType>;
         using node_ptr = typename node::pointer;
         using const_node_ptr = typename node::const_pointer;
 
+    private:
+        struct ThreadLocalOwner {
+            ~ThreadLocalOwner() {
+                list.release(node);
+            }
+
+            ThreadLocalList& list;
+            node_ptr node;
+        };
+
     public:
-        template<class CtorFunc>
-        explicit LazyList(CtorFunc &&constructor)
-            : constructor_(std::forward<CtorFunc>(constructor)) {}
+        template<class ConstructFunc, class DestructFunc>
+        ThreadLocalList(ConstructFunc construct, DestructFunc destruct) 
+            : constructor_(std::move(construct)),
+              destructor_(std::move(destruct)) {}
 
-        LazyList(const LazyList &) = delete;
+        ThreadLocalList(const ThreadLocalList &) = delete;
 
-        LazyList(LazyList &&) = delete;
+        ThreadLocalList(ThreadLocalList &&) = delete;
 
-        ~LazyList() {
+        ~ThreadLocalList() {
             clear();
         }
 
     public:
-        void put(reference value) {
-            release(&value);
+        bool try_acquire(iterator item) {
+            auto node = item.current_node_;
+            return node->try_acquire();
         }
 
-        reference take() {
-            auto found = find_free();
-            if (!found) {
-                found = allocate_node();
-                push_node(found);
-            }
-            return static_cast<ValueType *>(found);
+        bool is_acquired(const_iterator item) const {
+            auto node = item.current_node_;
+            return node->is_acquired();
+        }
+
+        void release(iterator item) {
+            auto node = item.current_node_;
+            release(node);
         }
 
         void clear() {
             auto head = head_.load(std::memory_order_acquire);
             while (head) {
                 auto next = head->next;
-                deallocate_node(head);
+                release(head);
+                delete head;
                 head = next;
             }
         }
 
-        iterator begin();
-
-        iterator end();
-
-        const_iterator begin() const;
-
-        const_iterator end() const;
+        iterator get_thread_local() {
+            static thread_local ThreadLocalOwner owner(*this);
+            if (!owner.node) {
+                owner.node = find_or_create();
+            }
+            return iterator(owner.node);
+        }
 
     private:
-        static bool try_acquire(node_ptr node) {
-            return node->is_active.exchange(true, std::memory_order_acquire);
+        void release(node_ptr node) {
+            destructor_(&node->value);
+            node->release();
         }
 
-        static void release(node_ptr node) {
-            node->is_active.store(false, std::memory_order_release);
-        }
-
-        node_ptr allocate_node() const {
-            return new value_type();
-        }
-
-        void deallocate_node(node_ptr node) const {
-            delete node;
+        node_ptr find_or_create() {
+            auto found = find_free();
+            if (found) {
+                return found;
+            } else {
+                auto new_node = new node(constructor_());
+                push_node(new_node);
+                return new_node;
+            }
         }
 
         void push_node(node_ptr node) {
@@ -103,7 +263,7 @@ namespace lu {
         node_ptr find_free() {
             auto head = head_.load(std::memory_order_acquire);
             while (head) {
-                if (try_acquire(head)) {
+                if (head->try_acquire()) {
                     break;
                 }
                 head = head->next;
@@ -112,8 +272,9 @@ namespace lu {
         }
 
     private:
-        std::atomic<node_ptr> head_;
         std::function<ValueType()> constructor_;
+        std::function<void(ValueType*)> destructor_;
+        std::atomic<node_ptr> head_;
     };
 }// namespace lu
 

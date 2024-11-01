@@ -267,7 +267,7 @@ namespace lu {
             }
 
         private:
-            bool acquired() noexcept {
+            bool is_acquired() noexcept {
                 return in_use_.load();
             }
 
@@ -310,7 +310,7 @@ namespace lu {
 
             void scan() {
                 for (auto current = domain_.get_head(); current; current = current->next_) {
-                    if (!current->acquired()) {
+                    if (!current->is_acquired()) {
                         continue;
                     }
                     auto &records = current->records_;
