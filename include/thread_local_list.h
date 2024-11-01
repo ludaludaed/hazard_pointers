@@ -236,6 +236,32 @@ namespace lu {
             return iterator(owner.node);
         }
 
+        iterator begin() {
+            auto head = head_.load(std::memory_order_acquire);
+            return iterator(head);
+        }
+
+        iterator end() {
+            return iterator();
+        }
+
+        const_iterator cbegin() const {
+            auto head = head_.load(std::memory_order_acquire);
+            return const_iterator(head);
+        }
+
+        const_iterator cend() const {
+            return const_iterator();
+        }
+
+        const_iterator begin() const {
+            return cbegin();
+        }
+
+        const_iterator end() const {
+            return cend();
+        }
+
     private:
         void release(node_ptr node) {
             destructor_(&node->value);
@@ -276,6 +302,9 @@ namespace lu {
         std::function<void(ValueType*)> destructor_;
         std::atomic<node_ptr> head_;
     };
+
+    template<class ValueType>
+    using thread_local_list = ThreadLocalList<ValueType>;
 }// namespace lu
 
 #endif

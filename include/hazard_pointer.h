@@ -13,6 +13,7 @@
 #include "intrusive/forward_list.h"
 #include "intrusive/options.h"
 #include "intrusive/unordered_set.h"
+#include "thread_local_list.h"
 
 
 namespace lu {
