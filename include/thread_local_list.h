@@ -2,6 +2,7 @@
 #define __THREAD_LOCAL_LIST_H__
 
 #include <atomic>
+#include <cstddef>
 #include <functional>
 #include <utility>
 
@@ -17,7 +18,7 @@ namespace lu {
             : value(std::forward<Args>(args)...) {}
 
         bool try_acquire() {
-            return is_active.exchange(true, std::memory_order_acquire);
+            return !is_active.exchange(true, std::memory_order_acquire);
         }
 
         bool is_acquired() const {
@@ -74,7 +75,7 @@ namespace lu {
         }
 
         inline pointer operator->() const noexcept {
-            return current_node_->value;
+            return &current_node_->value;
         }
 
         friend bool operator==(const ThreadLocalListIterator &left, const ThreadLocalListIterator &right) {
@@ -137,7 +138,7 @@ namespace lu {
         }
 
         inline pointer operator->() const noexcept {
-            return current_node_->value;
+            return &current_node_->value;
         }
 
         friend bool operator==(const ThreadLocalListConstIterator &left, const ThreadLocalListConstIterator &right) {
@@ -167,6 +168,7 @@ namespace lu {
 
         using pointer = value_type *;
         using const_pointer = const value_type *;
+        using difference_type = std::ptrdiff_t;
 
         using reference = value_type &;
         using const_reference = const value_type &;
@@ -180,12 +182,17 @@ namespace lu {
 
     private:
         struct ThreadLocalOwner {
+            explicit ThreadLocalOwner(ThreadLocalList& list) 
+                : list(list) {}
+
             ~ThreadLocalOwner() {
-                list.detach(node);
+                if (node) {
+                    list.detach(node);
+                }
             }
 
             ThreadLocalList& list;
-            node_ptr node;
+            node_ptr node{};
         };
 
     public:
@@ -218,11 +225,19 @@ namespace lu {
             node->release();
         }
 
+        void attach() {
+            get_thread_local();
+        }
+
+        void detach() {
+            detach(get_thread_local().current_node_);
+        }
+
         void clear() {
             auto head = head_.load(std::memory_order_acquire);
             while (head) {
                 auto next = head->next;
-                release(head);
+                detach(head);
                 delete head;
                 head = next;
             }
@@ -273,7 +288,7 @@ namespace lu {
             if (found) {
                 return found;
             } else {
-                auto new_node = new node(constructor_());
+                auto new_node = new node(*this);
                 push_node(new_node);
                 return new_node;
             }
@@ -283,7 +298,7 @@ namespace lu {
             auto head = head_.load(std::memory_order_relaxed);
             do {
                 node->next = head;
-            } while (head_.compare_exchange_weak(head, node, std::memory_order_release));
+            } while (!head_.compare_exchange_weak(head, node, std::memory_order_release));
         }
 
         node_ptr find_free() {
@@ -298,9 +313,9 @@ namespace lu {
         }
 
     private:
-        std::function<ValueType()> constructor_;
-        std::function<void(ValueType*)> destructor_;
-        std::atomic<node_ptr> head_;
+        std::function<void(value_type*)> constructor_;
+        std::function<void(value_type*)> destructor_;
+        std::atomic<node_ptr> head_{};
     };
 
     template<class ValueType>
