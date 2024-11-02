@@ -181,7 +181,7 @@ namespace lu {
     private:
         struct ThreadLocalOwner {
             ~ThreadLocalOwner() {
-                list.release(node);
+                list.detach(node);
             }
 
             ThreadLocalList& list;
@@ -215,7 +215,7 @@ namespace lu {
 
         void release(iterator item) {
             auto node = item.current_node_;
-            release(node);
+            node->release();
         }
 
         void clear() {
@@ -263,7 +263,7 @@ namespace lu {
         }
 
     private:
-        void release(node_ptr node) {
+        void detach(node_ptr node) {
             destructor_(&node->value);
             node->release();
         }
