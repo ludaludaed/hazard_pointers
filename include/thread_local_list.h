@@ -8,6 +8,43 @@
 
 
 namespace lu {
+    template<class NodeTraits>
+    struct ThreadLocalListAlgo {
+        using node_traits = NodeTraits;
+        using node_ptr = typename node_traits::node_ptr;
+        using const_node_ptr = typename node_traits::const_node_ptr;
+
+        static bool is_acquired(node_ptr this_node) {
+            return node_traits::is_acquired(this_node);
+        }
+
+        static bool try_acquire(node_ptr this_node) {
+            return node_traits::try_acquire(this_node);
+        }
+
+        static void release(node_ptr this_node) {
+            node_traits::release(false);
+        }
+
+        static node_ptr find_free(std::atomic<node_ptr> &head) {
+            node_ptr current = head.load(std::memory_order_acquire);
+            while (current) {
+                if (try_acquire(current)) {
+                    break;
+                }
+                current = node_traits::gen_next(current);
+            }
+            return current;
+        }
+
+        static void push(std::atomic<node_ptr> &head, node_ptr new_node) {
+            node_ptr current = head.load(std::memory_order_relaxed);
+            do {
+                node_traits::set_next(new_node, current);
+            } while (!head.compare_exchange_weak(current, new_node, std::memory_order_release, std::memory_order_relaxed));
+        }
+    };
+
     template<class Types>
     class ThreadLocalListIterator {
         template<class>
@@ -23,6 +60,7 @@ namespace lu {
         using difference_type = typename Types::difference_type;
         using iterator_category = std::forward_iterator_tag;
 
+        using node_traits = typename Types::node_traits;
         using node_ptr = typename Types::node_ptr;
 
     private:
@@ -61,7 +99,7 @@ namespace lu {
 
     private:
         void Increment() {
-            current_node_ = current_node_->next;
+            current_node_ = node_traits::get_next(current_node_);
         }
 
     private:
@@ -83,6 +121,7 @@ namespace lu {
         using difference_type = typename Types::difference_type;
         using iterator_category = std::forward_iterator_tag;
 
+        using node_traits = typename Types::node_traits;
         using node_ptr = typename Types::node_ptr;
 
     private:
@@ -124,44 +163,54 @@ namespace lu {
 
     private:
         void Increment() {
-            current_node_ = current_node_->next;
+            current_node_ = node_traits::get_next(current_node_);
         }
 
     private:
         node_ptr current_node_{};
     };
 
-    template<class ValueType>
-    struct ThreadLocalNode {
+    class ThreadLocalNode {
+        friend class ThreadLocalNodeTraits;
+
         using pointer = ThreadLocalNode *;
         using const_pointer = const ThreadLocalNode *;
 
-        template<class... Args>
-        explicit ThreadLocalNode(Args &&...args)
-            : value(std::forward<Args>(args)...) {}
-
-        bool try_acquire() {
-            return !is_active.exchange(true, std::memory_order_acquire);
-        }
-
-        bool is_acquired() const {
-            return is_active.load(std::memory_order_relaxed);
-        }
-
-        void release() {
-            return is_active.store(false, std::memory_order_release);
-        }
-
-    public:
-        std::atomic<bool> is_active{true};
         pointer next{};
-        ValueType value;
+        std::atomic<bool> is_active{true};
+    };
+
+    struct ThreadLocalNodeTraits {
+        using node = ThreadLocalNode;
+        using node_ptr = typename node::pointer;
+        using const_node_ptr = typename node::const_pointer;
+
+        static node_ptr get_next(const_node_ptr this_node) {
+            return this_node->next;
+        }
+
+        static void set_next(node_ptr this_node, node_ptr next) {
+            this_node->next = next;
+        }
+
+        static bool is_acquired(node_ptr this_node, std::memory_order order = std::memory_order_relaxed) {
+            return this_node->is_active.load(order);
+        }
+
+        static bool try_acquire(node_ptr this_node, std::memory_order order = std::memory_order_acquire) {
+            return !this_node->is_active.exchange(true, order);
+        }
+
+        static void release(node_ptr this_node, std::memory_order order = std::memory_order_release) {
+            this_node->is_active.store(false, order);
+        }
     };
 
     template<class ValueType>
     class ThreadLocalList {
     private:
         using Self = ThreadLocalList<ValueType>;
+        using Algo = ThreadLocalListAlgo<ThreadLocalNodeTraits>;
 
     public:
         using value_type = ValueType;
@@ -176,13 +225,14 @@ namespace lu {
         using iterator = ThreadLocalListIterator<Self>;
         using const_iterator = ThreadLocalListConstIterator<Self>;
 
-        using node = ThreadLocalNode<ValueType>;
-        using node_ptr = typename node::pointer;
-        using const_node_ptr = typename node::const_pointer;
+        using node_traits = ThreadLocalNodeTraits;
+        using node = typename node_traits::node;
+        using node_ptr = typename node_traits::node_ptr;
+        using const_node_ptr = typename node_traits::const_node_ptr;
 
     private:
         struct ThreadLocalOwner {
-            explicit ThreadLocalOwner(ThreadLocalList& list) 
+            explicit ThreadLocalOwner(ThreadLocalList &list)
                 : list(list) {}
 
             ~ThreadLocalOwner() {
@@ -191,14 +241,14 @@ namespace lu {
                 }
             }
 
-            ThreadLocalList& list;
+            ThreadLocalList &list;
             node_ptr node{};
         };
 
     public:
-        template<class ConstructFunc, class DestructFunc>
-        ThreadLocalList(ConstructFunc construct, DestructFunc destruct) 
-            : constructor_(std::move(construct)),
+        template<class CreateFunc, class DestructFunc>
+        ThreadLocalList(CreateFunc creator, DestructFunc destruct)
+            : creator_(std::move(creator)),
               destructor_(std::move(destruct)) {}
 
         ThreadLocalList(const ThreadLocalList &) = delete;
@@ -212,17 +262,17 @@ namespace lu {
     public:
         bool try_acquire(iterator item) {
             auto node = item.current_node_;
-            return node->try_acquire();
+            return Algo::try_acquire(node);
         }
 
         bool is_acquired(const_iterator item) const {
             auto node = item.current_node_;
-            return node->is_acquired();
+            return Algo::is_acquired(node);
         }
 
         void release(iterator item) {
             auto node = item.current_node_;
-            node->release();
+            Algo::release(node);
         }
 
         void attach() {
@@ -236,7 +286,7 @@ namespace lu {
         void clear() {
             auto head = head_.load(std::memory_order_acquire);
             while (head) {
-                auto next = head->next;
+                auto next = node_traits::get_next(head);
                 detach(head);
                 delete head;
                 head = next;
@@ -245,7 +295,7 @@ namespace lu {
 
         iterator get_thread_local() {
             static thread_local ThreadLocalOwner owner(*this);
-            if (!owner.node) {
+            if (!owner.node) [[unlikely]] {
                 owner.node = find_or_create();
             }
             return iterator(owner.node);
@@ -279,42 +329,24 @@ namespace lu {
 
     private:
         void detach(node_ptr node) {
-            destructor_(&node->value);
-            node->release();
+            destructor_(static_cast<value_type *>(node));
+            Algo::release(node);
         }
 
         node_ptr find_or_create() {
-            auto found = find_free();
+            auto found = Algo::find_free(head_);
             if (found) {
                 return found;
             } else {
-                auto new_node = new node(*this);
-                push_node(new_node);
+                auto new_node = creator_();
+                Algo::push(head_, new_node);
                 return new_node;
             }
         }
 
-        void push_node(node_ptr node) {
-            auto head = head_.load(std::memory_order_relaxed);
-            do {
-                node->next = head;
-            } while (!head_.compare_exchange_weak(head, node, std::memory_order_release));
-        }
-
-        node_ptr find_free() {
-            auto head = head_.load(std::memory_order_acquire);
-            while (head) {
-                if (head->try_acquire()) {
-                    break;
-                }
-                head = head->next;
-            }
-            return head;
-        }
-
     private:
-        std::function<void(value_type*)> constructor_;
-        std::function<void(value_type*)> destructor_;
+        std::function<value_type *()> creator_;
+        std::function<void(value_type *)> destructor_;
         std::atomic<node_ptr> head_{};
     };
 
