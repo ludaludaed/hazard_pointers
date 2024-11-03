@@ -8,33 +8,6 @@
 
 
 namespace lu {
-    template<class ValueType>
-    struct ThreadLocalNode {
-        using pointer = ThreadLocalNode *;
-        using const_pointer = const ThreadLocalNode *;
-
-        template<class... Args>
-        explicit ThreadLocalNode(Args&&... args)
-            : value(std::forward<Args>(args)...) {}
-
-        bool try_acquire() {
-            return !is_active.exchange(true, std::memory_order_acquire);
-        }
-
-        bool is_acquired() const {
-            return is_active.load(std::memory_order_relaxed);
-        }
-
-        void release() {
-            return is_active.store(false, std::memory_order_release);
-        }
-
-    public:
-        std::atomic<bool> is_active{true};
-        pointer next{};
-        ValueType value;
-    };
-
     template<class Types>
     class ThreadLocalListIterator {
         template<class>
@@ -156,6 +129,33 @@ namespace lu {
 
     private:
         node_ptr current_node_{};
+    };
+
+    template<class ValueType>
+    struct ThreadLocalNode {
+        using pointer = ThreadLocalNode *;
+        using const_pointer = const ThreadLocalNode *;
+
+        template<class... Args>
+        explicit ThreadLocalNode(Args &&...args)
+            : value(std::forward<Args>(args)...) {}
+
+        bool try_acquire() {
+            return !is_active.exchange(true, std::memory_order_acquire);
+        }
+
+        bool is_acquired() const {
+            return is_active.load(std::memory_order_relaxed);
+        }
+
+        void release() {
+            return is_active.store(false, std::memory_order_release);
+        }
+
+    public:
+        std::atomic<bool> is_active{true};
+        pointer next{};
+        ValueType value;
     };
 
     template<class ValueType>

@@ -307,8 +307,7 @@ namespace lu {
     private:
         SlistIterator(node_ptr current_node, value_traits_ptr value_traits) noexcept
             : current_node_(current_node),
-              value_traits_(value_traits) {
-        }
+              value_traits_(value_traits) {}
 
     public:
         SlistIterator() noexcept = default;
@@ -374,8 +373,7 @@ namespace lu {
     private:
         SlistConstIterator(node_ptr current_node, value_traits_ptr value_traits) noexcept
             : current_node_(current_node),
-              value_traits_(value_traits) {
-        }
+              value_traits_(value_traits) {}
 
     public:
         SlistConstIterator() noexcept = default;
