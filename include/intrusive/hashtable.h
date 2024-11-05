@@ -734,7 +734,11 @@ namespace lu {
                            const bucket_traits &buckets = {},
                            const hasher &key_hash = {},
                            const key_equal &equal = {},
-                           const value_traits &value_traits = {}) {
+                           const value_traits &value_traits = {})
+            : BucketTraitsHolder(buckets),
+              KeyHashHolder(key_hash),
+              KeyEqualHolder(equal),
+              ValueTraitsHolder(value_traits) {
             Construct();
             insert(begin, end);
         }

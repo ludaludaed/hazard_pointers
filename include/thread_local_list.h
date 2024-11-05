@@ -1,10 +1,13 @@
 #ifndef __THREAD_LOCAL_LIST_H__
 #define __THREAD_LOCAL_LIST_H__
 
+#include "intrusive/base_value_traits.h"
 #include "intrusive/empty_base_holder.h"
+#include "intrusive/generic_hook.h"
 #include "intrusive/node_holder.h"
 #include <atomic>
 #include <functional>
+#include <type_traits>
 #include <utility>
 
 
@@ -221,11 +224,18 @@ namespace lu {
         }
     };
 
-    template<class ValueTraits>
-    class ThreadLocalList : public detail::EmptyBaseHolder<ValueTraits> {
+    template<class ValueTraits, class Detacher, class Creator, class Deleter>
+    class ThreadLocalList : private detail::EmptyBaseHolder<ValueTraits>,
+                            private detail::EmptyBaseHolder<Detacher>,
+                            private detail::EmptyBaseHolder<Creator>,
+                            private detail::EmptyBaseHolder<Deleter> {
+    private:
         using ValueTraitsHolder = detail::EmptyBaseHolder<ValueTraits>;
+        using DetacherHolder = detail::EmptyBaseHolder<Detacher>;
+        using CreatorHolder = detail::EmptyBaseHolder<Creator>;
+        using DeleterHolder = detail::EmptyBaseHolder<Deleter>;
 
-        using Self = ThreadLocalList<ValueTraits>;
+        using Self = ThreadLocalList<ValueTraits, Detacher, Creator, Deleter>;
         using Algo = ThreadLocalListAlgo<typename ValueTraits::node_traits>;
 
     public:
@@ -249,6 +259,10 @@ namespace lu {
         using value_traits = ValueTraits;
         using value_traits_ptr = const value_traits *;
 
+        using detacher = Detacher;
+        using creator = Creator;
+        using deleter = Deleter;
+
     private:
         struct ThreadLocalOwner {
             explicit ThreadLocalOwner(ThreadLocalList &list)
@@ -256,7 +270,7 @@ namespace lu {
 
             ~ThreadLocalOwner() {
                 if (node) {
-                    list.detach(node);
+                    list.Detach(node);
                 }
             }
 
@@ -265,11 +279,11 @@ namespace lu {
         };
 
     public:
-        template<class DetachFunc, class CreateFunc, class DeleterFunc>
-        ThreadLocalList(DetachFunc detacher, CreateFunc creator, DeleterFunc deleter)
-            : detacher_(std::move(detacher)),
-              creator_(std::move(creator)),
-              deleter_(std::move(deleter)) {}
+        ThreadLocalList(detacher detacher = {}, creator creator = {}, deleter deleter = {}, value_traits value_traits = {})
+            : DetacherHolder(std::move(detacher)),
+              CreatorHolder(std::move(creator)),
+              DeleterHolder(std::move(deleter)),
+              ValueTraitsHolder(std::move(value_traits)) {}
 
         ThreadLocalList(const ThreadLocalList &) = delete;
 
@@ -282,6 +296,35 @@ namespace lu {
     private:
         inline value_traits_ptr GetValueTraitsPtr() const noexcept {
             return std::pointer_traits<value_traits_ptr>::pointer_to(ValueTraitsHolder::get());
+        }
+
+        inline const detacher &GetDetacher() const noexcept {
+            return DetacherHolder::get();
+        }
+
+        inline const creator &GetCreator() const noexcept {
+            return CreatorHolder::get();
+        }
+
+        inline const deleter &GetDeleter() const noexcept {
+            return DeleterHolder::get();
+        }
+
+        void Detach(node_ptr node) {
+            const value_traits &_value_traits = ValueTraitsHolder::get();
+            GetDetacher()(_value_traits.to_value_ptr(node));
+            Algo::release(node);
+        }
+
+        node_ptr FindOrCreate() {
+            auto found = Algo::find_free(head_);
+            if (found) {
+                return found;
+            } else {
+                auto new_node = GetCreator()();
+                Algo::push(head_, new_node);
+                return new_node;
+            }
         }
 
     public:
@@ -302,7 +345,7 @@ namespace lu {
         }
 
         void detach() {
-            detach(get_thread_local().current_node_);
+            Detach(get_thread_local().current_node_);
         }
 
         void clear() {
@@ -310,8 +353,8 @@ namespace lu {
             auto head = head_.load(std::memory_order_acquire);
             while (head) {
                 auto next = node_traits::get_next(head);
-                detach(head);
-                deleter_(_value_traits.to_value_ptr(head));
+                Detach(head);
+                GetCreator()(_value_traits.to_value_ptr(head));
                 head = next;
             }
         }
@@ -319,7 +362,7 @@ namespace lu {
         iterator get_thread_local() {
             static thread_local ThreadLocalOwner owner(*this);
             if (!owner.node) [[unlikely]] {
-                owner.node = find_or_create();
+                owner.node = FindOrCreate();
             }
             return iterator(owner.node, GetValueTraitsPtr());
         }
@@ -351,28 +394,18 @@ namespace lu {
         }
 
     private:
-        void detach(node_ptr node) {
-            const value_traits &_value_traits = ValueTraitsHolder::get();
-            detacher_(_value_traits.to_value_ptr(node));
-            Algo::release(node);
-        }
-
-        node_ptr find_or_create() {
-            auto found = Algo::find_free(head_);
-            if (found) {
-                return found;
-            } else {
-                auto new_node = creator_();
-                Algo::push(head_, new_node);
-                return new_node;
-            }
-        }
-
-    private:
-        std::function<void(value_type *)> detacher_;
-        std::function<value_type *()> creator_;
-        std::function<void(value_type *)> deleter_;
         std::atomic<node_ptr> head_{};
+    };
+    struct DefaultThreadLocalListHookApplier {
+        template<class ValueType>
+        struct apply {
+            using type = typename hook_to_value_traits<ValueType, typename ValueType::thread_local_list_default_hook>::type;
+        };
+    };
+
+    template<class HookType>
+    struct ThreadLocalListDefaultHook {
+        using thread_local_list_default_hook = HookType;
     };
 
     template<class VoidPointer, class Tag>
@@ -386,6 +419,8 @@ namespace lu {
         using node = typename node_traits::node;
         using node_ptr = typename node_traits::node_ptr;
         using const_node_ptr = typename node_traits::const_node_ptr;
+
+        using hook_tags = detail::HookTags<NodeTraits, Tag, false>;
 
     public:
         bool try_acquire() {
@@ -407,6 +442,24 @@ namespace lu {
         const_node_ptr as_node_ptr() const noexcept {
             return std::pointer_traits<const_node_ptr>::pointer_to(static_cast<const node &>(*this));
         }
+    };
+
+    template<class VoidPointer, class Tag>
+    struct ThreadLocalListBaseHook : public ThreadLocalListHook<VoidPointer, Tag>,
+                                     public std::conditional_t<std::is_same_v<Tag, DefaultHookTag>, 
+                                                               ThreadLocalListDefaultHook<ThreadLocalListHook<VoidPointer, Tag>>,
+                                                               detail::NotDefaultHook> {};
+
+    struct ThreadLocalListDefaults {
+        using proto_value_traits = DefaultThreadLocalListHookApplier;
+        using detacher = void;
+        using creator = void;
+        using deleter = void;
+    };
+
+    struct ThreadLocalListHookDefaults {
+        using void_pointer = void *;
+        using tag = DefaultHookTag;
     };
 }// namespace lu
 
