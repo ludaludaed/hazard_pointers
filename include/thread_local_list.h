@@ -91,7 +91,7 @@ namespace lu {
         }
 
         inline pointer operator->() const noexcept {
-            return &current_node_->value;
+            return value_traits_->to_value_ptr(current_node_);
         }
 
         friend bool operator==(const ThreadLocalListIterator &left, const ThreadLocalListIterator &right) {
@@ -161,7 +161,7 @@ namespace lu {
         }
 
         inline pointer operator->() const noexcept {
-            return &current_node_->value;
+            return value_traits_->to_value_ptr(current_node_);
         }
 
         friend bool operator==(const ThreadLocalListConstIterator &left, const ThreadLocalListConstIterator &right) {
