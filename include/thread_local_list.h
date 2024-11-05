@@ -4,9 +4,12 @@
 #include "intrusive/base_value_traits.h"
 #include "intrusive/empty_base_holder.h"
 #include "intrusive/generic_hook.h"
+#include "intrusive/get_traits.h"
 #include "intrusive/node_holder.h"
+#include "intrusive/pack_options.h"
+#include "intrusive/utils.h"
 #include <atomic>
-#include <functional>
+#include <memory>
 #include <type_traits>
 #include <utility>
 
@@ -461,6 +464,92 @@ namespace lu {
         using void_pointer = void *;
         using tag = DefaultHookTag;
     };
+
+    template<class Pointer>
+    struct DefaultCreator {
+        static_assert(std::is_same_v<get_void_ptr_t<Pointer>, void*>, "The default creator can only work with void*");
+
+        using value_type = typename std::pointer_traits<Pointer>::element_type;
+
+        Pointer operator()() const {
+            return new value_type();
+        }
+    };
+
+    template<class Pointer>
+    struct DefaultDeleter {
+        static_assert(std::is_same_v<get_void_ptr_t<Pointer>, void*>, "The default deleter can only work with void*");
+
+        using value_type = typename std::pointer_traits<Pointer>::element_type;
+
+        void operator()(Pointer value) const {
+            delete value;
+        }
+    };
+    
+    template<class Pointer>
+    struct DefaultDetacher {
+        void operator()(Pointer value) const {}
+    };
+
+    template<class Creator, class>
+    struct get_creator {
+        using type = Creator;
+    };
+
+    template<class Pointer>
+    struct get_creator<void, Pointer> {
+        using type = DefaultCreator<Pointer>;
+    };
+
+    template<class Deleter, class>
+    struct get_deleter {
+        using type = Deleter;
+    };
+
+    template<class Pointer>
+    struct get_deleter<void, Pointer> {
+        using type = DefaultDeleter<Pointer>;
+    };
+
+    template<class Detacher, class>
+    struct get_detacher {
+        using type = Detacher;
+    };
+
+    template<class Pointer>
+    struct get_detacher<void, Pointer> {
+        using type = DefaultDetacher<Pointer>;
+    };
+
+    template<class ValueType, class... Options>
+    struct make_thread_local_list {
+        using pack_options = typename get_pack_options<ThreadLocalListDefaults, Options...>::type;
+
+        using value_traits = typename detail::get_value_traits<ValueType, typename pack_options::proto_value_traits>::type;
+
+        using detacher = get_creator<typename pack_options::detacher, typename value_traits::pointer>;
+        using creator = get_creator<typename pack_options::creator, typename value_traits::pointer>;
+        using deleter = get_creator<typename pack_options::deleter, typename value_traits::pointer>;
+
+        using type = ThreadLocalList<value_traits, detacher, creator, deleter>;
+    };
+
+    template<class... Options>
+    struct make_thread_local_list_base_hook {
+        using pack_options = typename get_pack_options<ThreadLocalListHookDefaults, Options...>::type;
+
+        using void_pointer = typename pack_options::void_pointer;
+        using tag = typename pack_options::tag;
+
+        using type = ThreadLocalListBaseHook<void_pointer, tag>;
+    };
+
+    template<class ValueType, class... Options>
+    using thread_local_list = typename make_thread_local_list<ValueType, Options...>::type;
+
+    template<class... Options>
+    using thread_local_list_base_hook = typename make_thread_local_list_base_hook<Options...>::type;
 }// namespace lu
 
 #endif
