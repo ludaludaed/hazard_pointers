@@ -534,7 +534,7 @@ namespace lu {
         using iterator_category = std::forward_iterator_tag;
 
         using value_traits = typename Types::value_traits;
-        using value_traits_ptr = typename std::pointer_traits<pointer>::template rebind<const value_traits>;
+        using value_traits_ptr = typename Types::const_value_traits_ptr;
 
         using node_traits = typename value_traits::node_traits;
         using node_ptr = typename node_traits::node_ptr;
@@ -603,7 +603,7 @@ namespace lu {
         using iterator_category = std::forward_iterator_tag;
 
         using value_traits = typename Types::value_traits;
-        using value_traits_ptr = typename std::pointer_traits<pointer>::template rebind<const value_traits>;
+        using value_traits_ptr = typename Types::const_value_traits_ptr;
 
         using node_traits = typename value_traits::node_traits;
         using node_ptr = typename node_traits::node_ptr;

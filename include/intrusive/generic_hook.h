@@ -59,7 +59,6 @@ namespace lu {
                 DeleterImpl(*this, get_bool_t<IsAutoUnlink>{});
             }
 
-        public:
             node_ptr as_node_ptr() noexcept {
                 return std::pointer_traits<node_ptr>::pointer_to(static_cast<node &>(*this));
             }

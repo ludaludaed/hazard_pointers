@@ -96,7 +96,7 @@ namespace lu {
 
         RetiredSet(const RetiredSet &) = delete;
 
-        RetiredSet(RetiredSet &&other) = delete;
+        RetiredSet(RetiredSet &&) = delete;
 
     public:
         void insert(reference value) noexcept {
@@ -160,9 +160,9 @@ namespace lu {
     public:
         HazardRecord() = default;
 
-        HazardRecord(const HazardRecord &other) = delete;
+        HazardRecord(const HazardRecord &) = delete;
 
-        HazardRecord(HazardRecord &&other) = delete;
+        HazardRecord(HazardRecord &&) = delete;
 
     public:
         inline void reset(const_pointer new_ptr = {}) {
@@ -203,7 +203,7 @@ namespace lu {
 
         HazardRecords(const HazardRecords &) = delete;
 
-        HazardRecords(HazardRecords &&other) = delete;
+        HazardRecords(HazardRecords &&) = delete;
 
     public:
         pointer acquire() noexcept {
@@ -376,9 +376,9 @@ namespace lu {
     public:
         HazardPointerDomain() = default;
 
-        HazardPointerDomain(const HazardPointerDomain &other) = delete;
+        HazardPointerDomain(const HazardPointerDomain &) = delete;
 
-        HazardPointerDomain(HazardPointerDomain &&other) = delete;
+        HazardPointerDomain(HazardPointerDomain &&) = delete;
 
         ~HazardPointerDomain() {
             HazardThreadData *current = get_head();
