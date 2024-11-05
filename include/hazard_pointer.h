@@ -383,7 +383,7 @@ namespace lu {
         ~HazardPointerDomain() {
             HazardThreadData *current = get_head();
             while (current) {
-                assert(!current->acquired());
+                assert(!current->is_acquired());
                 HazardThreadData *next = current->next_;
                 free_thread_data(current);
                 current = next;

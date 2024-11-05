@@ -19,6 +19,7 @@
 #include <ostream>
 #include <queue>
 #include <set>
+#include <span>
 #include <stack>
 #include <string_view>
 #include <thread>
@@ -27,7 +28,7 @@
 #include <unordered_set>
 #include <utility>
 #include <vector>
-#include <span>
+
 
 #include <hazard_pointer.h>
 #include <intrusive/forward_list.h>
@@ -37,6 +38,7 @@
 #include <shared_ptr.h>
 
 #include "ordered_list.h"
+#include "thread_local_list.h"
 
 struct A : lu::forward_list_hook<> {
     int a;
@@ -409,22 +411,47 @@ void abstractStressTest(Func &&func) {
     }
 }
 
+struct H : public lu::thread_local_list_base_hook<> {
+    int y = 10;
+};
+
+struct Detacher {
+    void operator()(H *ptr) const {
+        std::cout << "detach " << ptr->y << std::endl;
+    }
+};
+
 int main() {
     // hazard_pointer::ordered_list<int> list;
     // list.emplace(10);
     // std::cout << list.contains(10) << std::endl;
     // list.erase(10);
     // std::cout << list.contains(10) << std::endl;
-
     // for (int i = 0; i < 10; ++i) {
     //     list.insert(i);
     // }
     // list.clear();
     // std::cout << list.empty();
-    std::cout << sizeof(lu::unordered_set_base_hook<lu::store_hash<false>>) << std::endl;
-    std::cout << sizeof(lu::hazard_pointer_obj_base<int>) << std::endl;
 
-    for (int i = 0; i < 1; ++i) {
-        abstractStressTest(stressTest<hazard_pointer::TreiberStack<int, lu::YieldBackOff>>);
+    // std::cout << sizeof(lu::unordered_set_base_hook<lu::store_hash<false>>) << std::endl;
+    // std::cout << sizeof(lu::hazard_pointer_obj_base<int>) << std::endl;
+
+    // for (int i = 0; i < 1; ++i) {
+    //     abstractStressTest(stressTest<hazard_pointer::TreiberStack<int, lu::YieldBackOff>>);
+    // }
+
+    lu::thread_local_list<H, lu::detacher<Detacher>> list;
+
+    auto it = list.get_thread_local();
+    it->y = 1;
+
+    std::thread thr{[&]() {
+        auto it = list.get_thread_local();
+        it->y = 2;
+    }};
+
+    thr.join();
+    for (auto it = list.begin(); it != list.end(); ++it) {
+        std::cout << list.is_acquired(it) << " " << it->y << std::endl;
     }
 }
