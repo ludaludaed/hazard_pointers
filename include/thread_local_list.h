@@ -9,6 +9,7 @@
 #include "intrusive/pack_options.h"
 #include "intrusive/utils.h"
 #include <atomic>
+#include <cassert>
 #include <memory>
 #include <type_traits>
 #include <utility>
@@ -21,8 +22,8 @@ namespace lu {
         using node_ptr = typename node_traits::node_ptr;
         using const_node_ptr = typename node_traits::const_node_ptr;
 
-        static bool is_acquired(node_ptr this_node) {
-            return node_traits::load_active(this_node, std::memory_order_relaxed);
+        static bool is_acquired(node_ptr this_node, std::memory_order order = std::memory_order_relaxed) {
+            return node_traits::load_active(this_node, order);
         }
 
         static bool try_acquire(node_ptr this_node) {
@@ -268,25 +269,17 @@ namespace lu {
 
     private:
         struct ThreadLocalOwner {
-            ThreadLocalOwner(Self &list, Deleter deleter, ValueTraits value_traits)
-                : list_(list),
-                  deleter_(std::move(deleter)),
-                  value_traits_(std::move(value_traits)) {}
+            ThreadLocalOwner(Self &list)
+                : list(list) {}
 
             ~ThreadLocalOwner() {
-                if (node_) {
-                    if (Algo::is_acquired(node_)) {
-                        list_.Detach(node_);
-                    } else {
-                        deleter_(value_traits_.to_value_ptr(node_));
-                    }
+                if (node) {
+                    list.detach_thread();
                 }
             }
 
-            Self &list_;
-            deleter deleter_;
-            value_traits value_traits_;
-            node_ptr node_{};
+            Self &list;
+            node_ptr node{};
         };
 
     public:
@@ -325,12 +318,9 @@ namespace lu {
             return ValueTraitsHolder::get();
         }
 
-        void Detach(node_ptr node) {
-            const value_traits &_value_traits = GetValueTraits();
-            if (Algo::is_acquired(node)) {
-                GetDetacher()(_value_traits.to_value_ptr(node));
-                Algo::release(node);
-            }
+        inline ThreadLocalOwner& GetOwner() {
+            static thread_local ThreadLocalOwner owner(*this);
+            return owner;
         }
 
         node_ptr FindOrCreate() {
@@ -357,35 +347,41 @@ namespace lu {
             Algo::release(item.current_node_);
         }
 
-        void attach() {
-            get_thread_local();
+        void attach_thread() {
+            auto& owner = GetOwner();
+            if (!owner.node) [[likely]] {
+                owner.node = FindOrCreate();
+            }
         }
 
-        void detach() {
-            Detach(get_thread_local().current_node_);
+        void detach_thread() {
+            auto& owner = GetOwner();
+            const value_traits &_value_traits = GetValueTraits();
+            GetDetacher()(_value_traits.to_value_ptr(owner.node));
+            Algo::release(owner.node);
+            owner.node = {};
         }
 
         void clear() {
             const value_traits &_value_traits = GetValueTraits();
-            auto head = head_.load(std::memory_order_acquire);
-            while (head) {
-                auto next = node_traits::get_next(head);
-                if (Algo::is_acquired(head)) {
-                    GetDetacher()(_value_traits.to_value_ptr(head));
-                    Algo::release(head);
-                } else {
-                    GetDeleter()(_value_traits.to_value_ptr(head));
+            auto current = head_.load(std::memory_order_acquire);
+            while (current) {
+                auto next = node_traits::get_next(current);
+                bool acquired = Algo::is_acquired(current, std::memory_order_acquire);
+                assert(!acquired && "Can't clear while all threads aren't detached");
+                if (!acquired) {
+                    GetDeleter()(_value_traits.to_value_ptr(current));
                 }
-                head = next;
+                current = next;
             }
         }
 
         iterator get_thread_local() {
-            static thread_local ThreadLocalOwner owner(*this, GetDeleter(), GetValueTraits());
-            if (!owner.node_) [[unlikely]] {
-                owner.node_ = FindOrCreate();
+            auto& owner = GetOwner();
+            if (!owner.node) [[unlikely]] {
+                owner.node = FindOrCreate();
             }
-            return iterator(owner.node_, GetValueTraitsPtr());
+            return iterator(owner.node, GetValueTraitsPtr());
         }
 
         iterator begin() {

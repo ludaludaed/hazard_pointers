@@ -454,4 +454,6 @@ int main() {
     for (auto it = list.begin(); it != list.end(); ++it) {
         std::cout << list.is_acquired(it) << " " << it->y << std::endl;
     }
+
+    list.detach_thread();
 }
