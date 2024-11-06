@@ -440,7 +440,7 @@ int main() {
     //     abstractStressTest(stressTest<hazard_pointer::TreiberStack<int, lu::YieldBackOff>>);
     // }
 
-    lu::thread_local_list<H, lu::detacher<Detacher>> list;
+    lu::thread_local_list<H> list(Detacher{});
 
     auto it = list.get_thread_local();
     it->y = 1;

@@ -10,6 +10,7 @@
 #include "intrusive/utils.h"
 #include <atomic>
 #include <cassert>
+#include <functional>
 #include <memory>
 #include <type_traits>
 #include <utility>
@@ -55,7 +56,7 @@ namespace lu {
 
     template<class Types>
     class ThreadLocalListIterator {
-        template<class, class, class, class>
+        template<class>
         friend class ThreadLocalList;
 
         template<class>
@@ -121,7 +122,7 @@ namespace lu {
 
     template<class Types>
     class ThreadLocalListConstIterator {
-        template<class, class, class, class>
+        template<class>
         friend class ThreadLocalList;
 
     private:
@@ -228,18 +229,39 @@ namespace lu {
         }
     };
 
-    template<class ValueTraits, class Detacher, class Creator, class Deleter>
-    class ThreadLocalList : private detail::EmptyBaseHolder<ValueTraits>,
-                            private detail::EmptyBaseHolder<Detacher>,
-                            private detail::EmptyBaseHolder<Creator>,
-                            private detail::EmptyBaseHolder<Deleter> {
+    template<class Pointer>
+    struct DefaultDetacher {
+        void operator()(Pointer value) const {}
+    };
+
+    template<class Pointer>
+    struct DefaultCreator {
+        static_assert(std::is_same_v<get_void_ptr_t<Pointer>, void *>, "The default creator can only work with void*");
+
+        using value_type = typename std::pointer_traits<Pointer>::element_type;
+
+        Pointer operator()() const {
+            return new value_type();
+        }
+    };
+
+    template<class Pointer>
+    struct DefaultDeleter {
+        static_assert(std::is_same_v<get_void_ptr_t<Pointer>, void *>, "The default deleter can only work with void*");
+
+        using value_type = typename std::pointer_traits<Pointer>::element_type;
+
+        void operator()(Pointer value) const {
+            delete value;
+        }
+    };
+
+    template<class ValueTraits>
+    class ThreadLocalList : private detail::EmptyBaseHolder<ValueTraits> {
     private:
         using ValueTraitsHolder = detail::EmptyBaseHolder<ValueTraits>;
-        using DetacherHolder = detail::EmptyBaseHolder<Detacher>;
-        using CreatorHolder = detail::EmptyBaseHolder<Creator>;
-        using DeleterHolder = detail::EmptyBaseHolder<Deleter>;
 
-        using Self = ThreadLocalList<ValueTraits, Detacher, Creator, Deleter>;
+        using Self = ThreadLocalList<ValueTraits>;
         using Algo = ThreadLocalListAlgo<typename ValueTraits::node_traits>;
 
     public:
@@ -263,10 +285,6 @@ namespace lu {
         using value_traits = ValueTraits;
         using value_traits_ptr = const value_traits *;
 
-        using detacher = Detacher;
-        using creator = Creator;
-        using deleter = Deleter;
-
     private:
         struct ThreadLocalOwner {
             ThreadLocalOwner(Self &list)
@@ -283,10 +301,16 @@ namespace lu {
         };
 
     public:
-        ThreadLocalList(detacher detacher = {}, creator creator = {}, deleter deleter = {}, value_traits value_traits = {})
-            : DetacherHolder(std::move(detacher)),
-              CreatorHolder(std::move(creator)),
-              DeleterHolder(std::move(deleter)),
+        template<class Detacher = DefaultDetacher<pointer>,
+                 class Creator = DefaultCreator<pointer>,
+                 class Deleter = DefaultDeleter<pointer>>
+        explicit ThreadLocalList(Detacher detacher = {},
+                                 Creator creator = {},
+                                 Deleter deleter = {},
+                                 value_traits value_traits = {})
+            : detacher_(std::move(detacher)),
+              creator_(std::move(creator)),
+              deleter_(std::move(deleter)),
               ValueTraitsHolder(std::move(value_traits)) {}
 
         ThreadLocalList(const ThreadLocalList &) = delete;
@@ -302,23 +326,11 @@ namespace lu {
             return std::pointer_traits<value_traits_ptr>::pointer_to(ValueTraitsHolder::get());
         }
 
-        inline const detacher &GetDetacher() const noexcept {
-            return DetacherHolder::get();
-        }
-
-        inline const creator &GetCreator() const noexcept {
-            return CreatorHolder::get();
-        }
-
-        inline const deleter &GetDeleter() const noexcept {
-            return DeleterHolder::get();
-        }
-
         inline const value_traits &GetValueTraits() const noexcept {
             return ValueTraitsHolder::get();
         }
 
-        inline ThreadLocalOwner& GetOwner() {
+        inline ThreadLocalOwner &GetOwner() {
             static thread_local ThreadLocalOwner owner(*this);
             return owner;
         }
@@ -328,7 +340,7 @@ namespace lu {
             if (found) {
                 return found;
             } else {
-                auto new_node = GetCreator()();
+                auto new_node = creator_();
                 Algo::push_front(head_, new_node);
                 return new_node;
             }
@@ -348,16 +360,16 @@ namespace lu {
         }
 
         void attach_thread() {
-            auto& owner = GetOwner();
+            auto &owner = GetOwner();
             if (!owner.node) [[likely]] {
                 owner.node = FindOrCreate();
             }
         }
 
         void detach_thread() {
-            auto& owner = GetOwner();
+            auto &owner = GetOwner();
             const value_traits &_value_traits = GetValueTraits();
-            GetDetacher()(_value_traits.to_value_ptr(owner.node));
+            detacher_(_value_traits.to_value_ptr(owner.node));
             Algo::release(owner.node);
             owner.node = {};
         }
@@ -370,14 +382,14 @@ namespace lu {
                 bool acquired = Algo::is_acquired(current, std::memory_order_acquire);
                 assert(!acquired && "Can't clear while all threads aren't detached");
                 if (!acquired) {
-                    GetDeleter()(_value_traits.to_value_ptr(current));
+                    deleter_(_value_traits.to_value_ptr(current));
                 }
                 current = next;
             }
         }
 
         iterator get_thread_local() {
-            auto& owner = GetOwner();
+            auto &owner = GetOwner();
             if (!owner.node) [[unlikely]] {
                 owner.node = FindOrCreate();
             }
@@ -412,18 +424,9 @@ namespace lu {
 
     private:
         std::atomic<node_ptr> head_{};
-    };
-
-    struct DefaultThreadLocalListHookApplier {
-        template<class ValueType>
-        struct apply {
-            using type = typename hook_to_value_traits<ValueType, typename ValueType::thread_local_list_default_hook>::type;
-        };
-    };
-
-    template<class HookType>
-    struct ThreadLocalListDefaultHook {
-        using thread_local_list_default_hook = HookType;
+        std::function<void(pointer)> detacher_;
+        std::function<pointer()> creator_;
+        std::function<void(pointer)> deleter_;
     };
 
     template<class VoidPointer, class Tag>
@@ -462,6 +465,18 @@ namespace lu {
         }
     };
 
+    struct DefaultThreadLocalListHookApplier {
+        template<class ValueType>
+        struct apply {
+            using type = typename hook_to_value_traits<ValueType, typename ValueType::thread_local_list_default_hook>::type;
+        };
+    };
+
+    template<class HookType>
+    struct ThreadLocalListDefaultHook {
+        using thread_local_list_default_hook = HookType;
+    };
+
     template<class VoidPointer, class Tag>
     struct ThreadLocalListBaseHook : public ThreadLocalListHook<VoidPointer, Tag>,
                                      public std::conditional_t<std::is_same_v<Tag, DefaultHookTag>,
@@ -470,95 +485,11 @@ namespace lu {
 
     struct ThreadLocalListDefaults {
         using proto_value_traits = DefaultThreadLocalListHookApplier;
-        using detacher = void;
-        using creator = void;
-        using deleter = void;
     };
 
     struct ThreadLocalListHookDefaults {
         using void_pointer = void *;
         using tag = DefaultHookTag;
-    };
-
-    template<class Pointer>
-    struct DefaultCreator {
-        static_assert(std::is_same_v<get_void_ptr_t<Pointer>, void *>, "The default creator can only work with void*");
-
-        using value_type = typename std::pointer_traits<Pointer>::element_type;
-
-        Pointer operator()() const {
-            return new value_type();
-        }
-    };
-
-    template<class Pointer>
-    struct DefaultDeleter {
-        static_assert(std::is_same_v<get_void_ptr_t<Pointer>, void *>, "The default deleter can only work with void*");
-
-        using value_type = typename std::pointer_traits<Pointer>::element_type;
-
-        void operator()(Pointer value) const {
-            delete value;
-        }
-    };
-
-    template<class Pointer>
-    struct DefaultDetacher {
-        void operator()(Pointer value) const {}
-    };
-
-    template<class Creator, class>
-    struct GetCreator {
-        using type = Creator;
-    };
-
-    template<class Pointer>
-    struct GetCreator<void, Pointer> {
-        using type = DefaultCreator<Pointer>;
-    };
-
-    template<class Deleter, class>
-    struct GetDeleter {
-        using type = Deleter;
-    };
-
-    template<class Pointer>
-    struct GetDeleter<void, Pointer> {
-        using type = DefaultDeleter<Pointer>;
-    };
-
-    template<class Detacher, class>
-    struct GetDetacher {
-        using type = Detacher;
-    };
-
-    template<class Pointer>
-    struct GetDetacher<void, Pointer> {
-        using type = DefaultDetacher<Pointer>;
-    };
-
-    template<class Detacher>
-    struct detacher {
-        template<class Base>
-        struct pack : public Base {
-            using detacher = Detacher;
-        };
-    };
-
-    template<class Creator>
-    struct creator {
-        template<class Base>
-        struct pack : public Base {
-            using creator = Creator;
-        };
-    };
-
-    template<class Deleter>
-    struct deleter {
-        template<class Base>
-        struct pack : public Base {
-            using deleter = Deleter;
-        };
     };
 
     template<class ValueType, class... Options>
@@ -567,11 +498,7 @@ namespace lu {
 
         using value_traits = typename detail::get_value_traits<ValueType, typename pack_options::proto_value_traits>::type;
 
-        using detacher = GetDetacher<typename pack_options::detacher, typename value_traits::pointer>::type;
-        using creator = GetCreator<typename pack_options::creator, typename value_traits::pointer>::type;
-        using deleter = GetDeleter<typename pack_options::deleter, typename value_traits::pointer>::type;
-
-        using type = ThreadLocalList<value_traits, detacher, creator, deleter>;
+        using type = ThreadLocalList<value_traits>;
     };
 
     template<class... Options>
