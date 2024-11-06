@@ -268,17 +268,25 @@ namespace lu {
 
     private:
         struct ThreadLocalOwner {
-            explicit ThreadLocalOwner(ThreadLocalList &list)
-                : list(list) {}
+            ThreadLocalOwner(Self &list, Deleter deleter, ValueTraits value_traits)
+                : list_(list),
+                  deleter_(std::move(deleter)),
+                  value_traits_(std::move(value_traits)) {}
 
             ~ThreadLocalOwner() {
-                if (node) {
-                    list.Detach(node);
+                if (node_) {
+                    if (Algo::is_acquired(node_)) {
+                        list_.Detach(node_);
+                    } else {
+                        deleter_(value_traits_.to_value_ptr(node_));
+                    }
                 }
             }
 
-            ThreadLocalList &list;
-            node_ptr node{};
+            Self &list_;
+            deleter deleter_;
+            value_traits value_traits_;
+            node_ptr node_{};
         };
 
     public:
@@ -313,12 +321,13 @@ namespace lu {
             return DeleterHolder::get();
         }
 
+        inline const value_traits &GetValueTraits() const noexcept {
+            return ValueTraitsHolder::get();
+        }
+
         void Detach(node_ptr node) {
-            const value_traits &_value_traits = ValueTraitsHolder::get();
-            if (!Algo::is_acquired(node)) {
-                // TODO Deleter can be destroyed
-                GetDeleter()(_value_traits.to_value_ptr(node));
-            } else {
+            const value_traits &_value_traits = GetValueTraits();
+            if (Algo::is_acquired(node)) {
                 GetDetacher()(_value_traits.to_value_ptr(node));
                 Algo::release(node);
             }
@@ -357,7 +366,7 @@ namespace lu {
         }
 
         void clear() {
-            const value_traits &_value_traits = ValueTraitsHolder::get();
+            const value_traits &_value_traits = GetValueTraits();
             auto head = head_.load(std::memory_order_acquire);
             while (head) {
                 auto next = node_traits::get_next(head);
@@ -372,11 +381,11 @@ namespace lu {
         }
 
         iterator get_thread_local() {
-            static thread_local ThreadLocalOwner owner(*this);
-            if (!owner.node) [[unlikely]] {
-                owner.node = FindOrCreate();
+            static thread_local ThreadLocalOwner owner(*this, GetDeleter(), GetValueTraits());
+            if (!owner.node_) [[unlikely]] {
+                owner.node_ = FindOrCreate();
             }
-            return iterator(owner.node, GetValueTraitsPtr());
+            return iterator(owner.node_, GetValueTraitsPtr());
         }
 
         iterator begin() {
