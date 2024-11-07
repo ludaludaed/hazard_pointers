@@ -24,7 +24,6 @@ namespace lu {
     class HazardObject : public HazardPointerHook {
         friend class HazardThreadData;
         friend class HazardPointerDomain;
-
         template<class, class>
         friend class HazardPointerObjBase;
 
@@ -359,9 +358,8 @@ namespace lu {
                     continue;
                 }
                 auto &records = current->records_;
-                for (auto it = records.begin(); it != records.end(); ++it) {
-                    auto record = it->get();
-                    auto found = retires.find(record);
+                for (auto record = records.begin(); record != records.end(); ++record) {
+                    auto found = retires.find(record->get());
                     if (found != retires.end()) {
                         found->make_protected();
                     }
