@@ -22,6 +22,7 @@ namespace lu {
     using HazardPointerHook = lu::unordered_set_base_hook<lu::tag<HazardPointerTag>, lu::store_hash<false>, lu::is_auto_unlink<false>>;
 
     class HazardObject : public HazardPointerHook {
+        friend class HazardThreadData;
         friend class HazardPointerDomain;
 
         template<class, class>
@@ -164,7 +165,6 @@ namespace lu {
 
         HazardRecord(HazardRecord &&) = delete;
 
-    public:
         inline void reset(const_pointer new_ptr = {}) {
             protected_.store(new_ptr);
         }
@@ -249,214 +249,149 @@ namespace lu {
         lu::forward_list<HazardRecord> free_list_;
     };
 
+    class HazardThreadData : public lu::thread_local_list_base_hook<> {
+        friend class HazardPointerDomain;
+
+    public:
+        HazardThreadData() = default;
+
+        HazardThreadData(const HazardThreadData &) = delete;
+
+        HazardThreadData(HazardThreadData &&) = delete;
+
+        ~HazardThreadData() {
+            clear();
+        }
+
+        void clear() {
+            auto current = retires_.begin();
+            while (current != retires_.end()) {
+                auto prev = current++;
+                destroy_retired(*prev);
+            }
+        }
+
+        void destroy_retired(HazardObject &retired) {
+            retires_.erase(retired);
+            retired.reclaim();
+        }
+
+        bool retire(HazardObject &retired) {
+            retires_.insert(retired);
+            return retires_.size() >= scan_threshold;
+        }
+
+        void merge(HazardThreadData &other) {
+            retires_.merge(other.retires_);
+        }
+
+        HazardRecord *acquire_record() noexcept {
+            return records_.acquire();
+        }
+
+        void release_record(HazardRecord *record) noexcept {
+            records_.release(record);
+        }
+
+    private:
+        constexpr static std::size_t scan_threshold = 64;
+        HazardRecords records_{};
+        RetiredSet retires_{};
+    };
+
     class HazardPointerDomain {
-        class HazardThreadData {
-            friend class HazardPointerDomain;
-
-            friend class HazardThreadDataOwner;
-
-        public:
-            explicit HazardThreadData(HazardPointerDomain &domain) noexcept
+        struct Detacher {
+            explicit Detacher(HazardPointerDomain *domain)
                 : domain_(domain) {}
 
-            HazardThreadData(const HazardThreadData &) = delete;
-
-            HazardThreadData(HazardThreadData &&) = delete;
-
-            ~HazardThreadData() {
-                clear();
+            void operator()(HazardThreadData *) const {
+                domain_->help_scan();
             }
 
         private:
-            bool is_acquired() noexcept {
-                return in_use_.load();
-            }
-
-            bool try_acquire() noexcept {
-                return !in_use_.exchange(true);
-            }
-
-            void release() noexcept {
-                in_use_.store(false);
-            }
-
-            void destroy_retired(HazardObject &retired) noexcept {
-                retires_.erase(retired);
-                retired.reclaim();
-            }
-
-        public:
-            void clear() {
-                auto current = retires_.begin();
-                while (current != retires_.end()) {
-                    auto prev = current++;
-                    destroy_retired(*prev);
-                }
-            }
-
-            HazardRecord *acquire_record() noexcept {
-                return records_.acquire();
-            }
-
-            void release_record(HazardRecord *record) noexcept {
-                records_.release(record);
-            }
-
-            void retire(HazardObject *retired) noexcept {
-                retires_.insert(*retired);
-                if (retires_.size() >= scan_threshold) [[unlikely]] {
-                    scan();
-                }
-            }
-
-            void scan() {
-                for (auto current = domain_.get_head(); current; current = current->next_) {
-                    if (!current->is_acquired()) {
-                        continue;
-                    }
-                    auto &records = current->records_;
-                    for (auto it = records.begin(); it != records.end(); ++it) {
-                        auto record = it->get();
-                        auto found = retires_.find(record);
-                        if (found != retires_.end()) {
-                            found->make_protected();
-                        }
-                    }
-                }
-
-                auto current = retires_.begin();
-                while (current != retires_.end()) {
-                    auto prev = current++;
-                    if (prev->is_protected()) {
-                        prev->make_unprotected();
-                    } else {
-                        destroy_retired(*prev);
-                    }
-                }
-            }
-
-            void help_scan() {
-                for (auto current = domain_.get_head(); current; current = current->next_) {
-                    if (current->try_acquire()) {
-                        retires_.merge(current->retires_);
-                        current->release();
-                    }
-                }
-                scan();
-            }
-
-        private:
-            constexpr static std::size_t scan_threshold = 64;
-
-            HazardPointerDomain &domain_;
-
-            HazardRecords records_{};
-            RetiredSet retires_{};
-
-            std::atomic<bool> in_use_{true};
-            HazardThreadData *next_{};
+            HazardPointerDomain *domain_;
         };
 
-        struct HazardThreadDataOwner {
-            ~HazardThreadDataOwner() {
-                detach();
+        struct Creator {
+            HazardThreadData *operator()() const {
+                return new HazardThreadData();
             }
-
-            void detach() {
-                if (thread_data) [[likely]] {
-                    thread_data->help_scan();
-                    thread_data->release();
-                    thread_data = {};
-                }
-            }
-
-            HazardThreadData *thread_data{};
         };
 
     public:
-        HazardPointerDomain() = default;
+        HazardPointerDomain() : list_(Detacher(this), Creator()) {}
 
         HazardPointerDomain(const HazardPointerDomain &) = delete;
 
         HazardPointerDomain(HazardPointerDomain &&) = delete;
 
-        ~HazardPointerDomain() {
-            HazardThreadData *current = get_head();
-            while (current) {
-                assert(!current->is_acquired());
-                HazardThreadData *next = current->next_;
-                free_thread_data(current);
-                current = next;
-            }
-        }
-
         void attach_thread() {
-            get_thread_data();
+            list_.attach_thread();
         }
 
         void detach_thread() {
-            auto &owner = get_thread_data_owner();
-            owner.detach();
+            list_.detach_thread();
         }
 
         void retire(HazardObject *retired) {
-            auto thread_data = get_thread_data();
-            thread_data->retire(retired);
+            auto thread_data = list_.get_thread_local();
+            if (thread_data->retire(*retired)) [[unlikely]] {
+                scan();
+            }
         }
 
         HazardRecord *acquire_record() noexcept {
-            auto thread_data = get_thread_data();
+            auto thread_data = list_.get_thread_local();
             return thread_data->acquire_record();
         }
 
         void release_record(HazardRecord *record) noexcept {
-            auto thread_data = get_thread_data();
+            auto thread_data = list_.get_thread_local();
             thread_data->release_record(record);
         }
 
     private:
-        HazardThreadData *allocate_thread_data() {
-            return new HazardThreadData(*this);
-        }
-
-        void free_thread_data(HazardThreadData *thread_data) {
-            delete thread_data;
-        }
-
-        HazardThreadData *get_thread_data() noexcept {
-            auto &owner = get_thread_data_owner();
-            if (!owner.thread_data) {
-                HazardThreadData *current = get_head();
-                while (current) {
-                    if (current->try_acquire()) {
-                        owner.thread_data = current;
-                        return owner.thread_data;
-                    }
-                    current = current->next_;
+        void scan() {
+            auto thread_data = list_.get_thread_local();
+            auto& retires = thread_data->retires_;
+            for (auto current = list_.begin(); current != list_.end(); ++current) {
+                if (!current->is_acquired()) {
+                    continue;
                 }
-                HazardThreadData *new_thread_data = allocate_thread_data();
-                new_thread_data->next_ = get_head();
-                while (true) {
-                    if (head_.compare_exchange_weak(new_thread_data->next_, new_thread_data)) {
-                        break;
+                auto &records = current->records_;
+                for (auto it = records.begin(); it != records.end(); ++it) {
+                    auto record = it->get();
+                    auto found = retires.find(record);
+                    if (found != retires.end()) {
+                        found->make_protected();
                     }
                 }
-                owner.thread_data = new_thread_data;
             }
-            return owner.thread_data;
+
+            auto current = retires.begin();
+            while (current != retires.end()) {
+                auto prev = current++;
+                if (prev->is_protected()) {
+                    prev->make_unprotected();
+                } else {
+                    thread_data->destroy_retired(*prev);
+                }
+            }
         }
 
-        HazardThreadData *get_head() noexcept {
-            return head_.load();
-        }
-
-        HazardThreadDataOwner &get_thread_data_owner() {
-            static thread_local HazardThreadDataOwner owner;
-            return owner;
+        void help_scan() {
+            auto thread_data = list_.get_thread_local();
+            for (auto current = list_.begin(); current != list_.end(); ++current) {
+                if (current->try_acquire()) {
+                    thread_data->merge(*current);
+                    current->release();
+                }
+            }
+            scan();
         }
 
     private:
-        std::atomic<HazardThreadData *> head_{};
+        lu::thread_local_list<HazardThreadData> list_;
     };
 
     inline HazardPointerDomain &get_default_domain() {
