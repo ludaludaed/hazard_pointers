@@ -1,6 +1,7 @@
 #ifndef __THREAD_LOCAL_LIST_H__
 #define __THREAD_LOCAL_LIST_H__
 
+#include "fixed_size_function.h"
 #include "intrusive/base_value_traits.h"
 #include "intrusive/empty_base_holder.h"
 #include "intrusive/generic_hook.h"
@@ -424,9 +425,9 @@ namespace lu {
 
     private:
         std::atomic<node_ptr> head_{};
-        std::function<void(pointer)> detacher_;
-        std::function<pointer()> creator_;
-        std::function<void(pointer)> deleter_;
+        lu::fixed_size_function<void(pointer), 64> detacher_;
+        lu::fixed_size_function<pointer(), 64> creator_;
+        lu::fixed_size_function<void(pointer), 64> deleter_;
     };
 
     template<class VoidPointer, class Tag>

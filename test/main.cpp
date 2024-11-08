@@ -1,4 +1,5 @@
 #include "back_off.h"
+#include "fixed_size_function.h"
 #include "intrusive/empty_base_holder.h"
 #include "intrusive/options.h"
 #include <algorithm>
@@ -421,6 +422,22 @@ struct Detacher {
     }
 };
 
+struct Foo {
+    Foo() = default;
+
+    Foo(const Foo& f) {
+        std::cout << "copy" << std::endl;
+    }
+
+    Foo(Foo&& f) {
+        std::cout << "move" << std::endl;
+    }
+
+    ~Foo() {
+        std::cout << "destruct" << std::endl;
+    }
+};
+
 int main() {
     // hazard_pointer::ordered_list<int> list;
     // list.emplace(10);
@@ -435,25 +452,33 @@ int main() {
 
     std::cout << sizeof(lu::unordered_set_base_hook<lu::store_hash<false>>) << std::endl;
     std::cout << sizeof(lu::hazard_pointer_obj_base<int>) << std::endl;
-
     for (int i = 0; i < 1; ++i) {
         abstractStressTest(stressTest<hazard_pointer::TreiberStack<int, lu::YieldBackOff>>);
     }
 
-    // lu::thread_local_list<H> list(Detacher{});
+    // lu::fixed_size_function<int(int), 64> func;
+    // func = [f = Foo()](int v) {
+    //     return v;
+    // };
+    // std::cout << func(10) << std::endl;
+    // lu::fixed_size_function<int(int), 64> func1 = func;
+    // lu::fixed_size_function<int(int), 64> func2 = std::move(func);
+    // func = [](int v) {
+    //     return v + 100;
+    // };
+    // std::cout << func(10) << std::endl;
+    // std::cout << func2(10) << std::endl;
 
+    // lu::thread_local_list<H> list(Detacher{});
     // auto it = list.get_thread_local();
     // it->y = 1;
-
     // std::thread thr{[&]() {
     //     auto it = list.get_thread_local();
     //     it->y = 2;
     // }};
-
     // thr.join();
     // for (auto it = list.begin(); it != list.end(); ++it) {
     //     std::cout << list.is_acquired(it) << " " << it->y << std::endl;
     // }
-
     // list.detach_thread();
 }
