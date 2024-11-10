@@ -347,16 +347,19 @@ namespace lu {
         }
 
     public:
-        bool try_acquire(iterator item) {
-            return Algo::try_acquire(item.current_node_);
+        bool try_acquire(reference item) {
+            const value_traits &_value_traits = GetValueTraits();
+            return Algo::try_acquire(_value_traits.to_node_ptr(item));
         }
 
-        bool is_acquired(const_iterator item) const {
-            return Algo::is_acquired(item.current_node_);
+        bool is_acquired(reference item, std::memory_order order = std::memory_order_relaxed) const {
+            const value_traits &_value_traits = GetValueTraits();
+            return Algo::is_acquired(_value_traits.to_node_ptr(item), order);
         }
 
-        void release(iterator item) {
-            Algo::release(item.current_node_);
+        void release(reference item) {
+            const value_traits &_value_traits = GetValueTraits();
+            Algo::release(_value_traits.to_node_ptr(item));
         }
 
         void attach_thread() {
@@ -367,8 +370,8 @@ namespace lu {
         }
 
         void detach_thread() {
-            auto &owner = GetOwner();
             const value_traits &_value_traits = GetValueTraits();
+            auto &owner = GetOwner();
             detacher_(_value_traits.to_value_ptr(owner.node));
             Algo::release(owner.node);
             owner.node = {};
@@ -376,7 +379,7 @@ namespace lu {
 
         void clear() {
             const value_traits &_value_traits = GetValueTraits();
-            auto current = head_.load(std::memory_order_acquire);
+            auto current = head_.exchange({}, std::memory_order_acquire);
             while (current) {
                 auto next = node_traits::get_next(current);
                 bool acquired = Algo::is_acquired(current, std::memory_order_acquire);
@@ -388,12 +391,13 @@ namespace lu {
             }
         }
 
-        iterator get_thread_local() {
+        reference get_thread_local() {
+            const value_traits &_value_traits = GetValueTraits();
             auto &owner = GetOwner();
             if (!owner.node) [[unlikely]] {
                 owner.node = FindOrCreate();
             }
-            return iterator(owner.node, GetValueTraitsPtr());
+            return *_value_traits.to_value_ptr(owner.node);
         }
 
         iterator begin() {
@@ -448,8 +452,8 @@ namespace lu {
             return Algo::try_acquire(as_node_ptr());
         }
 
-        bool is_acquired() {
-            return Algo::is_acquired(as_node_ptr());
+        bool is_acquired(std::memory_order order = std::memory_order_relaxed) {
+            return Algo::is_acquired(as_node_ptr(), order);
         }
 
         void release() {

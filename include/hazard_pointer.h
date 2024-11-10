@@ -333,26 +333,26 @@ namespace lu {
         }
 
         void retire(HazardObject *retired) {
-            auto thread_data = list_.get_thread_local();
-            if (thread_data->retire(*retired)) [[unlikely]] {
+            auto &thread_data = list_.get_thread_local();
+            if (thread_data.retire(*retired)) [[unlikely]] {
                 scan();
             }
         }
 
         HazardRecord *acquire_record() noexcept {
-            auto thread_data = list_.get_thread_local();
-            return thread_data->acquire_record();
+            auto &thread_data = list_.get_thread_local();
+            return thread_data.acquire_record();
         }
 
         void release_record(HazardRecord *record) noexcept {
-            auto thread_data = list_.get_thread_local();
-            thread_data->release_record(record);
+            auto &thread_data = list_.get_thread_local();
+            thread_data.release_record(record);
         }
 
     private:
         void scan() {
-            auto thread_data = list_.get_thread_local();
-            auto& retires = thread_data->retires_;
+            auto &thread_data = list_.get_thread_local();
+            auto &retires = thread_data.retires_;
             for (auto current = list_.begin(); current != list_.end(); ++current) {
                 if (!current->is_acquired()) {
                     continue;
@@ -372,16 +372,16 @@ namespace lu {
                 if (prev->is_protected()) {
                     prev->make_unprotected();
                 } else {
-                    thread_data->destroy_retired(*prev);
+                    thread_data.destroy_retired(*prev);
                 }
             }
         }
 
         void help_scan() {
-            auto thread_data = list_.get_thread_local();
+            auto &thread_data = list_.get_thread_local();
             for (auto current = list_.begin(); current != list_.end(); ++current) {
                 if (current->try_acquire()) {
-                    thread_data->merge(*current);
+                    thread_data.merge(*current);
                     current->release();
                 }
             }
