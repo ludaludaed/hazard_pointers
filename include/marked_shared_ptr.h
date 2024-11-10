@@ -161,11 +161,11 @@ namespace lu {
         using control_block_ptr = typename ref_count_ptr::control_block_ptr;
 
         static control_block_ptr get_control_block(ref_count_ptr &ptr) {
-            return ptr.get_control_block();
+            return ptr.GetControlBlock();
         }
 
         static control_block_ptr release_ptr(ref_count_ptr &ptr) {
-            return ptr.release();
+            return ptr.Release();
         }
 
         static ref_count_ptr create_ptr(control_block_ptr control_block) {

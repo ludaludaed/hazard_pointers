@@ -422,10 +422,10 @@ namespace lu {
 
     template<class ValueTraits, class SizeType>
     class IntrusiveSlist
-        : private detail::EmptyBaseHolder<ValueTraits, detail::value_traits_tag>,
+        : private detail::EmptyBaseHolder<ValueTraits, detail::ValueTraitsTag>,
           private detail::EmptyBaseHolder<detail::SizeTraits<SizeType, !ValueTraits::is_auto_unlink>> {
     private:
-        using ValueTraitsHolder = detail::EmptyBaseHolder<ValueTraits, detail::value_traits_tag>;
+        using ValueTraitsHolder = detail::EmptyBaseHolder<ValueTraits, detail::ValueTraitsTag>;
         using SizeTraitsHolder = detail::EmptyBaseHolder<detail::SizeTraits<SizeType, !ValueTraits::is_auto_unlink>>;
 
         using SizeTraits = detail::SizeTraits<SizeType, !ValueTraits::is_auto_unlink>;
@@ -868,7 +868,7 @@ namespace lu {
     struct DefaultSlistHookApplier {
         template<class ValueType>
         struct apply {
-            using type = typename hook_to_value_traits<ValueType, typename ValueType::slist_default_hook_type>::type;
+            using type = typename HookToValueTraits<ValueType, typename ValueType::slist_default_hook_type>::type;
         };
     };
 

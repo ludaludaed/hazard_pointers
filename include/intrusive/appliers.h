@@ -9,7 +9,7 @@ namespace lu {
         struct BaseHookApplier {
             template<class ValueType>
             struct apply {
-                using type = typename hook_to_value_traits<ValueType, HookType>::type;
+                using type = typename HookToValueTraits<ValueType, HookType>::type;
             };
         };
 

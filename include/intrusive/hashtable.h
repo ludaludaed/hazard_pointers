@@ -663,18 +663,18 @@ namespace lu {
 
     template<class ValueTraits, class BucketTraits, class KeyOfValue, class KeyHash, class KeyEqual, class SizeType, bool IsMulti>
     class IntrusiveHashtable
-        : private detail::EmptyBaseHolder<ValueTraits, detail::value_traits_tag>,
-          private detail::EmptyBaseHolder<BucketTraits, detail::bucket_traits_tag>,
-          private detail::EmptyBaseHolder<KeyOfValue, detail::key_of_value_tag>,
-          private detail::EmptyBaseHolder<KeyHash, detail::key_hash_tag>,
-          private detail::EmptyBaseHolder<KeyEqual, detail::key_equal_tag>,
+        : private detail::EmptyBaseHolder<ValueTraits, detail::ValueTraitsTag>,
+          private detail::EmptyBaseHolder<BucketTraits, detail::BucketTraitsTag>,
+          private detail::EmptyBaseHolder<KeyOfValue, detail::keyOfValueTag>,
+          private detail::EmptyBaseHolder<KeyHash, detail::KeyHashTag>,
+          private detail::EmptyBaseHolder<KeyEqual, detail::KeyEqualTag>,
           private detail::EmptyBaseHolder<detail::SizeTraits<SizeType, !ValueTraits::is_auto_unlink>> {
     private:
-        using ValueTraitsHolder = detail::EmptyBaseHolder<ValueTraits, detail::value_traits_tag>;
-        using BucketTraitsHolder = detail::EmptyBaseHolder<BucketTraits, detail::bucket_traits_tag>;
-        using KeyOfValueHolder = detail::EmptyBaseHolder<KeyOfValue, detail::key_of_value_tag>;
-        using KeyHashHolder = detail::EmptyBaseHolder<KeyHash, detail::key_hash_tag>;
-        using KeyEqualHolder = detail::EmptyBaseHolder<KeyEqual, detail::key_equal_tag>;
+        using ValueTraitsHolder = detail::EmptyBaseHolder<ValueTraits, detail::ValueTraitsTag>;
+        using BucketTraitsHolder = detail::EmptyBaseHolder<BucketTraits, detail::BucketTraitsTag>;
+        using KeyOfValueHolder = detail::EmptyBaseHolder<KeyOfValue, detail::keyOfValueTag>;
+        using KeyHashHolder = detail::EmptyBaseHolder<KeyHash, detail::KeyHashTag>;
+        using KeyEqualHolder = detail::EmptyBaseHolder<KeyEqual, detail::KeyEqualTag>;
         using SizeTraitsHolder = detail::EmptyBaseHolder<detail::SizeTraits<SizeType, !ValueTraits::is_auto_unlink>>;
 
         using SizeTraits = detail::SizeTraits<SizeType, !ValueTraits::is_auto_unlink>;
@@ -1274,7 +1274,7 @@ namespace lu {
     struct DefaultHashtableHookApplier {
         template<class ValueType>
         struct apply {
-            using type = typename hook_to_value_traits<ValueType, typename ValueType::hashtable_default_hook_type>::type;
+            using type = typename HookToValueTraits<ValueType, typename ValueType::hashtable_default_hook_type>::type;
         };
     };
 
@@ -1324,32 +1324,32 @@ namespace lu {
     };
 
     template<class KeyOfValue, class>
-    struct get_key_of_value {
+    struct GetKeyOfValue {
         using type = KeyOfValue;
     };
 
     template<class ValueType>
-    struct get_key_of_value<void, ValueType> {
+    struct GetKeyOfValue<void, ValueType> {
         using type = DefaultKeyOfValue<ValueType>;
     };
 
     template<class KeyEqual, class>
-    struct get_equal_to {
+    struct GetEqualTo {
         using type = KeyEqual;
     };
 
     template<class ValueType>
-    struct get_equal_to<void, ValueType> {
+    struct GetEqualTo<void, ValueType> {
         using type = DefaultEqualTo<ValueType>;
     };
 
     template<class Hash, class>
-    struct get_hash {
+    struct GetHash {
         using type = Hash;
     };
 
     template<class ValueType>
-    struct get_hash<void, ValueType> {
+    struct GetHash<void, ValueType> {
         using type = DefaultKeyHash<ValueType>;
     };
 

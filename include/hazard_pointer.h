@@ -152,7 +152,7 @@ namespace lu {
         SetOfRetired retired_set_;
     };
 
-    class HazardRecord : public lu::forward_list_hook<> {
+    class HazardRecord : public lu::forward_list_base_hook<> {
     public:
         using pointer = HazardObject *;
         using const_pointer = const HazardObject *;

@@ -41,7 +41,7 @@
 #include "ordered_list.h"
 #include "thread_local_list.h"
 
-struct A : lu::forward_list_hook<> {
+struct A : lu::forward_list_base_hook<> {
     int a;
 };
 
@@ -425,11 +425,11 @@ struct Detacher {
 struct Foo {
     Foo() = default;
 
-    Foo(const Foo& f) {
+    Foo(const Foo &f) {
         std::cout << "copy" << std::endl;
     }
 
-    Foo(Foo&& f) {
+    Foo(Foo &&f) {
         std::cout << "move" << std::endl;
     }
 
@@ -453,7 +453,7 @@ int main() {
     std::cout << sizeof(lu::unordered_set_base_hook<lu::store_hash<false>>) << std::endl;
     std::cout << sizeof(lu::hazard_pointer_obj_base<int>) << std::endl;
     for (int i = 0; i < 1; ++i) {
-        abstractStressTest(stressTest<hazard_pointer::TreiberStack<int, lu::YieldBackOff>>);
+        abstractStressTest(stressTest<atomic_shared_ptr::TreiberStack<int, lu::YieldBackOff>>);
     }
 
     // lu::fixed_size_function<int(int), 64> func;

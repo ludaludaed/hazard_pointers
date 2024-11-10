@@ -57,7 +57,7 @@ namespace lu {
     };
 
     template<class ValueType, class HookType>
-    struct hook_to_value_traits {
+    struct HookToValueTraits {
         using tags = typename HookType::hook_tags;
         using type = BaseValueTraits<ValueType, typename tags::node_traits, typename tags::tag, tags::is_auto_unlink>;
     };

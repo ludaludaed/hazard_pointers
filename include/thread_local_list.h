@@ -472,7 +472,7 @@ namespace lu {
     struct DefaultThreadLocalListHookApplier {
         template<class ValueType>
         struct apply {
-            using type = typename hook_to_value_traits<ValueType, typename ValueType::thread_local_list_default_hook>::type;
+            using type = typename HookToValueTraits<ValueType, typename ValueType::thread_local_list_default_hook>::type;
         };
     };
 
@@ -498,16 +498,16 @@ namespace lu {
 
     template<class ValueType, class... Options>
     struct make_thread_local_list {
-        using pack_options = typename get_pack_options<ThreadLocalListDefaults, Options...>::type;
+        using pack_options = typename GetPackOptions<ThreadLocalListDefaults, Options...>::type;
 
-        using value_traits = typename detail::get_value_traits<ValueType, typename pack_options::proto_value_traits>::type;
+        using value_traits = typename detail::GetValueTraits<ValueType, typename pack_options::proto_value_traits>::type;
 
         using type = ThreadLocalList<value_traits>;
     };
 
     template<class... Options>
     struct make_thread_local_list_base_hook {
-        using pack_options = typename get_pack_options<ThreadLocalListHookDefaults, Options...>::type;
+        using pack_options = typename GetPackOptions<ThreadLocalListHookDefaults, Options...>::type;
 
         using void_pointer = typename pack_options::void_pointer;
         using tag = typename pack_options::tag;

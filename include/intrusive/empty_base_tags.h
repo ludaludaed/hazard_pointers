@@ -3,15 +3,15 @@
 
 namespace lu {
     namespace detail {
-        class value_traits_tag {};
+        class ValueTraitsTag {};
 
-        class bucket_traits_tag {};
+        class BucketTraitsTag {};
 
-        class key_of_value_tag {};
+        class keyOfValueTag {};
 
-        class key_hash_tag {};
+        class KeyHashTag {};
 
-        class key_equal_tag {};
+        class KeyEqualTag {};
     }// namespace detail
 }// namespace lu
 

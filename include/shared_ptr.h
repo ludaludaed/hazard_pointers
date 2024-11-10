@@ -21,11 +21,11 @@ namespace lu {
     struct ControlBlockDeleter {
         template<class ControlBlock>
         void operator()(ControlBlock *ptr) {
-            ptr->do_retire_deleter();
+            ptr->DoRetireDeleter();
         }
     };
 
-    class ControlBlock : public lu::forward_list_hook<lu::is_auto_unlink<false>>,
+    class ControlBlock : public lu::forward_list_base_hook<lu::is_auto_unlink<false>>,
                          public lu::hazard_pointer_obj_base<ControlBlock, ControlBlockDeleter> {
     public:
         friend struct ControlBlockDeleter;
@@ -33,10 +33,10 @@ namespace lu {
     public:
         ControlBlock() = default;
 
-        virtual ~ControlBlock() {};
+        virtual ~ControlBlock() = default;
 
     public:
-        inline bool inc_ref_if_not_zero(std::int64_t num = 1) noexcept {
+        inline bool IncRefIfNotZero(std::int64_t num = 1) noexcept {
             std::int64_t expected = ref_count_.load();
             while (expected != 0) {
                 if (ref_count_.compare_exchange_weak(expected, expected + num)) {
@@ -46,7 +46,7 @@ namespace lu {
             return false;
         }
 
-        inline bool inc_weak_if_not_zero(std::int64_t num = 1) noexcept {
+        inline bool IncWeakIfNotZero(std::int64_t num = 1) noexcept {
             std::int64_t expected = weak_count_.load();
             while (expected != 0) {
                 if (weak_count_.compare_exchange_weak(expected, expected + num)) {
@@ -56,23 +56,23 @@ namespace lu {
             return false;
         }
 
-        inline void inc_ref(std::int64_t num = 1) noexcept {
+        inline void IncRef(std::int64_t num = 1) noexcept {
             ref_count_.fetch_add(num);
         }
 
-        inline void inc_weak(std::int64_t num = 1) noexcept {
+        inline void IncWeak(std::int64_t num = 1) noexcept {
             weak_count_.fetch_add(num);
         }
 
-        inline void dec_ref(std::int64_t num = 1) noexcept {
+        inline void DecRef(std::int64_t num = 1) noexcept {
             if (ref_count_.fetch_sub(num) <= num) {
-                destroy_control_block();
+                DestroyControlBlock();
             }
         }
 
-        inline void dec_weak(std::int64_t num = 1) noexcept {
+        inline void DecWeak(std::int64_t num = 1) noexcept {
             if (weak_count_.fetch_sub(num) <= num) {
-                delete_this();
+                DeleteThis();
             }
         }
 
@@ -83,13 +83,13 @@ namespace lu {
         virtual void *get() const noexcept = 0;
 
     private:
-        virtual void delete_this() noexcept = 0;
+        virtual void DeleteThis() noexcept = 0;
 
-        virtual void dispose() noexcept = 0;
+        virtual void Dispose() noexcept = 0;
 
-        virtual void do_retire_deleter() = 0;
+        virtual void DoRetireDeleter() = 0;
 
-        void destroy_control_block() {
+        void DestroyControlBlock() {
             thread_local lu::forward_list<ControlBlock> list{};
             thread_local bool in_progress{false};
 
@@ -99,8 +99,8 @@ namespace lu {
                 while (!list.empty()) {
                     auto &popped = list.front();
                     list.pop_front();
-                    popped.dispose();
-                    popped.dec_weak();
+                    popped.Dispose();
+                    popped.DecWeak();
                 }
                 in_progress = false;
             }
@@ -132,15 +132,15 @@ namespace lu {
         }
 
     private:
-        void delete_this() noexcept override {
+        void DeleteThis() noexcept override {
             this->retire();
         }
 
-        void dispose() noexcept override {
+        void Dispose() noexcept override {
             deleter_(value_ptr_);
         }
 
-        void do_retire_deleter() override {
+        void DoRetireDeleter() override {
             allocator_type copy = allocator_;
             allocator_traits::destroy(copy, this);
             allocator_traits::deallocate(copy, this, 1);
@@ -173,15 +173,15 @@ namespace lu {
         }
 
     private:
-        void delete_this() noexcept override {
+        void DeleteThis() noexcept override {
             this->retire();
         }
 
-        void dispose() noexcept override {
+        void Dispose() noexcept override {
             data_.destroy();
         }
 
-        void do_retire_deleter() override {
+        void DoRetireDeleter() override {
             allocator_type copy = allocator_;
             allocator_traits::destroy(copy, this);
             allocator_traits::deallocate(copy, this, 1);
@@ -366,21 +366,21 @@ namespace lu {
 
         void IncRef() noexcept {
             if (control_block_) {
-                control_block_->inc_ref();
+                control_block_->IncRef();
             }
         }
 
         void DecRef() noexcept {
             if (control_block_) {
-                control_block_->dec_ref();
+                control_block_->DecRef();
             }
         }
 
-        control_block_ptr get_control_block() const noexcept {
+        control_block_ptr GetControlBlock() const noexcept {
             return control_block_;
         }
 
-        control_block_ptr release() {
+        control_block_ptr Release() {
             auto old = control_block_;
             control_block_ = {};
             value_ = {};
@@ -502,7 +502,7 @@ namespace lu {
             }
         }
 
-        control_block_ptr get_control_block() const noexcept {
+        control_block_ptr GetControlBlock() const noexcept {
             return control_block_;
         }
 
@@ -786,11 +786,11 @@ namespace lu {
         using control_block_ptr = typename ref_count_ptr::control_block_ptr;
 
         static control_block_ptr get_control_block(ref_count_ptr &ptr) {
-            return ptr.get_control_block();
+            return ptr.GetControlBlock();
         }
 
         static control_block_ptr release_ptr(ref_count_ptr &ptr) {
-            return ptr.release();
+            return ptr.Release();
         }
 
         static ref_count_ptr create_ptr(control_block_ptr control_block) {
@@ -798,15 +798,15 @@ namespace lu {
         }
 
         static void dec_ref(control_block_ptr control_block) {
-            control_block->dec_ref();
+            control_block->DecRef();
         }
 
         static void inc_ref(control_block_ptr control_block) {
-            control_block->inc_ref();
+            control_block->IncRef();
         }
 
         static bool inc_ref_if_not_zero(control_block_ptr control_block) {
-            return control_block->inc_ref_if_not_zero();
+            return control_block->IncRefIfNotZero();
         }
     };
 
