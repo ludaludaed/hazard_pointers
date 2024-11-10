@@ -450,10 +450,11 @@ int main() {
     // list.clear();
     // std::cout << list.empty();
 
-    std::cout << sizeof(lu::unordered_set_base_hook<lu::store_hash<false>>) << std::endl;
-    std::cout << sizeof(lu::hazard_pointer_obj_base<int>) << std::endl;
+    // std::cout << sizeof(lu::unordered_set_base_hook<lu::store_hash<false>>) << std::endl;
+    // std::cout << sizeof(lu::hazard_pointer_obj_base<int>) << std::endl;
+
     for (int i = 0; i < 1; ++i) {
-        abstractStressTest(stressTest<atomic_shared_ptr::TreiberStack<int, lu::YieldBackOff>>);
+        abstractStressTest(stressTest<hazard_pointer::TreiberStack<int, lu::YieldBackOff>>);
     }
 
     // lu::fixed_size_function<int(int), 64> func;
@@ -470,15 +471,15 @@ int main() {
     // std::cout << func2(10) << std::endl;
 
     // lu::thread_local_list<H> list(Detacher{});
-    // auto it = list.get_thread_local();
-    // it->y = 1;
+    // auto& it = list.get_thread_local();
+    // it.y = 1;
     // std::thread thr{[&]() {
-    //     auto it = list.get_thread_local();
-    //     it->y = 2;
+    //     auto& it = list.get_thread_local();
+    //     it.y = 2;
     // }};
     // thr.join();
     // for (auto it = list.begin(); it != list.end(); ++it) {
-    //     std::cout << list.is_acquired(it) << " " << it->y << std::endl;
+    //     std::cout << list.is_acquired(*it) << " " << it->y << std::endl;
     // }
     // list.detach_thread();
 }

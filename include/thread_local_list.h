@@ -18,7 +18,7 @@
 
 namespace lu {
     template<class NodeTraits>
-    struct ThreadLocalListAlgo {
+    struct ActiveListAlgo {
         using node_traits = NodeTraits;
         using node_ptr = typename node_traits::node_ptr;
         using const_node_ptr = typename node_traits::const_node_ptr;
@@ -51,6 +51,81 @@ namespace lu {
             do {
                 node_traits::set_next(new_node, current);
             } while (!head.compare_exchange_weak(current, new_node, std::memory_order_release, std::memory_order_relaxed));
+        }
+    };
+
+    template<class VoidPointer>
+    class ActiveListNode {
+        template<class>
+        friend class ActiveListNodeTraits;
+
+        using pointer = typename std::pointer_traits<VoidPointer>::template rebind<ActiveListNode>;
+        using const_pointer = typename std::pointer_traits<pointer>::template rebind<const ActiveListNode>;
+
+        pointer next{};
+        std::atomic<bool> is_active{true};
+    };
+
+    template<class VoidPointer>
+    struct ActiveListNodeTraits {
+        using node = ActiveListNode<VoidPointer>;
+        using node_ptr = typename node::pointer;
+        using const_node_ptr = typename node::const_pointer;
+
+        static node_ptr get_next(const_node_ptr this_node) {
+            return this_node->next;
+        }
+
+        static void set_next(node_ptr this_node, node_ptr next) {
+            this_node->next = next;
+        }
+
+        static bool exchange_active(node_ptr this_node, bool value, std::memory_order order) {
+            return this_node->is_active.exchange(value, order);
+        }
+
+        static bool load_active(node_ptr this_node, std::memory_order order) {
+            return this_node->is_active.load(order);
+        }
+
+        static void store_active(node_ptr this_node, bool value, std::memory_order order) {
+            this_node->is_active.store(value, order);
+        }
+    };
+
+    template<class VoidPointer, class Tag>
+    class ActiveListHook : public NodeHolder<ActiveListNode<VoidPointer>, Tag> {
+        using NodeTraits = ActiveListNodeTraits<VoidPointer>;
+        using Algo = ActiveListAlgo<NodeTraits>;
+
+    public:
+        using node_traits = NodeTraits;
+
+        using node = typename node_traits::node;
+        using node_ptr = typename node_traits::node_ptr;
+        using const_node_ptr = typename node_traits::const_node_ptr;
+
+        using hook_tags = detail::HookTags<NodeTraits, Tag, false>;
+
+    public:
+        bool try_acquire() {
+            return Algo::try_acquire(as_node_ptr());
+        }
+
+        bool is_acquired(std::memory_order order = std::memory_order_relaxed) {
+            return Algo::is_acquired(as_node_ptr(), order);
+        }
+
+        void release() {
+            Algo::release(as_node_ptr());
+        }
+
+        node_ptr as_node_ptr() noexcept {
+            return std::pointer_traits<node_ptr>::pointer_to(static_cast<node &>(*this));
+        }
+
+        const_node_ptr as_node_ptr() const noexcept {
+            return std::pointer_traits<const_node_ptr>::pointer_to(static_cast<const node &>(*this));
         }
     };
 
@@ -190,79 +265,39 @@ namespace lu {
         value_traits_ptr value_traits_{};
     };
 
-    template<class VoidPointer>
-    class ThreadLocalNode {
-        template<class>
-        friend class ThreadLocalNodeTraits;
-
-        using pointer = typename std::pointer_traits<VoidPointer>::template rebind<ThreadLocalNode>;
-        using const_pointer = typename std::pointer_traits<pointer>::template rebind<const ThreadLocalNode>;
-
-        pointer next{};
-        std::atomic<bool> is_active{true};
-    };
-
-    template<class VoidPointer>
-    struct ThreadLocalNodeTraits {
-        using node = ThreadLocalNode<VoidPointer>;
-        using node_ptr = typename node::pointer;
-        using const_node_ptr = typename node::const_pointer;
-
-        static node_ptr get_next(const_node_ptr this_node) {
-            return this_node->next;
-        }
-
-        static void set_next(node_ptr this_node, node_ptr next) {
-            this_node->next = next;
-        }
-
-        static bool exchange_active(node_ptr this_node, bool value, std::memory_order order) {
-            return this_node->is_active.exchange(value, order);
-        }
-
-        static bool load_active(node_ptr this_node, std::memory_order order) {
-            return this_node->is_active.load(order);
-        }
-
-        static void store_active(node_ptr this_node, bool value, std::memory_order order) {
-            this_node->is_active.store(value, order);
-        }
-    };
-
-    template<class Pointer>
-    struct DefaultDetacher {
-        void operator()(Pointer value) const {}
-    };
-
-    template<class Pointer>
-    struct DefaultCreator {
-        static_assert(std::is_same_v<get_void_ptr_t<Pointer>, void *>, "The default creator can only work with void*");
-
-        using value_type = typename std::pointer_traits<Pointer>::element_type;
-
-        Pointer operator()() const {
-            return new value_type();
-        }
-    };
-
-    template<class Pointer>
-    struct DefaultDeleter {
-        static_assert(std::is_same_v<get_void_ptr_t<Pointer>, void *>, "The default deleter can only work with void*");
-
-        using value_type = typename std::pointer_traits<Pointer>::element_type;
-
-        void operator()(Pointer value) const {
-            delete value;
-        }
-    };
-
     template<class ValueTraits>
     class ThreadLocalList : private detail::EmptyBaseHolder<ValueTraits> {
-    private:
         using ValueTraitsHolder = detail::EmptyBaseHolder<ValueTraits>;
 
         using Self = ThreadLocalList<ValueTraits>;
-        using Algo = ThreadLocalListAlgo<typename ValueTraits::node_traits>;
+        using Algo = ActiveListAlgo<typename ValueTraits::node_traits>;
+
+        template<class Pointer>
+        struct DefaultDetacher {
+            void operator()(Pointer value) const {}
+        };
+
+        template<class Pointer>
+        struct DefaultCreator {
+            static_assert(std::is_same_v<get_void_ptr_t<Pointer>, void *>, "The default creator can only work with void*");
+
+            using value_type = typename std::pointer_traits<Pointer>::element_type;
+
+            Pointer operator()() const {
+                return new value_type();
+            }
+        };
+
+        template<class Pointer>
+        struct DefaultDeleter {
+            static_assert(std::is_same_v<get_void_ptr_t<Pointer>, void *>, "The default deleter can only work with void*");
+
+            using value_type = typename std::pointer_traits<Pointer>::element_type;
+
+            void operator()(Pointer value) const {
+                delete value;
+            }
+        };
 
     public:
         using value_type = typename ValueTraits::value_type;
@@ -433,42 +468,6 @@ namespace lu {
         lu::fixed_size_function<void(pointer), 64> deleter_;
     };
 
-    template<class VoidPointer, class Tag>
-    class ThreadLocalListHook : public NodeHolder<ThreadLocalNode<VoidPointer>, Tag> {
-        using NodeTraits = ThreadLocalNodeTraits<VoidPointer>;
-        using Algo = ThreadLocalListAlgo<NodeTraits>;
-
-    public:
-        using node_traits = NodeTraits;
-
-        using node = typename node_traits::node;
-        using node_ptr = typename node_traits::node_ptr;
-        using const_node_ptr = typename node_traits::const_node_ptr;
-
-        using hook_tags = detail::HookTags<NodeTraits, Tag, false>;
-
-    public:
-        bool try_acquire() {
-            return Algo::try_acquire(as_node_ptr());
-        }
-
-        bool is_acquired(std::memory_order order = std::memory_order_relaxed) {
-            return Algo::is_acquired(as_node_ptr(), order);
-        }
-
-        void release() {
-            Algo::release(as_node_ptr());
-        }
-
-        node_ptr as_node_ptr() noexcept {
-            return std::pointer_traits<node_ptr>::pointer_to(static_cast<node &>(*this));
-        }
-
-        const_node_ptr as_node_ptr() const noexcept {
-            return std::pointer_traits<const_node_ptr>::pointer_to(static_cast<const node &>(*this));
-        }
-    };
-
     struct DefaultThreadLocalListHookApplier {
         template<class ValueType>
         struct apply {
@@ -482,9 +481,9 @@ namespace lu {
     };
 
     template<class VoidPointer, class Tag>
-    struct ThreadLocalListBaseHook : public ThreadLocalListHook<VoidPointer, Tag>,
+    struct ThreadLocalListBaseHook : public ActiveListHook<VoidPointer, Tag>,
                                      public std::conditional_t<std::is_same_v<Tag, DefaultHookTag>,
-                                                               ThreadLocalListDefaultHook<ThreadLocalListHook<VoidPointer, Tag>>,
+                                                               ThreadLocalListDefaultHook<ActiveListHook<VoidPointer, Tag>>,
                                                                detail::NotDefaultHook> {};
 
     struct ThreadLocalListDefaults {

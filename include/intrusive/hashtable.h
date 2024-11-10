@@ -1288,8 +1288,7 @@ namespace lu {
     };
 
     template<class HookType>
-    class HashtableDefaultHook {
-    public:
+    struct HashtableDefaultHook {
         using hashtable_default_hook_type = HookType;
     };
 

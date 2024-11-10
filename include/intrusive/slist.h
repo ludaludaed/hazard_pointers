@@ -873,8 +873,7 @@ namespace lu {
     };
 
     template<class HookType>
-    class DefaultSlistHook {
-    public:
+    struct DefaultSlistHook {
         using slist_default_hook_type = HookType;
     };
 
