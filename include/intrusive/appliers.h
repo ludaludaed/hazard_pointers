@@ -8,7 +8,7 @@ namespace lu {
         template<class HookType>
         struct BaseHookApplier {
             template<class ValueType>
-            struct apply {
+            struct Apply {
                 using type = typename HookToValueTraits<ValueType, HookType>::type;
             };
         };
@@ -16,7 +16,7 @@ namespace lu {
         template<class ValueTraits>
         struct ValueTraitsApplier {
             template<class... Dummy>
-            struct apply {
+            struct Apply {
                 using type = ValueTraits;
             };
         };
@@ -24,7 +24,7 @@ namespace lu {
         template<class BucketTraits>
         struct BucketTraitsApplier {
             template<class... Dummy>
-            struct apply {
+            struct Apply {
                 using type = BucketTraits;
             };
         };

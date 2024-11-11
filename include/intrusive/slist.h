@@ -867,7 +867,7 @@ namespace lu {
 
     struct DefaultSlistHookApplier {
         template<class ValueType>
-        struct apply {
+        struct Apply {
             using type = typename HookToValueTraits<ValueType, typename ValueType::slist_default_hook_type>::type;
         };
     };

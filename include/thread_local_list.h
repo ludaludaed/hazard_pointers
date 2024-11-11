@@ -470,7 +470,7 @@ namespace lu {
 
     struct DefaultThreadLocalListHookApplier {
         template<class ValueType>
-        struct apply {
+        struct Apply {
             using type = typename HookToValueTraits<ValueType, typename ValueType::thread_local_list_default_hook>::type;
         };
     };

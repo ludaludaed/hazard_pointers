@@ -5,12 +5,12 @@ namespace lu {
     namespace detail {
         template<class ValueType, class ProtoValueTraits>
         struct GetValueTraits {
-            using type = typename ProtoValueTraits::template apply<ValueType>::type;
+            using type = typename ProtoValueTraits::template Apply<ValueType>::type;
         };
 
         template<class ValueTraits, class SizeType, class ProtoBucketTraits>
         struct GetBucketTraits {
-            using type = typename ProtoBucketTraits::template apply<ValueTraits, SizeType>::type;
+            using type = typename ProtoBucketTraits::template Apply<ValueTraits, SizeType>::type;
         };
     }// namespace detail
 }// namespace lu

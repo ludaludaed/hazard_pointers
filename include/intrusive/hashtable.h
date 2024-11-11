@@ -1273,14 +1273,14 @@ namespace lu {
 
     struct DefaultHashtableHookApplier {
         template<class ValueType>
-        struct apply {
+        struct Apply {
             using type = typename HookToValueTraits<ValueType, typename ValueType::hashtable_default_hook_type>::type;
         };
     };
 
     struct DefaultBucketTraitsApplier {
         template<class ValueTraits, class SizeType>
-        struct apply {
+        struct Apply {
             using bucket_type = BucketValue<typename ValueTraits::node_traits, true>;
             using bucket_pointer = typename std::pointer_traits<typename ValueTraits::pointer>::template rebind<bucket_type>;
             using type = BucketTraitsImpl<bucket_pointer, SizeType>;
