@@ -1,14 +1,12 @@
-#ifndef __THREAD_LOCAL_LIST_H__
-#define __THREAD_LOCAL_LIST_H__
+#ifndef __ACTIVE_LIST_H__
+#define __ACTIVE_LIST_H__
 
-#include "fixed_size_function.h"
 #include "intrusive/base_value_traits.h"
 #include "intrusive/empty_base_holder.h"
 #include "intrusive/generic_hook.h"
 #include "intrusive/get_traits.h"
 #include "intrusive/node_holder.h"
 #include "intrusive/pack_options.h"
-#include "intrusive/utils.h"
 #include <atomic>
 #include <cassert>
 #include <memory>
@@ -58,7 +56,7 @@ namespace lu {
     template<class VoidPointer>
     class ThreadLocalListNode {
         template<class>
-        friend class ThreadLocalListNodeTraits;
+        friend class ActiveListNodeTraits;
 
         using pointer = typename std::pointer_traits<VoidPointer>::template rebind<ThreadLocalListNode>;
         using const_pointer = typename std::pointer_traits<pointer>::template rebind<const ThreadLocalListNode>;
@@ -131,12 +129,12 @@ namespace lu {
     };
 
     template<class Types>
-    class ThreadLocalListIterator {
+    class ActiveListIterator {
         template<class>
-        friend class ThreadLocalList;
+        friend class ActiveList;
 
         template<class>
-        friend class ThreadLocalListConstIterator;
+        friend class ActiveListConstIterator;
 
     public:
         using value_type = typename Types::value_type;
@@ -152,20 +150,20 @@ namespace lu {
         using node_ptr = typename Types::node_ptr;
 
     private:
-        explicit ThreadLocalListIterator(node_ptr current_node, value_traits_ptr value_traits) noexcept
+        explicit ActiveListIterator(node_ptr current_node, value_traits_ptr value_traits) noexcept
             : current_node_(current_node),
               value_traits_(value_traits) {}
 
     public:
-        ThreadLocalListIterator() noexcept = default;
+        ActiveListIterator() noexcept = default;
 
-        ThreadLocalListIterator &operator++() noexcept {
+        ActiveListIterator &operator++() noexcept {
             Increment();
             return *this;
         }
 
-        ThreadLocalListIterator operator++(int) noexcept {
-            ThreadLocalListIterator result = *this;
+        ActiveListIterator operator++(int) noexcept {
+            ActiveListIterator result = *this;
             Increment();
             return result;
         }
@@ -178,11 +176,11 @@ namespace lu {
             return value_traits_->to_value_ptr(current_node_);
         }
 
-        friend bool operator==(const ThreadLocalListIterator &left, const ThreadLocalListIterator &right) {
+        friend bool operator==(const ActiveListIterator &left, const ActiveListIterator &right) {
             return left.current_node_ == right.current_node_;
         }
 
-        friend bool operator!=(const ThreadLocalListIterator &left, const ThreadLocalListIterator &right) {
+        friend bool operator!=(const ActiveListIterator &left, const ActiveListIterator &right) {
             return !(left == right);
         }
 
@@ -197,12 +195,12 @@ namespace lu {
     };
 
     template<class Types>
-    class ThreadLocalListConstIterator {
+    class ActiveListConstIterator {
         template<class>
-        friend class ThreadLocalList;
+        friend class ActiveList;
 
     private:
-        using NonConstIter = ThreadLocalListIterator<Types>;
+        using NonConstIter = ActiveListIterator<Types>;
 
     public:
         using value_type = typename Types::value_type;
@@ -218,24 +216,24 @@ namespace lu {
         using node_ptr = typename Types::node_ptr;
 
     private:
-        explicit ThreadLocalListConstIterator(node_ptr current_node, value_traits_ptr value_traits) noexcept
+        explicit ActiveListConstIterator(node_ptr current_node, value_traits_ptr value_traits) noexcept
             : current_node_(current_node),
               value_traits_(value_traits) {}
 
     public:
-        ThreadLocalListConstIterator() noexcept = default;
+        ActiveListConstIterator() noexcept = default;
 
-        ThreadLocalListConstIterator(const NonConstIter &other) noexcept
+        ActiveListConstIterator(const NonConstIter &other) noexcept
             : current_node_(other.current_node_),
               value_traits_(other.value_traits_) {}
 
-        ThreadLocalListConstIterator &operator++() noexcept {
+        ActiveListConstIterator &operator++() noexcept {
             Increment();
             return *this;
         }
 
-        ThreadLocalListConstIterator operator++(int) noexcept {
-            ThreadLocalListConstIterator result = *this;
+        ActiveListConstIterator operator++(int) noexcept {
+            ActiveListConstIterator result = *this;
             Increment();
             return result;
         }
@@ -248,11 +246,11 @@ namespace lu {
             return value_traits_->to_value_ptr(current_node_);
         }
 
-        friend bool operator==(const ThreadLocalListConstIterator &left, const ThreadLocalListConstIterator &right) {
+        friend bool operator==(const ActiveListConstIterator &left, const ActiveListConstIterator &right) {
             return left.current_node_ == right.current_node_;
         }
 
-        friend bool operator!=(const ThreadLocalListConstIterator &left, const ThreadLocalListConstIterator &right) {
+        friend bool operator!=(const ActiveListConstIterator &left, const ActiveListConstIterator &right) {
             return !(left == right);
         }
 
@@ -267,38 +265,11 @@ namespace lu {
     };
 
     template<class ValueTraits>
-    class ThreadLocalList : private detail::EmptyBaseHolder<ValueTraits> {
+    class ActiveList : private detail::EmptyBaseHolder<ValueTraits> {
         using ValueTraitsHolder = detail::EmptyBaseHolder<ValueTraits>;
 
-        using Self = ThreadLocalList<ValueTraits>;
+        using Self = ActiveList<ValueTraits>;
         using Algo = ThreadLocalListAlgo<typename ValueTraits::node_traits>;
-
-        template<class Pointer>
-        struct DefaultDetacher {
-            void operator()(Pointer value) const {}
-        };
-
-        template<class Pointer>
-        struct DefaultCreator {
-            static_assert(std::is_same_v<get_void_ptr_t<Pointer>, void *>, "The default creator can only work with void*");
-
-            using value_type = typename std::pointer_traits<Pointer>::element_type;
-
-            Pointer operator()() const {
-                return new value_type();
-            }
-        };
-
-        template<class Pointer>
-        struct DefaultDeleter {
-            static_assert(std::is_same_v<get_void_ptr_t<Pointer>, void *>, "The default deleter can only work with void*");
-
-            using value_type = typename std::pointer_traits<Pointer>::element_type;
-
-            void operator()(Pointer value) const {
-                delete value;
-            }
-        };
 
     public:
         using value_type = typename ValueTraits::value_type;
@@ -310,8 +281,8 @@ namespace lu {
         using reference = value_type &;
         using const_reference = const value_type &;
 
-        using iterator = ThreadLocalListIterator<Self>;
-        using const_iterator = ThreadLocalListConstIterator<Self>;
+        using iterator = ActiveListIterator<Self>;
+        using const_iterator = ActiveListConstIterator<Self>;
 
         using node_traits = typename ValueTraits::node_traits;
         using node = typename node_traits::node;
@@ -321,41 +292,13 @@ namespace lu {
         using value_traits = ValueTraits;
         using value_traits_ptr = const value_traits *;
 
-    private:
-        struct ThreadLocalOwner {
-            ThreadLocalOwner(Self &list)
-                : list(list) {}
-
-            ~ThreadLocalOwner() {
-                if (node) {
-                    list.detach_thread();
-                }
-            }
-
-            Self &list;
-            node_ptr node{};
-        };
-
     public:
-        template<class Detacher = DefaultDetacher<pointer>,
-                 class Creator = DefaultCreator<pointer>,
-                 class Deleter = DefaultDeleter<pointer>>
-        explicit ThreadLocalList(Detacher detacher = {},
-                                 Creator creator = {},
-                                 Deleter deleter = {},
-                                 value_traits value_traits = {})
-            : detacher_(std::move(detacher)),
-              creator_(std::move(creator)),
-              deleter_(std::move(deleter)),
-              ValueTraitsHolder(std::move(value_traits)) {}
+        explicit ActiveList(value_traits value_traits = {})
+            : ValueTraitsHolder(std::move(value_traits)) {}
 
-        ThreadLocalList(const ThreadLocalList &) = delete;
+        ActiveList(const ActiveList &) = delete;
 
-        ThreadLocalList(ThreadLocalList &&) = delete;
-
-        ~ThreadLocalList() {
-            clear();
-        }
+        ActiveList(ActiveList &&) = delete;
 
     private:
         inline value_traits_ptr GetValueTraitsPtr() const noexcept {
@@ -364,22 +307,6 @@ namespace lu {
 
         inline const value_traits &GetValueTraits() const noexcept {
             return ValueTraitsHolder::get();
-        }
-
-        inline ThreadLocalOwner &GetOwner() {
-            static thread_local ThreadLocalOwner owner(*this);
-            return owner;
-        }
-
-        node_ptr FindOrCreate() {
-            auto found = Algo::find_free(head_);
-            if (found) {
-                return found;
-            } else {
-                auto new_node = creator_();
-                Algo::push_front(head_, new_node);
-                return new_node;
-            }
         }
 
     public:
@@ -398,42 +325,14 @@ namespace lu {
             Algo::release(_value_traits.to_node_ptr(item));
         }
 
-        void attach_thread() {
-            auto &owner = GetOwner();
-            if (!owner.node) [[likely]] {
-                owner.node = FindOrCreate();
-            }
+        void push(reference new_element) {
+            const value_traits &_value_traits = GetValueTraits();
+            Algo::push(head_, _value_traits.to_node_ptr(new_element));
         }
 
-        void detach_thread() {
-            const value_traits &_value_traits = GetValueTraits();
-            auto &owner = GetOwner();
-            detacher_(_value_traits.to_value_ptr(owner.node));
-            Algo::release(owner.node);
-            owner.node = {};
-        }
-
-        void clear() {
-            const value_traits &_value_traits = GetValueTraits();
-            auto current = head_.exchange({}, std::memory_order_acquire);
-            while (current) {
-                auto next = node_traits::get_next(current);
-                bool acquired = Algo::is_acquired(current, std::memory_order_acquire);
-                assert(!acquired && "Can't clear while all threads aren't detached");
-                if (!acquired) {
-                    deleter_(_value_traits.to_value_ptr(current));
-                }
-                current = next;
-            }
-        }
-
-        reference get_thread_local() {
-            const value_traits &_value_traits = GetValueTraits();
-            auto &owner = GetOwner();
-            if (!owner.node) [[unlikely]] {
-                owner.node = FindOrCreate();
-            }
-            return *_value_traits.to_value_ptr(owner.node);
+        iterator find_free() {
+            auto found = Algo::find_free(head_);
+            return iterator(found, GetValueTraitsPtr());
         }
 
         iterator begin() {
@@ -464,62 +363,59 @@ namespace lu {
 
     private:
         std::atomic<node_ptr> head_{};
-        lu::fixed_size_function<void(pointer), 64> detacher_;
-        lu::fixed_size_function<pointer(), 64> creator_;
-        lu::fixed_size_function<void(pointer), 64> deleter_;
     };
 
-    struct DefaultThreadLocalListHookApplier {
+    struct DefaultActiveListHookApplier {
         template<class ValueType>
         struct Apply {
-            using type = typename HookToValueTraits<ValueType, typename ValueType::thread_local_list_default_hook>::type;
+            using type = typename HookToValueTraits<ValueType, typename ValueType::active_list_default_hook>::type;
         };
     };
 
     template<class HookType>
-    struct ThreadLocalListDefaultHook {
-        using thread_local_list_default_hook = HookType;
+    struct ActiveListDefaultHook {
+        using active_list_default_hook = HookType;
     };
 
     template<class VoidPointer, class Tag>
-    struct ThreadLocalListBaseHook : public ThreadLocalListHook<VoidPointer, Tag>,
-                                     public std::conditional_t<std::is_same_v<Tag, DefaultHookTag>,
-                                                               ThreadLocalListDefaultHook<ThreadLocalListHook<VoidPointer, Tag>>,
-                                                               detail::NotDefaultHook> {};
+    struct ActiveListBaseHook : public ThreadLocalListHook<VoidPointer, Tag>,
+                                public std::conditional_t<std::is_same_v<Tag, DefaultHookTag>,
+                                                          ActiveListDefaultHook<ThreadLocalListHook<VoidPointer, Tag>>,
+                                                          detail::NotDefaultHook> {};
 
-    struct ThreadLocalListDefaults {
-        using proto_value_traits = DefaultThreadLocalListHookApplier;
+    struct ActiveListDefaults {
+        using proto_value_traits = DefaultActiveListHookApplier;
     };
 
-    struct ThreadLocalListHookDefaults {
+    struct ActiveListHookDefaults {
         using void_pointer = void *;
         using tag = DefaultHookTag;
     };
 
     template<class ValueType, class... Options>
-    struct make_thread_local_list {
-        using pack_options = typename GetPackOptions<ThreadLocalListDefaults, Options...>::type;
+    struct make_active_list {
+        using pack_options = typename GetPackOptions<ActiveListDefaults, Options...>::type;
 
         using value_traits = typename detail::GetValueTraits<ValueType, typename pack_options::proto_value_traits>::type;
 
-        using type = ThreadLocalList<value_traits>;
+        using type = ActiveList<value_traits>;
     };
 
     template<class... Options>
-    struct make_thread_local_list_base_hook {
-        using pack_options = typename GetPackOptions<ThreadLocalListHookDefaults, Options...>::type;
+    struct make_active_list_base_hook {
+        using pack_options = typename GetPackOptions<ActiveListHookDefaults, Options...>::type;
 
         using void_pointer = typename pack_options::void_pointer;
         using tag = typename pack_options::tag;
 
-        using type = ThreadLocalListBaseHook<void_pointer, tag>;
+        using type = ActiveListBaseHook<void_pointer, tag>;
     };
 
     template<class ValueType, class... Options>
-    using thread_local_list = typename make_thread_local_list<ValueType, Options...>::type;
+    using active_list = typename make_active_list<ValueType, Options...>::type;
 
     template<class... Options>
-    using thread_local_list_base_hook = typename make_thread_local_list_base_hook<Options...>::type;
+    using active_list_base_hook = typename make_active_list_base_hook<Options...>::type;
 }// namespace lu
 
 #endif
