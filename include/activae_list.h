@@ -16,7 +16,7 @@
 
 namespace lu {
     template<class NodeTraits>
-    struct ThreadLocalListAlgo {
+    struct ActiveListAlgo {
         using node_traits = NodeTraits;
         using node_ptr = typename node_traits::node_ptr;
         using const_node_ptr = typename node_traits::const_node_ptr;
@@ -54,20 +54,20 @@ namespace lu {
     };
 
     template<class VoidPointer>
-    class ThreadLocalListNode {
+    class ActiveListNode {
         template<class>
         friend class ActiveListNodeTraits;
 
-        using pointer = typename std::pointer_traits<VoidPointer>::template rebind<ThreadLocalListNode>;
-        using const_pointer = typename std::pointer_traits<pointer>::template rebind<const ThreadLocalListNode>;
+        using pointer = typename std::pointer_traits<VoidPointer>::template rebind<ActiveListNode>;
+        using const_pointer = typename std::pointer_traits<pointer>::template rebind<const ActiveListNode>;
 
         pointer next{};
         std::atomic<bool> is_active{};
     };
 
     template<class VoidPointer>
-    struct ThreadLocalListNodeTraits {
-        using node = ThreadLocalListNode<VoidPointer>;
+    struct ActiveListNodeTraits {
+        using node = ActiveListNode<VoidPointer>;
         using node_ptr = typename node::pointer;
         using const_node_ptr = typename node::const_pointer;
 
@@ -93,9 +93,9 @@ namespace lu {
     };
 
     template<class VoidPointer, class Tag>
-    class ThreadLocalListHook : public NodeHolder<ThreadLocalListNode<VoidPointer>, Tag> {
-        using NodeTraits = ThreadLocalListNodeTraits<VoidPointer>;
-        using Algo = ThreadLocalListAlgo<NodeTraits>;
+    class ActiveListHook : public NodeHolder<ActiveListNode<VoidPointer>, Tag> {
+        using NodeTraits = ActiveListNodeTraits<VoidPointer>;
+        using Algo = ActiveListAlgo<NodeTraits>;
 
     public:
         using node_traits = NodeTraits;
@@ -269,7 +269,7 @@ namespace lu {
         using ValueTraitsHolder = detail::EmptyBaseHolder<ValueTraits>;
 
         using Self = ActiveList<ValueTraits>;
-        using Algo = ThreadLocalListAlgo<typename ValueTraits::node_traits>;
+        using Algo = ActiveListAlgo<typename ValueTraits::node_traits>;
 
     public:
         using value_type = typename ValueTraits::value_type;
@@ -378,9 +378,9 @@ namespace lu {
     };
 
     template<class VoidPointer, class Tag>
-    struct ActiveListBaseHook : public ThreadLocalListHook<VoidPointer, Tag>,
+    struct ActiveListBaseHook : public ActiveListHook<VoidPointer, Tag>,
                                 public std::conditional_t<std::is_same_v<Tag, DefaultHookTag>,
-                                                          ActiveListDefaultHook<ThreadLocalListHook<VoidPointer, Tag>>,
+                                                          ActiveListDefaultHook<ActiveListHook<VoidPointer, Tag>>,
                                                           detail::NotDefaultHook> {};
 
     struct ActiveListDefaults {
