@@ -354,7 +354,17 @@ namespace lu {
         ThreadLocalList(ThreadLocalList &&) = delete;
 
         ~ThreadLocalList() {
-            clear();
+            const value_traits &_value_traits = GetValueTraits();
+            auto current = head_.exchange({}, std::memory_order_acquire);
+            while (current) {
+                auto next = node_traits::get_next(current);
+                bool acquired = Algo::is_acquired(current, std::memory_order_acquire);
+                assert(!acquired && "Can't clear while all threads aren't detached");
+                if (!acquired) {
+                    deleter_(_value_traits.to_value_ptr(current));
+                }
+                current = next;
+            }
         }
 
     private:
@@ -411,20 +421,6 @@ namespace lu {
             detacher_(_value_traits.to_value_ptr(owner.node));
             Algo::release(owner.node);
             owner.node = {};
-        }
-
-        void clear() {
-            const value_traits &_value_traits = GetValueTraits();
-            auto current = head_.exchange({}, std::memory_order_acquire);
-            while (current) {
-                auto next = node_traits::get_next(current);
-                bool acquired = Algo::is_acquired(current, std::memory_order_acquire);
-                assert(!acquired && "Can't clear while all threads aren't detached");
-                if (!acquired) {
-                    deleter_(_value_traits.to_value_ptr(current));
-                }
-                current = next;
-            }
         }
 
         reference get_thread_local() {

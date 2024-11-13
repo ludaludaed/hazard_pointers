@@ -27,11 +27,11 @@ namespace lu {
         using SetHook::unlink;
 
     private:
-        void IncrementRef(std::size_t refs = 1) {
+        void IncRef(std::size_t refs = 1) {
             ref_count_.fetch_add(refs, std::memory_order_relaxed);
         }
 
-        void DecrementRef(std::size_t refs = 1) {
+        void DecRef(std::size_t refs = 1) {
             if (ref_count_.fetch_sub(refs, std::memory_order_release) == refs) {
                 std::atomic_thread_fence(std::memory_order_acquire);
                 deleter_(this);
@@ -57,7 +57,7 @@ namespace lu {
         };
 
         using UnorderedSet = lu::unordered_set<ValueType,
-                                               lu::base_hook<lu::unordered_set_base_hook<lu::tag<Tag>>>,
+                                               lu::base_hook<typename Hook::SetHook>,
                                                lu::key_of_value<KeyOfValue>>;
 
         using ActiveList = lu::active_list<ValueType, lu::base_hook<lu::active_list_base_hook<lu::tag<Tag>>>>;
@@ -96,8 +96,16 @@ namespace lu {
             }
 
             void insert(reference value) {
-                value.IncrementRef();
+                value.IncRef();
                 set.insert(value);
+            }
+
+            void detach(std::uintptr_t key) {
+                auto found = set.find(key);
+                if (found != set.end()) {
+                    set.erase(found);
+                    found->DectRef();
+                }
             }
 
         private:
@@ -105,7 +113,6 @@ namespace lu {
             Buckets buckets;
         };
 
-    private:
     private:
         ActiveList list_;
     };
