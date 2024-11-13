@@ -1,18 +1,18 @@
 #ifndef __INTRUSIVE_EMPTY_BASE_HOLDER_H__
 #define __INTRUSIVE_EMPTY_BASE_HOLDER_H__
 
-#include <type_traits>
 #include <memory>
+#include <type_traits>
 
 
 namespace lu {
     namespace detail {
-        class default_base_tag {};
+        class DefaultHolderTag {};
 
         template<class ValueType>
         constexpr bool is_empty_base = std::is_empty_v<ValueType> && !std::is_final_v<ValueType>;
 
-        template<class ValueType, class Tag = default_base_tag, bool EmptyBase = is_empty_base<ValueType>>
+        template<class ValueType, class Tag = DefaultHolderTag, bool EmptyBase = is_empty_base<ValueType>>
         class EmptyBaseHolder;
 
         template<class ValueType, class Tag>
