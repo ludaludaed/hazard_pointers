@@ -9,22 +9,13 @@
 #include <cstdint>
 #include <type_traits>
 namespace lu {
-    template<class Tag = DefaultHookTag>
-    class ThreadLocalListHook : public lu::unordered_set_base_hook<lu::tag<Tag>>,
-                                public lu::active_list_base_hook<lu::tag<Tag>> {
+
+    template<class ValueType, class Tag = DefaultHookTag>
+    class ThreadLocalListHook : public lu::unordered_set_base_hook<>,
+                                public lu::active_list_base_hook<> {
 
         template<class, class>
         friend class ThreadLocalList;
-
-        using Self = ThreadLocalListHook<Tag>;
-
-        using SetHook = lu::unordered_set_base_hook<lu::tag<Tag>>;
-        using ListHook = lu::active_list_base_hook<lu::tag<Tag>>;
-
-        using SetHook::as_node_ptr;
-        using SetHook::is_linked;
-        using SetHook::unique;
-        using SetHook::unlink;
 
     private:
         void IncRef(std::size_t refs = 1) {
@@ -34,19 +25,19 @@ namespace lu {
         void DecRef(std::size_t refs = 1) {
             if (ref_count_.fetch_sub(refs, std::memory_order_release) == refs) {
                 std::atomic_thread_fence(std::memory_order_acquire);
-                deleter_(this);
+                deleter_(static_cast<ValueType *>(this));
             }
         }
 
     private:
         std::uintptr_t key_{};
-        std::atomic<std::size_t> ref_count_{};
-        lu::fixed_size_function<void(void *), 64> deleter_{};
+        std::atomic<std::size_t> ref_count_{1};
+        lu::fixed_size_function<void(ValueType *), 64> deleter_{};
     };
 
     template<class ValueType, class Tag = DefaultHookTag>
     class ThreadLocalList {
-        using Hook = ThreadLocalListHook<Tag>;
+        using Hook = ThreadLocalListHook<ValueType, Tag>;
 
         struct KeyOfValue {
             using type = std::uintptr_t;
@@ -56,13 +47,10 @@ namespace lu {
             }
         };
 
-        using UnorderedSet = lu::unordered_set<ValueType,
-                                               lu::base_hook<typename Hook::SetHook>,
-                                               lu::key_of_value<KeyOfValue>>;
+        using UnorderedSet = lu::unordered_set<ValueType, lu::key_of_value<KeyOfValue>>;
+        using ActiveList = lu::active_list<ValueType>;
 
-        using ActiveList = lu::active_list<ValueType, lu::base_hook<lu::active_list_base_hook<lu::tag<Tag>>>>;
-
-        static_assert(std::is_base_of_v<ThreadLocalListHook<Tag>, ValueType>, "ValueType must be inherited from ThreadLocalListHook");
+        static_assert(std::is_base_of_v<Hook, ValueType>, "ValueType must be inherited from ThreadLocalListHook");
 
     public:
         using value_type = ValueType;
@@ -91,7 +79,7 @@ namespace lu {
                     auto prev = current++;
                     set.erase(prev);
                     prev->release();
-                    prev->DecrementRef();
+                    prev->DecRef();
                 }
             }
 
@@ -112,6 +100,31 @@ namespace lu {
             UnorderedSet set;
             Buckets buckets;
         };
+
+    public:
+        bool try_acquire(reference item);
+
+        bool is_acquired(reference item, std::memory_order order = std::memory_order_relaxed) const;
+
+        void release(reference item);
+
+        void attach_thread();
+
+        void detach_thread();
+
+        reference get_thread_local();
+
+        iterator begin();
+
+        iterator end();
+
+        const_iterator cbegin() const;
+
+        const_iterator cend() const;
+
+        const_iterator begin() const;
+
+        const_iterator end() const;
 
     private:
         ActiveList list_;
