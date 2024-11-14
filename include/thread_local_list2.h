@@ -88,7 +88,15 @@ namespace lu {
                 set.insert(value);
             }
 
-            void detach(std::uintptr_t key) {
+            pointer get(std::uintptr_t key) {
+                auto found = set.find(key);
+                if (found == set.end()) {
+                    return {};
+                }
+                return found.operator->();
+            }
+
+            void erase(std::uintptr_t key) {
                 auto found = set.find(key);
                 if (found != set.end()) {
                     set.erase(found);
@@ -100,6 +108,12 @@ namespace lu {
             UnorderedSet set;
             Buckets buckets;
         };
+
+    private:
+        ThreadLocalOwner& GetOwner() {
+            thread_local ThreadLocalOwner owner;
+            return owner;
+        }    
 
     public:
         bool try_acquire(reference item);
