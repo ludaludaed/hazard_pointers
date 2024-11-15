@@ -3,6 +3,7 @@
 
 #include "activae_list.h"
 #include "fixed_size_function.h"
+#include "intrusive/node_holder.h"
 #include "intrusive/options.h"
 #include "intrusive/unordered_set.h"
 #include <atomic>
@@ -10,19 +11,29 @@
 #include <type_traits>
 namespace lu {
 
-    template<class ValueType, class Tag = DefaultHookTag>
-    class ThreadLocalListHook : public lu::unordered_set_base_hook<>,
-                                public lu::active_list_base_hook<> {
+    namespace detail {
+        struct KeyOfValue {
+            using type = std::uintptr_t;
 
-        template<class, class>
-        friend class ThreadLocalList;
+            template<class Hook>
+            std::uintptr_t operator()(const Hook &value) {
+                return value.key_;
+            }
+        };
+    }// namespace detail
 
-    private:
-        void IncRef(std::size_t refs = 1) {
+    template<class ValueType, class Deleter>
+    class ThreadLocalDeleter {
+    public:
+        void set_deleter(Deleter deleter) noexcept(std::is_nothrow_move_assignable_v<Deleter>) {
+            deleter_ = std::move(deleter);
+        }
+
+        void inc_ref(std::size_t refs = 1) {
             ref_count_.fetch_add(refs, std::memory_order_relaxed);
         }
 
-        void DecRef(std::size_t refs = 1) {
+        bool dec_ref(std::size_t refs = 1) {
             if (ref_count_.fetch_sub(refs, std::memory_order_release) == refs) {
                 std::atomic_thread_fence(std::memory_order_acquire);
                 deleter_(static_cast<ValueType *>(this));
@@ -30,24 +41,46 @@ namespace lu {
         }
 
     private:
-        std::uintptr_t key_{};
+        Deleter deleter_{};
         std::atomic<std::size_t> ref_count_{1};
-        lu::fixed_size_function<void(ValueType *), 64> deleter_{};
     };
 
-    template<class ValueType, class Tag = DefaultHookTag>
+    template<class ValueType, class Detacher>
+    class ThreadLocalDetacher {
+    public:
+        void set_detacher(Detacher detacher) noexcept(std::is_nothrow_move_assignable_v<Detacher>) {
+            detacher_ = std::move(detacher);
+        }
+
+        void detach() {
+            detacher_(static_cast<ValueType *>(this));
+        }
+
+    private:
+        Detacher detacher_;
+    };
+
+    template<class ValueType>
+    class ThreadLocalListNode : public lu::unordered_set_base_hook<>,
+                                public lu::active_list_base_hook<>,
+                                public ThreadLocalDeleter<ValueType, lu::fixed_size_function<void(ValueType *), 128>>,
+                                public ThreadLocalDetacher<ValueType, lu::fixed_size_function<void(ValueType *), 128>> {
+
+        template<class, class, class, class>
+        friend class ThreadLocalList;
+
+        std::uintptr_t key{};
+    };
+
+    template<class ValueType>
+    class ThreadLocalListHook : public ThreadLocalListNode<ValueType> {
+    };
+
+    template<class ValueType, class Deleter, class Creator, class Detacher>
     class ThreadLocalList {
-        using Hook = ThreadLocalListHook<ValueType, Tag>;
+        using Hook = ThreadLocalListHook<ValueType>;
 
-        struct KeyOfValue {
-            using type = std::uintptr_t;
-
-            std::uintptr_t operator()(const Hook &value) {
-                return value.key_;
-            }
-        };
-
-        using UnorderedSet = lu::unordered_set<ValueType, lu::key_of_value<KeyOfValue>>;
+        using UnorderedSet = lu::unordered_set<ValueType, lu::key_of_value<detail::KeyOfValue>>;
         using ActiveList = lu::active_list<ValueType>;
 
         static_assert(std::is_base_of_v<Hook, ValueType>, "ValueType must be inherited from ThreadLocalListHook");
@@ -73,36 +106,13 @@ namespace lu {
             ThreadLocalOwner()
                 : set(BucketTraits(buckets.data(), buckets.size())) {}
 
-            ~ThreadLocalOwner() {
-                auto current = set.begin();
-                while (current != set.end()) {
-                    auto prev = current++;
-                    set.erase(prev);
-                    prev->release();
-                    prev->DecRef();
-                }
-            }
+            ~ThreadLocalOwner();
 
-            void insert(reference value) {
-                value.IncRef();
-                set.insert(value);
-            }
+            void insert(reference value);
 
-            pointer get(std::uintptr_t key) {
-                auto found = set.find(key);
-                if (found == set.end()) {
-                    return {};
-                }
-                return found.operator->();
-            }
+            pointer get(std::uintptr_t key);
 
-            void erase(std::uintptr_t key) {
-                auto found = set.find(key);
-                if (found != set.end()) {
-                    set.erase(found);
-                    found->DectRef();
-                }
-            }
+            void erase(std::uintptr_t key);
 
         private:
             UnorderedSet set;
@@ -110,10 +120,10 @@ namespace lu {
         };
 
     private:
-        ThreadLocalOwner& GetOwner() {
+        ThreadLocalOwner &get_owner() {
             thread_local ThreadLocalOwner owner;
             return owner;
-        }    
+        }
 
     public:
         bool try_acquire(reference item);
