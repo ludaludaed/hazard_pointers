@@ -47,7 +47,7 @@ namespace lu {
         }
 
         static void push_front(std::atomic<node_ptr> &head, node_ptr new_node) {
-            node_traits::store_active(new_node, true, std::memory_order_acq_rel);
+            node_traits::store_active(new_node, true, std::memory_order_release);
             node_ptr current = head.load(std::memory_order_relaxed);
             do {
                 node_traits::set_next(new_node, current);
@@ -432,29 +432,29 @@ namespace lu {
             return *_value_traits.to_value_ptr(owner.node);
         }
 
-        iterator begin() {
+        iterator begin() noexcept {
             auto head = head_.load(std::memory_order_acquire);
             return iterator(head, GetValueTraitsPtr());
         }
 
-        iterator end() {
+        iterator end() noexcept {
             return iterator({}, GetValueTraitsPtr());
         }
 
-        const_iterator cbegin() const {
+        const_iterator cbegin() const noexcept {
             auto head = head_.load(std::memory_order_acquire);
             return const_iterator(head, GetValueTraitsPtr());
         }
 
-        const_iterator cend() const {
+        const_iterator cend() const noexcept {
             return const_iterator({}, GetValueTraitsPtr());
         }
 
-        const_iterator begin() const {
+        const_iterator begin() const noexcept {
             return cbegin();
         }
 
-        const_iterator end() const {
+        const_iterator end() const noexcept {
             return cend();
         }
 

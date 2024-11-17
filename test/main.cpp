@@ -412,15 +412,15 @@ void abstractStressTest(Func &&func) {
     }
 }
 
-struct H : public lu::thread_local_list_base_hook<> {
-    int y = 10;
-};
+// struct H : public lu::thread_local_list_base_hook {
+//     int y = 10;
+// };
 
-struct Detacher {
-    void operator()(H *ptr) const {
-        std::cout << "detach " << ptr->y << std::endl;
-    }
-};
+// struct Detacher {
+//     void operator()(H *ptr) const {
+//         std::cout << "detach " << ptr->y << std::endl;
+//     }
+// };
 
 struct Foo {
     Foo() = default;
@@ -452,7 +452,6 @@ int main() {
 
     // std::cout << sizeof(lu::unordered_set_base_hook<lu::store_hash<false>>) << std::endl;
     // std::cout << sizeof(lu::hazard_pointer_obj_base<int>) << std::endl;
-
     for (int i = 0; i < 1; ++i) {
         abstractStressTest(stressTest<hazard_pointer::TreiberStack<int, lu::YieldBackOff>>);
     }

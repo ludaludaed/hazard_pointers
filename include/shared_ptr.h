@@ -21,7 +21,7 @@ namespace lu {
     struct ControlBlockDeleter {
         template<class ControlBlock>
         void operator()(ControlBlock *ptr) {
-            ptr->DoRetireDeleter();
+            ptr->DeleteControlBlock();
         }
     };
 
@@ -64,7 +64,7 @@ namespace lu {
             weak_count_.fetch_add(num);
         }
 
-        inline void DecRef(std::int64_t num = 1) noexcept {
+        inline void DecRef(std::int64_t num = 1) {
             if (ref_count_.fetch_sub(num) <= num) {
                 DestroyControlBlock();
             }
@@ -72,7 +72,7 @@ namespace lu {
 
         inline void DecWeak(std::int64_t num = 1) noexcept {
             if (weak_count_.fetch_sub(num) <= num) {
-                DeleteThis();
+                this->retire();
             }
         }
 
@@ -83,11 +83,9 @@ namespace lu {
         virtual void *get() const noexcept = 0;
 
     private:
-        virtual void DeleteThis() noexcept = 0;
+        virtual void DeleteValue() = 0;
 
-        virtual void Dispose() noexcept = 0;
-
-        virtual void DoRetireDeleter() = 0;
+        virtual void DeleteControlBlock() = 0;
 
         void DestroyControlBlock() {
             thread_local lu::forward_list<ControlBlock> list{};
@@ -99,7 +97,7 @@ namespace lu {
                 while (!list.empty()) {
                     auto &popped = list.front();
                     list.pop_front();
-                    popped.Dispose();
+                    popped.DeleteValue();
                     popped.DecWeak();
                 }
                 in_progress = false;
@@ -132,15 +130,11 @@ namespace lu {
         }
 
     private:
-        void DeleteThis() noexcept override {
-            this->retire();
-        }
-
-        void Dispose() noexcept override {
+        void DeleteValue() noexcept override {
             deleter_(value_ptr_);
         }
 
-        void DoRetireDeleter() override {
+        void DeleteControlBlock() override {
             allocator_type copy = allocator_;
             allocator_traits::destroy(copy, this);
             allocator_traits::deallocate(copy, this, 1);
@@ -173,15 +167,11 @@ namespace lu {
         }
 
     private:
-        void DeleteThis() noexcept override {
-            this->retire();
-        }
-
-        void Dispose() noexcept override {
+        void DeleteValue() noexcept override {
             data_.destroy();
         }
 
-        void DoRetireDeleter() override {
+        void DeleteControlBlock() override {
             allocator_type copy = allocator_;
             allocator_traits::destroy(copy, this);
             allocator_traits::deallocate(copy, this, 1);
