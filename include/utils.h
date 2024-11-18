@@ -4,6 +4,8 @@
 #include <utility>
 #include <memory>
 
+#define UNUSED(expr) (void)(expr)
+
 namespace lu {
     template<class ValueType>
     class AlignedStorage {

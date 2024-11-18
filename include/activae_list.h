@@ -45,7 +45,7 @@ namespace lu {
         }
 
         static void push_front(std::atomic<node_ptr> &head, node_ptr new_node) {
-            node_traits::store_active(new_node, true, std::memory_order_release);
+            node_traits::exchange_active(new_node, true, std::memory_order_acquire);
             node_ptr current = head.load(std::memory_order_relaxed);
             do {
                 node_traits::set_next(new_node, current);

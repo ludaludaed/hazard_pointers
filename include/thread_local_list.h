@@ -9,6 +9,7 @@
 #include "intrusive/node_holder.h"
 #include "intrusive/pack_options.h"
 #include "intrusive/utils.h"
+#include "utils.h"
 #include <atomic>
 #include <cassert>
 #include <memory>
@@ -47,7 +48,7 @@ namespace lu {
         }
 
         static void push_front(std::atomic<node_ptr> &head, node_ptr new_node) {
-            node_traits::store_active(new_node, true, std::memory_order_release);
+            node_traits::exchange_active(new_node, true, std::memory_order_acquire);
             node_ptr current = head.load(std::memory_order_relaxed);
             do {
                 node_traits::set_next(new_node, current);
@@ -360,9 +361,8 @@ namespace lu {
                 auto next = node_traits::get_next(current);
                 bool acquired = Algo::is_acquired(current, std::memory_order_acquire);
                 assert(!acquired && "Can't clear while all threads aren't detached");
-                if (!acquired) {
-                    deleter_(_value_traits.to_value_ptr(current));
-                }
+                UNUSED(acquired);
+                deleter_(_value_traits.to_value_ptr(current));
                 current = next;
             }
         }
@@ -460,8 +460,8 @@ namespace lu {
 
     private:
         std::atomic<node_ptr> head_{};
-        lu::fixed_size_function<void(pointer), 64> detacher_;
         lu::fixed_size_function<pointer(), 64> creator_;
+        lu::fixed_size_function<void(pointer), 64> detacher_;
         lu::fixed_size_function<void(pointer), 64> deleter_;
     };
 

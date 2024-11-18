@@ -6,94 +6,15 @@
 #include "intrusive/options.h"
 #include "intrusive/unordered_set.h"
 #include "thread_local_list.h"
+#include "utils.h"
 #include <atomic>
 #include <cassert>
 #include <cstdint>
 #include <type_traits>
+
+
 namespace lu {
-    class ThreadLocalListHook : public lu::unordered_set_base_hook<>,
-                                public lu::active_list_base_hook<> {
-
-        template<class>
-        friend class ThreadLocalList;
-
-        std::uintptr_t key{};
-    };
-
-    template<class ValueType>
-    class ThreadLocalList {
-        struct KeyOfValue {
-            using type = std::uintptr_t;
-
-            template<class Hook>
-            std::uintptr_t operator()(const Hook &value) const {
-                return value.key;
-            }
-        };
-
-        using UnorderedSet = lu::unordered_set<ValueType, lu::key_of_value<KeyOfValue>>;
-        using ActiveList = lu::active_list<ValueType>;
-
-        static_assert(std::is_base_of_v<ThreadLocalListHook, ValueType>, "ValueType must be inherited from ThreadLocalListHook");
-
-    public:
-        using value_type = ValueType;
-
-        using pointer = typename ActiveList::pointer;
-        using const_pointer = typename ActiveList::const_pointer;
-        using reference = typename ActiveList::reference;
-        using const_reference = typename ActiveList::const_reference;
-
-        using iterator = typename ActiveList::iterator;
-        using const_iterator = typename ActiveList::const_iterator;
-
-    private:
-        struct ThreadLocalOwner {
-            using BucketTraits = typename UnorderedSet::bucket_traits;
-            using BucketType = typename UnorderedSet::bucket_type;
-
-            using Buckets = std::array<BucketType, 8>;
-
-            explicit ThreadLocalOwner()
-                : set_(BucketTraits(buckets_.data(), buckets_.size())) {}
-
-            ~ThreadLocalOwner() {
-                auto cur = set_.begin();
-                while (cur != set_.end()) {
-                    auto prev = cur++;
-                    detach_value(*prev);
-                }
-            }
-
-            void insert(reference value) noexcept {
-                set_.insert(value);
-            }
-
-            pointer get(std::uintptr_t key) noexcept {
-                auto found = set_.find(key);
-                if (found == set_.end()) {
-                    return {};
-                }
-                return found.operator->();
-            }
-
-            bool contains(std::uintptr_t key) const noexcept {
-                return set_.contains(key);
-            }
-
-            void erase(std::uintptr_t key) noexcept {
-                auto found = set_.find(key);
-                if (found != set_.end()) {
-                    detach_value(*found);
-                    set_.erase(found);
-                }
-            }
-
-        private:
-            Buckets buckets_{};
-            UnorderedSet set_;
-        };
-
+    namespace detail {
         template<class Pointer>
         struct DefaultDetacher {
             void operator()(Pointer value) const {}
@@ -121,10 +42,95 @@ namespace lu {
             }
         };
 
+        struct KeyOfValue {
+            using type = std::uintptr_t;
+
+            template<class Hook>
+            std::uintptr_t operator()(const Hook &value) const {
+                return value.key;
+            }
+        };
+    }// namespace detail
+
+    class ThreadLocalListHook : public lu::unordered_set_base_hook<>,
+                                public lu::active_list_base_hook<> {
+
+        template<class>
+        friend class ThreadLocalList;
+
+        friend class detail::KeyOfValue;
+
+        std::uintptr_t key{};
+    };
+
+    template<class ValueType>
+    class ThreadLocalList {
+        using UnorderedSet = lu::unordered_set<ValueType, lu::key_of_value<detail::KeyOfValue>>;
+        using ActiveList = lu::active_list<ValueType>;
+
     public:
-        template<class Detacher = DefaultDetacher<pointer>,
-                 class Creator = DefaultCreator<pointer>,
-                 class Deleter = DefaultDeleter<pointer>>
+        using value_type = ValueType;
+
+        using pointer = typename ActiveList::pointer;
+        using const_pointer = typename ActiveList::const_pointer;
+        using reference = typename ActiveList::reference;
+        using const_reference = typename ActiveList::const_reference;
+
+        using iterator = typename ActiveList::iterator;
+        using const_iterator = typename ActiveList::const_iterator;
+
+    private:
+        class ThreadLocalOwner {
+            using BucketTraits = typename UnorderedSet::bucket_traits;
+            using BucketType = typename UnorderedSet::bucket_type;
+
+            using Buckets = std::array<BucketType, 8>;
+
+        public:
+            explicit ThreadLocalOwner()
+                : set_(BucketTraits(buckets_.data(), buckets_.size())) {}
+
+            ~ThreadLocalOwner() {
+                auto cur = set_.begin();
+                while (cur != set_.end()) {
+                    auto prev = cur++;
+                    detach_value(*prev);
+                }
+            }
+
+            pointer get_entry(std::uintptr_t key) noexcept {
+                auto found = set_.find(key);
+                if (found == set_.end()) {
+                    return {};
+                }
+                return found.operator->();
+            }
+
+            bool contains(std::uintptr_t key) const noexcept {
+                return set_.contains(key);
+            }
+
+            void attach(reference value) noexcept {
+                set_.insert(value);
+            }
+
+            void detach(std::uintptr_t key) noexcept {
+                auto found = set_.find(key);
+                if (found != set_.end()) [[likely]] {
+                    detach_value(*found);
+                    set_.erase(found);
+                }
+            }
+
+        private:
+            Buckets buckets_{};
+            UnorderedSet set_;
+        };
+
+    public:
+        template<class Detacher = detail::DefaultDetacher<pointer>,
+                 class Creator = detail::DefaultCreator<pointer>,
+                 class Deleter = detail::DefaultDeleter<pointer>>
         explicit ThreadLocalList(Detacher detacher = {},
                                  Creator creator = {},
                                  Deleter deleter = {})
@@ -142,6 +148,7 @@ namespace lu {
                 auto prev = ++cur;
                 bool acquired = prev->is_acquired(std::memory_order_acquire);
                 assert(!acquired && "Can't clear while all threads aren't detached");
+                UNUSED(acquired);
                 deleter_(prev.operator->());
             }
         }
@@ -174,6 +181,10 @@ namespace lu {
             }
         }
 
+        std::uintptr_t get_key() {
+            return reinterpret_cast<std::uintptr_t>(this);
+        }
+
     public:
         bool try_acquire(reference item) {
             return list_.try_acquire(item);
@@ -189,25 +200,26 @@ namespace lu {
 
         void attach_thread() {
             auto &owner = get_owner();
-            auto key = reinterpret_cast<std::uintptr_t>(this);
+            auto key = get_key();
             if (!owner.contains(key)) [[likely]] {
-                owner.insert(*find_or_create());
+                auto new_item = find_or_create();
+                owner.attach(*new_item);
             }
         }
 
         void detach_thread() {
             auto &owner = get_owner();
-            auto key = reinterpret_cast<std::uintptr_t>(this);
-            owner.erase(key);
+            auto key = get_key();
+            owner.detach(key);
         }
 
         reference get_thread_local() {
             auto &owner = get_owner();
-            auto key = reinterpret_cast<std::uintptr_t>(this);
-            auto result = owner.get(key);
+            auto key = get_key();
+            auto result = owner.get_entry(key);
             if (!result) [[unlikely]] {
                 result = find_or_create();
-                owner.insert(*result);
+                owner.attach(*result);
             }
             return *result;
         }
