@@ -94,7 +94,8 @@ namespace lu {
                 auto cur = set_.begin();
                 while (cur != set_.end()) {
                     auto prev = cur++;
-                    detach_value(*prev);
+                    auto list = get_list_by_value(*prev);
+                    list->detach_value(*prev);
                 }
             }
 
@@ -117,8 +118,10 @@ namespace lu {
             void detach(std::uintptr_t key) noexcept {
                 auto found = set_.find(key);
                 if (found != set_.end()) [[likely]] {
-                    detach_value(*found);
+                    auto& value = *found;
                     set_.erase(found);
+                    auto list = get_list_by_value(value);
+                    list->detach_value(value);
                 }
             }
 
@@ -154,14 +157,12 @@ namespace lu {
         }
 
     private:
-        static ThreadLocalList *value_to_list(reference value) {
+        static ThreadLocalList *get_list_by_value(reference value) {
             return reinterpret_cast<ThreadLocalList *>(value.key);
         }
 
-        static void detach_value(reference value) {
-            auto list = value_to_list(value);
-            list->detacher_(&value);
-            value.release();
+        std::uintptr_t get_key() {
+            return reinterpret_cast<std::uintptr_t>(this);
         }
 
         ThreadLocalOwner &get_owner() {
@@ -181,8 +182,9 @@ namespace lu {
             }
         }
 
-        std::uintptr_t get_key() {
-            return reinterpret_cast<std::uintptr_t>(this);
+        void detach_value(reference value) {
+            detacher_(&value);
+            value.release();
         }
 
     public:
