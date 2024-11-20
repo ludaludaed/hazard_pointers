@@ -91,9 +91,9 @@ namespace lu {
                 : set_(BucketTraits(buckets_.data(), buckets_.size())) {}
 
             ~ThreadLocalOwner() {
-                auto cur = set_.begin();
-                while (cur != set_.end()) {
-                    auto prev = cur++;
+                auto current = set_.begin();
+                while (current != set_.end()) {
+                    auto prev = current++;
                     auto list = get_list_by_value(*prev);
                     list->detach_value(*prev);
                 }
@@ -146,9 +146,9 @@ namespace lu {
         ThreadLocalList(ThreadLocalList &&) = delete;
 
         ~ThreadLocalList() {
-            auto cur = list_.begin();
-            while (cur != list_.end()) {
-                auto prev = ++cur;
+            auto current = list_.begin();
+            while (current != list_.end()) {
+                auto prev = current++;
                 bool acquired = prev->is_acquired(std::memory_order_acquire);
                 assert(!acquired && "Can't clear while all threads aren't detached");
                 UNUSED(acquired);
