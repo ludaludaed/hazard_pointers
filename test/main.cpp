@@ -453,7 +453,7 @@ int main() {
     // std::cout << sizeof(lu::unordered_set_base_hook<lu::store_hash<false>>) << std::endl;
     // std::cout << sizeof(lu::hazard_pointer_obj_base<int>) << std::endl;
     for (int i = 0; i < 1; ++i) {
-        abstractStressTest(stressTest<hazard_pointer::TreiberStack<int, lu::YieldBackOff>>);
+        abstractStressTest(stressTest<hazard_pointer::TreiberStack<int, lu::EmptyBackOff>>);
     }
 
     // lu::fixed_size_function<int(int), 64> func;

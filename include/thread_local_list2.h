@@ -65,7 +65,6 @@ namespace lu {
 
     template<class ValueType>
     class ThreadLocalList {
-        using UnorderedSet = lu::unordered_set<ValueType, lu::key_of_value<detail::KeyOfValue>>;
         using ActiveList = lu::active_list<ValueType>;
 
     public:
@@ -81,9 +80,10 @@ namespace lu {
 
     private:
         class ThreadLocalOwner {
+            using UnorderedSet = lu::unordered_set<ValueType, lu::key_of_value<detail::KeyOfValue>>;
+
             using BucketTraits = typename UnorderedSet::bucket_traits;
             using BucketType = typename UnorderedSet::bucket_type;
-
             using Buckets = std::array<BucketType, 8>;
 
         public:
