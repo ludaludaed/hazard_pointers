@@ -94,8 +94,10 @@ namespace lu {
                 auto current = set_.begin();
                 while (current != set_.end()) {
                     auto prev = current++;
-                    auto list = get_list_by_value(*prev);
-                    list->detach_value(*prev);
+                    auto &value = *prev;
+                    set_.erase(prev);
+                    auto list = get_list_by_value(value);
+                    list->detach_value(value);
                 }
             }
 
