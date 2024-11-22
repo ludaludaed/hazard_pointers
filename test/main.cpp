@@ -399,6 +399,7 @@ void abstractStressTest(Func &&func) {
     for (int i = 1; i <= num_of_threads; i++) {
         std::cout << "\t" << i;
     }
+    // num_of_threads = 1;
     std::cout << std::endl;
     for (int i = 500000; i <= 6000000; i += 500000) {
         std::cout << i << "\t";

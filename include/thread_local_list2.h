@@ -94,10 +94,13 @@ namespace lu {
                 auto current = set_.begin();
                 while (current != set_.end()) {
                     auto prev = current++;
+
                     auto &value = *prev;
-                    set_.erase(prev);
                     auto list = get_list_by_value(value);
-                    list->detach_value(value);
+
+                    list->detacher_(&value);
+                    set_.erase(prev);
+                    list->release(value);
                 }
             }
 
@@ -120,10 +123,12 @@ namespace lu {
             void detach(std::uintptr_t key) noexcept {
                 auto found = set_.find(key);
                 if (found != set_.end()) [[likely]] {
-                    auto& value = *found;
-                    set_.erase(found);
+                    auto &value = *found;
                     auto list = get_list_by_value(value);
-                    list->detach_value(value);
+
+                    list->detacher_(&value);
+                    set_.erase(found);
+                    list->release(value);
                 }
             }
 
@@ -178,15 +183,10 @@ namespace lu {
                 return found.operator->();
             } else {
                 auto new_item = creator_();
-                new_item->key = reinterpret_cast<std::uintptr_t>(this);
+                new_item->key = get_key();
                 list_.push(*new_item);
                 return new_item;
             }
-        }
-
-        void detach_value(reference value) {
-            detacher_(&value);
-            value.release();
         }
 
     public:
