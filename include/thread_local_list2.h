@@ -122,7 +122,6 @@ namespace lu {
             }
 
             void attach(reference value) noexcept {
-                cache_ = &value;
                 set_.insert(value);
             }
 
@@ -139,7 +138,6 @@ namespace lu {
             }
 
         private:
-            pointer cache_{};
             Buckets buckets_{};
             UnorderedSet set_;
         };
