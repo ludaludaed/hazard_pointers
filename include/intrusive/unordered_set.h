@@ -33,8 +33,9 @@ namespace lu {
         using equal = typename GetEqualTo<typename pack_options::equal, key_type>::type;
 
         using size_type = typename pack_options::size_type;
+        using flags = HashtableFlags<pack_options::is_power_2_buckets, false>;
 
-        using type = IntrusiveHashtable<value_traits, bucket_traits, key_of_value, hash, equal, size_type, false>;
+        using type = IntrusiveHashtable<value_traits, bucket_traits, key_of_value, hash, equal, size_type, flags>;
     };
 
     template<class ValueType, class... Options>
@@ -53,8 +54,9 @@ namespace lu {
         using equal = typename GetEqualTo<typename pack_options::equal, key_type>::type;
 
         using size_type = typename pack_options::size_type;
+        using flags = HashtableFlags<pack_options::is_power_2_buckets, true>;
 
-        using type = IntrusiveHashtable<value_traits, bucket_traits, key_of_value, hash, equal, size_type, true>;
+        using type = IntrusiveHashtable<value_traits, bucket_traits, key_of_value, hash, equal, size_type, flags>;
     };
 
     template<class ValueType, class... Options>

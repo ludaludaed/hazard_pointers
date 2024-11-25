@@ -41,24 +41,13 @@ namespace lu {
                 delete value;
             }
         };
-
-        struct KeyOfValue {
-            using type = std::uintptr_t;
-
-            template<class Hook>
-            std::uintptr_t operator()(const Hook &value) const {
-                return value.key;
-            }
-        };
     }// namespace detail
 
-    class ThreadLocalListHook : public lu::unordered_set_base_hook<>,
+    class ThreadLocalListHook : public lu::unordered_set_base_hook<lu::is_auto_unlink<false>>,
                                 public lu::active_list_base_hook<> {
 
         template<class>
         friend class ThreadLocalList;
-
-        friend class detail::KeyOfValue;
 
         std::uintptr_t key{};
     };
@@ -80,7 +69,23 @@ namespace lu {
 
     private:
         class ThreadLocalOwner {
-            using UnorderedSet = lu::unordered_set<ValueType, lu::key_of_value<detail::KeyOfValue>>;
+            struct KeyOfValue {
+                using type = const ThreadLocalList*;
+
+                template<class Hook>
+                type operator()(const Hook &value) const {
+                    return reinterpret_cast<type>(value.key);
+                }
+            };
+
+            // clang-format off
+            using UnorderedSet = lu::unordered_set<
+                ValueType,
+                lu::key_of_value<KeyOfValue>,
+                lu::is_power_2_buckets<true>,
+                lu::hash<detail::PointerHash>
+            >;
+            // clang-format on
 
             using BucketTraits = typename UnorderedSet::bucket_traits;
             using BucketType = typename UnorderedSet::bucket_type;
@@ -104,7 +109,7 @@ namespace lu {
                 }
             }
 
-            pointer get_entry(std::uintptr_t key) noexcept {
+            pointer get_entry(const ThreadLocalList* key) noexcept {
                 auto found = set_.find(key);
                 if (found == set_.end()) {
                     return {};
@@ -112,15 +117,16 @@ namespace lu {
                 return found.operator->();
             }
 
-            bool contains(std::uintptr_t key) const noexcept {
+            bool contains(const ThreadLocalList *key) const noexcept {
                 return set_.contains(key);
             }
 
             void attach(reference value) noexcept {
+                cache_ = &value;
                 set_.insert(value);
             }
 
-            void detach(std::uintptr_t key) noexcept {
+            void detach(const ThreadLocalList *key) noexcept {
                 auto found = set_.find(key);
                 if (found != set_.end()) [[likely]] {
                     auto &value = *found;
@@ -133,6 +139,7 @@ namespace lu {
             }
 
         private:
+            pointer cache_{};
             Buckets buckets_{};
             UnorderedSet set_;
         };
@@ -168,10 +175,6 @@ namespace lu {
             return reinterpret_cast<ThreadLocalList *>(value.key);
         }
 
-        std::uintptr_t get_key() {
-            return reinterpret_cast<std::uintptr_t>(this);
-        }
-
         ThreadLocalOwner &get_owner() {
             static thread_local ThreadLocalOwner owner;
             return owner;
@@ -183,7 +186,7 @@ namespace lu {
                 return found.operator->();
             } else {
                 auto new_item = creator_();
-                new_item->key = get_key();
+                new_item->key = reinterpret_cast<std::uintptr_t>(this);
                 list_.push(*new_item);
                 return new_item;
             }
@@ -204,8 +207,7 @@ namespace lu {
 
         void attach_thread() {
             auto &owner = get_owner();
-            auto key = get_key();
-            if (!owner.contains(key)) [[likely]] {
+            if (!owner.contains(this)) [[likely]] {
                 auto new_item = find_or_create();
                 owner.attach(*new_item);
             }
@@ -213,14 +215,12 @@ namespace lu {
 
         void detach_thread() {
             auto &owner = get_owner();
-            auto key = get_key();
-            owner.detach(key);
+            owner.detach(this);
         }
 
         reference get_thread_local() {
             auto &owner = get_owner();
-            auto key = get_key();
-            auto result = owner.get_entry(key);
+            auto result = owner.get_entry(this);
             if (!result) [[unlikely]] {
                 result = find_or_create();
                 owner.attach(*result);
@@ -262,6 +262,7 @@ namespace lu {
     template<class ValueType>
     using thread_local_list = ThreadLocalList<ValueType>;
 
+    template<class T = void>
     using thread_local_list_base_hook = ThreadLocalListHook;
 }// namespace lu
 

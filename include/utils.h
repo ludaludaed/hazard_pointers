@@ -1,12 +1,31 @@
 #ifndef __UTILS_H__
 #define __UTILS_H__
 
-#include <utility>
+#include <cstdint>
 #include <memory>
+#include <utility>
 
-#define UNUSED(expr) (void)(expr)
 
-namespace lu {
+#define UNUSED(expr) (void) (expr)
+
+namespace lu::detail {
+
+    template<std::size_t argument, std::size_t base = 2, bool = (argument < base)>
+    constexpr std::size_t log = 1 + log<argument / base, base>;
+
+    template<std::size_t argument, std::size_t base>
+    constexpr std::size_t log<argument, base, true> = 0;
+
+
+    struct PointerHash {
+        template<class T>
+        std::size_t operator()(T* p) const noexcept {
+            std::uintptr_t ptr = reinterpret_cast<std::uintptr_t>(p);
+            std::uintptr_t hash = ptr >> log<std::max(sizeof(T), alignof(T))>;
+            return static_cast<std::size_t>(hash);
+        }
+    };
+
     template<class ValueType>
     class AlignedStorage {
     public:
@@ -97,6 +116,6 @@ namespace lu {
         Ptr ptr_;
         Deleter &deleter_;
     };
-}// namespace lu
+}// namespace lu::detail
 
 #endif

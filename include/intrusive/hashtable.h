@@ -384,7 +384,7 @@ namespace lu {
 
     template<class Types>
     class HashIterator {
-        template<class, class, class, class, class, class, bool>
+        template<class, class, class, class, class, class, class>
         friend class IntrusiveHashtable;
 
         template<class>
@@ -450,7 +450,7 @@ namespace lu {
 
     template<class Types>
     class HashConstIterator {
-        template<class, class, class, class, class, class, bool>
+        template<class, class, class, class, class, class, class>
         friend class IntrusiveHashtable;
 
     private:
@@ -520,7 +520,7 @@ namespace lu {
 
     template<class Types, class Algo>
     class HashLocalIterator {
-        template<class, class, class, class, class, class, bool>
+        template<class, class, class, class, class, class, class>
         friend class IntrusiveHashtable;
 
         template<class, class>
@@ -590,7 +590,7 @@ namespace lu {
 
     template<class Types, class Algo>
     class HashConstLocalIterator {
-        template<class, class, class, class, class, class, bool>
+        template<class, class, class, class, class, class, class>
         friend class IntrusiveHashtable;
 
         using NonConstIter = HashLocalIterator<Types, Algo>;
@@ -661,7 +661,13 @@ namespace lu {
         value_traits_ptr value_traits_{};
     };
 
-    template<class ValueTraits, class BucketTraits, class KeyOfValue, class KeyHash, class KeyEqual, class SizeType, bool IsMulti>
+    template<bool IsPower2Buckets, bool IsMulti>
+    struct HashtableFlags {
+        static const bool is_power_2_buckets = IsPower2Buckets;
+        static const bool is_multi = IsMulti;
+    };
+
+    template<class ValueTraits, class BucketTraits, class KeyOfValue, class KeyHash, class KeyEqual, class SizeType, class Flags>
     class IntrusiveHashtable
         : private detail::EmptyBaseHolder<ValueTraits, detail::ValueTraitsTag>,
           private detail::EmptyBaseHolder<BucketTraits, detail::BucketTraitsTag>,
@@ -800,34 +806,26 @@ namespace lu {
         }
 
         inline std::size_t GetHash(node_ptr node) const noexcept {
-            return GetHash(node, get_bool_t<node_traits::store_hash>{});
-        }
-
-        inline std::size_t GetHash(node_ptr node, std::true_type) const noexcept {
-            return node_traits::get_hash(node);
-        }
-
-        inline std::size_t GetHash(node_ptr node, std::false_type) const noexcept {
-            const hasher &_key_hash = KeyHashHolder::get();
-            return _key_hash(GetKey(node));
+            if constexpr (node_traits::store_hash) {
+                return node_traits::get_hash(node);
+            } else {
+                const hasher &_key_hash = KeyHashHolder::get();
+                return _key_hash(GetKey(node));
+            }
         }
 
         inline void SetHash(node_ptr node, std::size_t hash) const noexcept {
-            SetHash(node, hash, get_bool_t<node_traits::store_hash>{});
+            if constexpr (node_traits::store_hash) {
+                node_traits::set_hash(node, hash);
+            }
         }
 
-        inline void SetHash(node_ptr node, std::size_t hash, std::true_type) const noexcept {
-            node_traits::set_hash(node, hash);
-        }
-
-        inline void SetHash(node_ptr node, std::size_t hash, std::false_type) const noexcept {}
-
-        size_type GetSize(std::true_type) const noexcept {
-            return SizeTraitsHolder::get().get_size();
-        }
-
-        size_type GetSize(std::false_type) const noexcept {
-            return Algo::count(GetNilPtr()) - 1;
+        size_type GetSize() const noexcept {
+            if constexpr (SizeTraits::is_const_size) {
+                return SizeTraitsHolder::get().get_size();
+            } else {
+                return Algo::count(GetNilPtr()) - 1;
+            }
         }
 
         bucket_ptr GetBucket(size_type bucket_index) const noexcept {
@@ -837,7 +835,11 @@ namespace lu {
 
         size_type GetBucketIdx(size_type hash) const noexcept {
             const bucket_traits &_bucket_traits = BucketTraitsHolder::get();
-            return hash % _bucket_traits.size();
+            if constexpr (Flags::is_power_2_buckets) {
+                return hash & (_bucket_traits.size() - 1);
+            } else {
+                return hash % _bucket_traits.size();
+            }
         }
 
         node_ptr GetBucketBegin(size_type bucket_index) const noexcept {
@@ -1011,7 +1013,7 @@ namespace lu {
 
     public:
         auto insert(reference value) {
-            return Insert(value, get_bool_t<IsMulti>{});
+            return Insert(value, get_bool_t<Flags::is_multi>{});
         }
 
         template<class Iterator>
@@ -1055,8 +1057,8 @@ namespace lu {
             }
         }
 
-        template<class OtherBucketTraits, class OtherKeyOfValue, class OtherKeyHash, class OtherKeyEqual, class OtherSizeType, bool OtherIsMulti>
-        void merge(IntrusiveHashtable<ValueTraits, OtherBucketTraits, OtherKeyOfValue, OtherKeyHash, OtherKeyEqual, OtherSizeType, OtherIsMulti> &other) {
+        template<class OtherBucketTraits, class OtherKeyOfValue, class OtherKeyHash, class OtherKeyEqual, class OtherSizeType, class OtherFlags>
+        void merge(IntrusiveHashtable<ValueTraits, OtherBucketTraits, OtherKeyOfValue, OtherKeyHash, OtherKeyEqual, OtherSizeType, OtherFlags> &other) {
             for (iterator it = other.begin(); it != other.end();) {
                 iterator next = std::next(it);
                 other.erase(it);
@@ -1065,8 +1067,8 @@ namespace lu {
             }
         }
 
-        template<class OtherBucketTraits, class OtherKeyOfValue, class OtherKeyHash, class OtherKeyEqual, class OtherSizeType, bool OtherIsMulti>
-        void merge(IntrusiveHashtable<ValueTraits, OtherBucketTraits, OtherKeyOfValue, OtherKeyHash, OtherKeyEqual, OtherSizeType, OtherIsMulti> &&other) {
+        template<class OtherBucketTraits, class OtherKeyOfValue, class OtherKeyHash, class OtherKeyEqual, class OtherSizeType, class OtherFlags>
+        void merge(IntrusiveHashtable<ValueTraits, OtherBucketTraits, OtherKeyOfValue, OtherKeyHash, OtherKeyEqual, OtherSizeType, OtherFlags> &&other) {
             merge(other);
         }
 
@@ -1232,7 +1234,7 @@ namespace lu {
 
     public:
         size_type size() const noexcept {
-            return GetSize(get_bool_t<SizeTraits::is_const_size>{});
+            return GetSize();
         }
 
         bool empty() const noexcept {
@@ -1359,6 +1361,7 @@ namespace lu {
         using equal = void;
         using hash = void;
         using proto_bucket_traits = DefaultBucketTraitsApplier;
+        static const bool is_power_2_buckets = false;
     };
 
     struct HashtableHookDefaults {

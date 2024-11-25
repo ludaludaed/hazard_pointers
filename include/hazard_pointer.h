@@ -14,6 +14,7 @@
 #include "intrusive/options.h"
 #include "intrusive/unordered_set.h"
 #include "thread_local_list.h"
+#include "utils.h"
 
 
 namespace lu {
@@ -72,7 +73,15 @@ namespace lu {
     class RetiredSet {
         static constexpr std::size_t num_of_buckets = 64;
 
-        using SetOfRetired = lu::unordered_set<HazardObject, lu::base_hook<HazardPointerHook>, lu::key_of_value<RawPointerKeyOfValue<HazardObject>>>;
+        // clang-format off
+        using SetOfRetired = lu::unordered_set <
+            HazardObject,
+            lu::base_hook<HazardPointerHook>,
+            lu::is_power_2_buckets<true>,
+            lu::key_of_value<RawPointerKeyOfValue<HazardObject>>,
+            lu::hash<detail::PointerHash>
+        >;
+        // clang-format on
 
         using BucketType = typename SetOfRetired::bucket_type;
         using BucketTraits = typename SetOfRetired::bucket_traits;

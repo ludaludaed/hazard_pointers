@@ -29,6 +29,14 @@ namespace lu {
         };
     };
 
+    template<bool IsPower2Buckets>
+    struct is_power_2_buckets {
+        template<class Base>
+        struct pack : Base {
+            static const bool is_power_2_buckets = IsPower2Buckets;
+        };
+    };
+
     template<class SizeType>
     struct size_type {
         template<class Base>

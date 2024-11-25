@@ -178,7 +178,7 @@ namespace lu {
         }
 
     private:
-        AlignedStorage<ValueType> data_;
+        detail::AlignedStorage<ValueType> data_;
         allocator_type allocator_;
     };
 
@@ -190,8 +190,8 @@ namespace lu {
 
         AllocatorType internal_allocator(allocator);
 
-        DeleterGuard deleter_guard(value_ptr, deleter);
-        AllocateGuard allocate_guard(internal_allocator);
+        detail::DeleterGuard deleter_guard(value_ptr, deleter);
+        detail::AllocateGuard allocate_guard(internal_allocator);
 
         auto result = allocate_guard.allocate();
         AllocatorTraits::construct(internal_allocator, result, value_ptr, std::move(deleter), allocator);
@@ -208,7 +208,7 @@ namespace lu {
 
         AllocatorType internal_allocator(allocator);
 
-        AllocateGuard allocate_guard(internal_allocator);
+        detail::AllocateGuard allocate_guard(internal_allocator);
 
         auto result = allocate_guard.allocate();
         AllocatorTraits::construct(internal_allocator, result, allocator, std::forward<Args>(args)...);
