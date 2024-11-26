@@ -9,7 +9,6 @@
 #include "utils.h"
 #include <atomic>
 #include <cassert>
-#include <cstdint>
 #include <type_traits>
 
 
@@ -49,7 +48,7 @@ namespace lu {
         template<class>
         friend class ThreadLocalList;
 
-        std::uintptr_t key{};
+        void *key{};
     };
 
     template<class ValueType>
@@ -70,10 +69,9 @@ namespace lu {
     private:
         class ThreadLocalOwner {
             struct KeyOfValue {
-                using type = const ThreadLocalList*;
+                using type = const ThreadLocalList *;
 
-                template<class Hook>
-                type operator()(const Hook &value) const {
+                type operator()(const ThreadLocalListHook &value) const {
                     return reinterpret_cast<type>(value.key);
                 }
             };
@@ -91,6 +89,8 @@ namespace lu {
             using BucketType = typename UnorderedSet::bucket_type;
             using Buckets = std::array<BucketType, 8>;
 
+            using key_type = typename UnorderedSet::key_type;
+
         public:
             explicit ThreadLocalOwner()
                 : set_(BucketTraits(buckets_.data(), buckets_.size())) {}
@@ -99,17 +99,11 @@ namespace lu {
                 auto current = set_.begin();
                 while (current != set_.end()) {
                     auto prev = current++;
-
-                    auto &value = *prev;
-                    auto list = get_list_by_value(value);
-
-                    list->detacher_(&value);
-                    set_.erase(prev);
-                    list->release(value);
+                    detach(*prev);
                 }
             }
 
-            pointer get_entry(const ThreadLocalList* key) noexcept {
+            pointer get_entry(key_type key) noexcept {
                 auto found = set_.find(key);
                 if (found == set_.end()) {
                     return {};
@@ -117,7 +111,7 @@ namespace lu {
                 return found.operator->();
             }
 
-            bool contains(const ThreadLocalList *key) const noexcept {
+            bool contains(key_type key) const noexcept {
                 return set_.contains(key);
             }
 
@@ -125,16 +119,18 @@ namespace lu {
                 set_.insert(value);
             }
 
-            void detach(const ThreadLocalList *key) noexcept {
+            void detach(key_type key) noexcept {
                 auto found = set_.find(key);
                 if (found != set_.end()) [[likely]] {
-                    auto &value = *found;
-                    auto list = get_list_by_value(value);
-
-                    list->detacher_(&value);
-                    set_.erase(found);
-                    list->release(value);
+                    detach(*found);
                 }
+            }
+
+            void detach(reference value) {
+                auto list = reinterpret_cast<ThreadLocalList *>(value.key);
+                list->detacher_(&value);
+                set_.erase(set_.iterator_to(value));
+                list->release(value);
             }
 
         private:
@@ -169,10 +165,6 @@ namespace lu {
         }
 
     private:
-        static ThreadLocalList *get_list_by_value(reference value) {
-            return reinterpret_cast<ThreadLocalList *>(value.key);
-        }
-
         ThreadLocalOwner &get_owner() {
             static thread_local ThreadLocalOwner owner;
             return owner;
@@ -184,7 +176,7 @@ namespace lu {
                 return found.operator->();
             } else {
                 auto new_item = creator_();
-                new_item->key = reinterpret_cast<std::uintptr_t>(this);
+                new_item->key = this;
                 list_.push(*new_item);
                 return new_item;
             }
