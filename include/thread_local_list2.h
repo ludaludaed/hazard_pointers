@@ -42,8 +42,9 @@ namespace lu {
         };
     }// namespace detail
 
-    class ThreadLocalListHook : public lu::unordered_set_base_hook<lu::is_auto_unlink<false>>,
-                                public lu::active_list_base_hook<> {
+    class ThreadLocalListHook
+        : public lu::unordered_set_base_hook<lu::is_auto_unlink<false>>,
+          public lu::active_list_base_hook<> {
 
         template<class>
         friend class ThreadLocalList;
@@ -67,32 +68,29 @@ namespace lu {
         using const_iterator = typename ActiveList::const_iterator;
 
     private:
+        using key_type = ThreadLocalList *;
+
+        struct KeyOfValue {
+            using type = key_type;
+
+            type operator()(const ThreadLocalListHook &value) const {
+                return reinterpret_cast<type>(value.key);
+            }
+        };
+
         class ThreadLocalOwner {
-            struct KeyOfValue {
-                using type = const ThreadLocalList *;
-
-                type operator()(const ThreadLocalListHook &value) const {
-                    return reinterpret_cast<type>(value.key);
-                }
-            };
-
-            // clang-format off
             using UnorderedSet = lu::unordered_set<
-                ValueType,
-                lu::key_of_value<KeyOfValue>,
-                lu::is_power_2_buckets<true>,
-                lu::hash<detail::PointerHash>
-            >;
-            // clang-format on
+                    value_type,
+                    lu::key_of_value<KeyOfValue>,
+                    lu::is_power_2_buckets<true>,
+                    lu::hash<detail::PointerHash>>;
 
             using BucketTraits = typename UnorderedSet::bucket_traits;
             using BucketType = typename UnorderedSet::bucket_type;
             using Buckets = std::array<BucketType, 8>;
 
-            using key_type = typename UnorderedSet::key_type;
-
         public:
-            explicit ThreadLocalOwner()
+            ThreadLocalOwner()
                 : set_(BucketTraits(buckets_.data(), buckets_.size())) {}
 
             ~ThreadLocalOwner() {
@@ -158,8 +156,8 @@ namespace lu {
             while (current != list_.end()) {
                 auto prev = current++;
                 bool acquired = prev->is_acquired(std::memory_order_acquire);
-                assert(!acquired && "Can't clear while all threads aren't detached");
                 UNUSED(acquired);
+                assert(!acquired && "Can't clear while all threads aren't detached");
                 deleter_(prev.operator->());
             }
         }
@@ -231,7 +229,7 @@ namespace lu {
         }
 
         const_iterator cend() const noexcept {
-            return list_.end();
+            return list_.cend();
         }
 
         const_iterator begin() const noexcept {
@@ -252,7 +250,6 @@ namespace lu {
     template<class ValueType>
     using thread_local_list = ThreadLocalList<ValueType>;
 
-    template<class T = void>
     using thread_local_list_base_hook = ThreadLocalListHook;
 }// namespace lu
 

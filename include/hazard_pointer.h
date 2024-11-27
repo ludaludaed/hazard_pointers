@@ -73,15 +73,12 @@ namespace lu {
     class RetiredSet {
         static constexpr std::size_t num_of_buckets = 64;
 
-        // clang-format off
-        using SetOfRetired = lu::unordered_set <
-            HazardObject,
-            lu::base_hook<HazardPointerHook>,
-            lu::is_power_2_buckets<true>,
-            lu::key_of_value<RawPointerKeyOfValue<HazardObject>>,
-            lu::hash<detail::PointerHash>
-        >;
-        // clang-format on
+        using SetOfRetired = lu::unordered_set<
+                HazardObject,
+                lu::base_hook<HazardPointerHook>,
+                lu::is_power_2_buckets<true>,
+                lu::key_of_value<RawPointerKeyOfValue<HazardObject>>,
+                lu::hash<detail::PointerHash>>;
 
         using BucketType = typename SetOfRetired::bucket_type;
         using BucketTraits = typename SetOfRetired::bucket_traits;
@@ -257,7 +254,7 @@ namespace lu {
         lu::forward_list<HazardRecord> free_list_;
     };
 
-    class HazardThreadData : public lu::thread_local_list_base_hook<> {
+    class HazardThreadData : public lu::thread_local_list_base_hook {
         friend class HazardPointerDomain;
 
     public:
