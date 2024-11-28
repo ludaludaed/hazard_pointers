@@ -128,7 +128,7 @@ namespace lu {
                 auto list = reinterpret_cast<ThreadLocalList *>(value.key);
                 list->detacher_(&value);
                 set_.erase(set_.iterator_to(value));
-                list->release(value);
+                value.release();
             }
 
         private:
@@ -181,18 +181,6 @@ namespace lu {
         }
 
     public:
-        bool try_acquire(reference item) {
-            return list_.try_acquire(item);
-        }
-
-        bool is_acquired(reference item, std::memory_order order = std::memory_order_relaxed) const {
-            return list_.is_acquired(item, order);
-        }
-
-        void release(reference item) {
-            list_.release(item);
-        }
-
         void attach_thread() {
             auto &owner = get_owner();
             if (!owner.contains(this)) [[likely]] {
