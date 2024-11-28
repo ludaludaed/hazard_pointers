@@ -43,7 +43,7 @@ namespace lu {
     }// namespace detail
 
     class ThreadLocalListHook
-        : public lu::unordered_set_base_hook<lu::is_auto_unlink<false>>,
+        : public lu::unordered_set_base_hook<>,
           public lu::active_list_base_hook<> {
 
         template<class>

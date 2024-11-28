@@ -332,9 +332,15 @@ namespace lu {
             std::size_t scan_threshold_;
         };
 
+        struct Deleter {
+            void operator()(HazardThreadData *thread_data) const {
+                delete thread_data;
+            }
+        };
+
     public:
         HazardPointerDomain(std::size_t num_of_records, std::size_t scan_threshold) 
-            : list_(Detacher(this), Creator(num_of_records, scan_threshold)) {}
+            : list_(Detacher(this), Creator(num_of_records, scan_threshold), Deleter()) {}
 
         HazardPointerDomain(const HazardPointerDomain &) = delete;
 
