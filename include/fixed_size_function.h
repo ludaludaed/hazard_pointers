@@ -91,9 +91,9 @@ namespace lu {
             return table_.call;
         }
 
-        ResultType operator()(Args &&...args) {
+        ResultType operator()(Args &&...args) const {
             if (table_.call) {
-                return table_.call(&data_, std::forward<Args>(args)...);
+                return table_.call(const_cast<storage *>(&data_), std::forward<Args>(args)...);
             }
             throw std::bad_function_call();
         }

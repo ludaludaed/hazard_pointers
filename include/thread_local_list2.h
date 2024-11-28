@@ -68,10 +68,10 @@ namespace lu {
         using const_iterator = typename ActiveList::const_iterator;
 
     private:
-        using key_type = ThreadLocalList *;
+        using list_pointer = const ThreadLocalList *;
 
         struct KeyOfValue {
-            using type = key_type;
+            using type = list_pointer;
 
             type operator()(const ThreadLocalListHook &value) const {
                 return reinterpret_cast<type>(value.key);
@@ -101,7 +101,7 @@ namespace lu {
                 }
             }
 
-            pointer get_entry(key_type key) noexcept {
+            pointer get_entry(list_pointer key) noexcept {
                 auto found = set_.find(key);
                 if (found == set_.end()) {
                     return {};
@@ -109,7 +109,7 @@ namespace lu {
                 return found.operator->();
             }
 
-            bool contains(key_type key) const noexcept {
+            bool contains(list_pointer key) const noexcept {
                 return set_.contains(key);
             }
 
@@ -117,7 +117,7 @@ namespace lu {
                 set_.insert(value);
             }
 
-            void detach(key_type key) noexcept {
+            void detach(list_pointer key) noexcept {
                 auto found = set_.find(key);
                 if (found != set_.end()) [[likely]] {
                     detach(*found);
@@ -125,7 +125,7 @@ namespace lu {
             }
 
             void detach(reference value) {
-                auto list = reinterpret_cast<ThreadLocalList *>(value.key);
+                auto list = reinterpret_cast<list_pointer>(value.key);
                 list->detacher_(&value);
                 set_.erase(set_.iterator_to(value));
                 value.release();

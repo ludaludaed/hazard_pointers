@@ -258,7 +258,8 @@ namespace lu {
         friend class HazardPointerDomain;
 
     public:
-        HazardThreadData() = default;
+        explicit HazardThreadData(std::size_t scan_threshold) 
+            : scan_threshold_(scan_threshold) {}
 
         HazardThreadData(const HazardThreadData &) = delete;
 
@@ -283,7 +284,7 @@ namespace lu {
 
         bool retire(HazardObject &retired) {
             retires_.insert(retired);
-            return retires_.size() >= scan_threshold;
+            return retires_.size() >= scan_threshold_;
         }
 
         void merge(HazardThreadData &other) {
@@ -299,7 +300,7 @@ namespace lu {
         }
 
     private:
-        constexpr static std::size_t scan_threshold = 64;
+        std::size_t scan_threshold_;
         HazardRecords records_{};
         RetiredSet retires_{};
     };
@@ -318,13 +319,22 @@ namespace lu {
         };
 
         struct Creator {
+            Creator(std::size_t num_of_records, std::size_t scan_threshold) 
+                : num_of_records_(num_of_records),
+                  scan_threshold_(scan_threshold) {}
+    
             HazardThreadData *operator()() const {
-                return new HazardThreadData();
+                return new HazardThreadData(scan_threshold_);
             }
+
+        private:
+            std::size_t num_of_records_;
+            std::size_t scan_threshold_;
         };
 
     public:
-        HazardPointerDomain() : list_(Detacher(this), Creator()) {}
+        HazardPointerDomain(std::size_t num_of_records, std::size_t scan_threshold) 
+            : list_(Detacher(this), Creator(num_of_records, scan_threshold)) {}
 
         HazardPointerDomain(const HazardPointerDomain &) = delete;
 
@@ -398,10 +408,7 @@ namespace lu {
         lu::thread_local_list<HazardThreadData> list_;
     };
 
-    inline HazardPointerDomain &get_default_domain() {
-        static HazardPointerDomain domain;
-        return domain;
-    }
+    inline HazardPointerDomain &get_default_domain();
 
     class HazardPointer {
     public:
@@ -581,6 +588,11 @@ namespace lu {
         std::atomic<bool> retired_{false};
 #endif
     };
+
+    inline HazardPointerDomain &get_default_domain() {
+        static HazardPointerDomain domain(8, 64);
+        return domain;
+    }
 
     inline HazardPointer make_hazard_pointer(HazardPointerDomain &domain = get_default_domain()) {
         return HazardPointer(&domain);
