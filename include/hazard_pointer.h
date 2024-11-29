@@ -188,7 +188,6 @@ namespace lu {
 
     class HazardRecords {
         static constexpr std::size_t num_of_records = 4;
-
         using Array = std::array<HazardRecord, num_of_records>;
 
     public:
@@ -204,7 +203,8 @@ namespace lu {
 
     public:
         HazardRecords() noexcept
-            : data_(), free_list_(data_.begin(), data_.end()) {}
+            : data_(),
+              free_list_(data_.begin(), data_.end()) {}
 
         HazardRecords(const HazardRecords &) = delete;
 
@@ -258,7 +258,7 @@ namespace lu {
         friend class HazardPointerDomain;
 
     public:
-        explicit HazardThreadData(std::size_t scan_threshold) 
+        explicit HazardThreadData(std::size_t scan_threshold)
             : scan_threshold_(scan_threshold) {}
 
         HazardThreadData(const HazardThreadData &) = delete;
@@ -319,10 +319,10 @@ namespace lu {
         };
 
         struct Creator {
-            Creator(std::size_t num_of_records, std::size_t scan_threshold) 
+            Creator(std::size_t num_of_records, std::size_t scan_threshold)
                 : num_of_records_(num_of_records),
                   scan_threshold_(scan_threshold) {}
-    
+
             HazardThreadData *operator()() const {
                 return new HazardThreadData(scan_threshold_);
             }
@@ -339,7 +339,7 @@ namespace lu {
         };
 
     public:
-        HazardPointerDomain(std::size_t num_of_records, std::size_t scan_threshold) 
+        HazardPointerDomain(std::size_t num_of_records, std::size_t scan_threshold)
             : list_(Detacher(this), Creator(num_of_records, scan_threshold), Deleter()) {}
 
         HazardPointerDomain(const HazardPointerDomain &) = delete;
