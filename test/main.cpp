@@ -456,7 +456,6 @@ int main() {
     for (int i = 0; i < 1; ++i) {
         abstractStressTest(stressTest<hazard_pointer::TreiberStack<int, lu::EmptyBackOff>>);
     }
-    std::function<int()> f;
     // lu::fixed_size_function<int(int), 64> func;
     // func = [f = Foo()](int v) {
     //     return v;

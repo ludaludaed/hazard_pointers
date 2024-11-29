@@ -6,7 +6,9 @@
 #include <atomic>
 #include <cassert>
 #include <cstddef>
+#include <cstdint>
 #include <memory>
+#include <span>
 #include <type_traits>
 #include <utility>
 
@@ -20,7 +22,10 @@
 namespace lu {
     class HazardPointerTag {};
 
-    using HazardPointerHook = lu::unordered_set_base_hook<lu::tag<HazardPointerTag>, lu::store_hash<false>, lu::is_auto_unlink<false>>;
+    using HazardPointerHook = lu::unordered_set_base_hook<
+            lu::tag<HazardPointerTag>, 
+            lu::store_hash<false>, 
+            lu::is_auto_unlink<false>>;
 
     class HazardObject : public HazardPointerHook {
         friend class HazardThreadData;
@@ -70,21 +75,20 @@ namespace lu {
         }
     };
 
-    class RetiredSet {
-        static constexpr std::size_t num_of_buckets = 64;
-
-        using SetOfRetired = lu::unordered_set<
+    class HazardRetires {
+        using UnorderedSet = lu::unordered_set<
                 HazardObject,
                 lu::base_hook<HazardPointerHook>,
                 lu::is_power_2_buckets<true>,
                 lu::key_of_value<RawPointerKeyOfValue<HazardObject>>,
                 lu::hash<detail::PointerHash>>;
 
-        using BucketType = typename SetOfRetired::bucket_type;
-        using BucketTraits = typename SetOfRetired::bucket_traits;
-        using Buckets = std::array<BucketType, num_of_buckets>;
+        using BucketType = typename UnorderedSet::bucket_type;
+        using BucketTraits = typename UnorderedSet::bucket_traits;
 
     public:
+        using resource = std::span<BucketType>;
+
         using value_type = HazardObject;
         using key_type = const HazardObject *;
 
@@ -93,16 +97,21 @@ namespace lu {
         using reference = value_type &;
         using const_reference = const value_type &;
 
-        using iterator = typename SetOfRetired::iterator;
-        using const_iterator = typename SetOfRetired::const_iterator;
+        using iterator = typename UnorderedSet::iterator;
+        using const_iterator = typename UnorderedSet::const_iterator;
 
     public:
-        RetiredSet() noexcept
-            : retired_set_(BucketTraits(buckets_.data(), buckets_.size())) {}
+        HazardRetires(resource buckets) noexcept
+            : buckets_(buckets),
+              retired_set_(BucketTraits(buckets_.data(), buckets_.size())) {
+            for (std::size_t i = 0; i < buckets_.size(); ++i) {
+                ::new (buckets_.data() + i) BucketType();
+            }
+        }
 
-        RetiredSet(const RetiredSet &) = delete;
+        HazardRetires(const HazardRetires &) = delete;
 
-        RetiredSet(RetiredSet &&) = delete;
+        HazardRetires(HazardRetires &&) = delete;
 
     public:
         void insert(reference value) noexcept {
@@ -125,11 +134,11 @@ namespace lu {
             return retired_set_.find(key);
         }
 
-        void merge(RetiredSet &other) noexcept {
+        void merge(HazardRetires &other) noexcept {
             retired_set_.merge(other.retired_set_);
         }
 
-        std::size_t size() const {
+        std::size_t size() const noexcept {
             return retired_set_.size();
         }
 
@@ -154,8 +163,8 @@ namespace lu {
         }
 
     private:
-        Buckets buckets_{};
-        SetOfRetired retired_set_;
+        resource buckets_{};
+        UnorderedSet retired_set_;
     };
 
     class HazardRecord : public lu::forward_list_base_hook<> {
@@ -174,11 +183,11 @@ namespace lu {
             protected_.store(new_ptr);
         }
 
-        inline const_pointer get() const {
+        inline const_pointer get() const noexcept {
             return protected_.load();
         }
 
-        inline bool empty() const {
+        inline bool empty() const noexcept {
             return !protected_.load();
         }
 
@@ -187,24 +196,26 @@ namespace lu {
     };
 
     class HazardRecords {
-        static constexpr std::size_t num_of_records = 4;
-        using Array = std::array<HazardRecord, num_of_records>;
-
     public:
+        using resource = std::span<HazardRecord>;
+
         using value_type = HazardRecord;
 
-        using reference = typename Array::reference;
-        using const_reference = typename Array::const_reference;
-        using pointer = typename Array::pointer;
-        using const_pointer = typename Array::const_pointer;
+        using reference = typename resource::reference;
+        using const_reference = typename resource::const_reference;
+        using pointer = typename resource::pointer;
+        using const_pointer = typename resource::const_pointer;
 
-        using iterator = typename Array::iterator;
-        using const_iterator = typename Array::const_iterator;
+        using iterator = pointer;
+        using const_iterator = const_pointer;
 
     public:
-        HazardRecords() noexcept
-            : data_(),
-              free_list_(data_.begin(), data_.end()) {}
+        HazardRecords(resource data) noexcept : data_(data) {
+            for (std::size_t i = 0; i < data_.size(); ++i) {
+                ::new (data_.data() + i) value_type();
+                free_list_.push_front(data_[i]);
+            }
+        }
 
         HazardRecords(const HazardRecords &) = delete;
 
@@ -221,8 +232,8 @@ namespace lu {
         }
 
         void release(pointer record) noexcept {
-            assert((data_.data() <= record) && (data_.data() + data_.size() > record) &&
-                   "Can't release hazard record from other thread");
+            assert((data_.data() <= record) && (data_.data() + data_.size() > record)
+                && "Can't release hazard record from other thread");
             if (record) [[likely]] {
                 record->reset();
                 free_list_.push_front(*record);
@@ -234,32 +245,38 @@ namespace lu {
         }
 
         iterator begin() noexcept {
-            return data_.begin();
+            return data_.data();
         }
 
         iterator end() noexcept {
-            return data_.end();
+            return data_.data() + data_.size();
         }
 
         const_iterator begin() const noexcept {
-            return data_.begin();
+            return data_.data();
         }
 
         const_iterator end() const noexcept {
-            return data_.end();
+            return data_.data() + data_.size();
         }
 
     private:
-        Array data_;
-        lu::forward_list<HazardRecord> free_list_;
+        resource data_;
+        lu::forward_list<HazardRecord> free_list_{};
     };
 
     class HazardThreadData : public lu::thread_local_list_base_hook {
         friend class HazardPointerDomain;
 
     public:
-        explicit HazardThreadData(std::size_t scan_threshold)
-            : scan_threshold_(scan_threshold) {}
+        using records_resource = typename HazardRecords::resource;
+        using retires_resource = typename HazardRetires::resource;
+
+    public:
+        HazardThreadData(std::size_t scan_threshold, records_resource records_resource, retires_resource retires_resource)
+            : scan_threshold_(scan_threshold),
+              records_(records_resource),
+              retires_(retires_resource) {}
 
         HazardThreadData(const HazardThreadData &) = delete;
 
@@ -301,8 +318,8 @@ namespace lu {
 
     private:
         std::size_t scan_threshold_;
-        HazardRecords records_{};
-        RetiredSet retires_{};
+        HazardRecords records_;
+        HazardRetires retires_;
     };
 
     class HazardPointerDomain {
@@ -319,28 +336,53 @@ namespace lu {
         };
 
         struct Creator {
-            Creator(std::size_t num_of_records, std::size_t scan_threshold)
+            Creator(std::size_t num_of_records, std::size_t num_of_retires, std::size_t scan_threshold)
                 : num_of_records_(num_of_records),
+                  num_of_retires_(num_of_retires),
                   scan_threshold_(scan_threshold) {}
 
             HazardThreadData *operator()() const {
-                return new HazardThreadData(scan_threshold_);
+                using records_resource = typename HazardThreadData::records_resource;
+                using records_element_type = typename records_resource::element_type;
+
+                using retires_resource = typename HazardThreadData::retires_resource;
+                using retires_element_type = typename retires_resource::element_type;
+
+                std::size_t header_size = sizeof(HazardThreadData);
+                std::size_t records_resource_size = sizeof(records_element_type) * num_of_records_;
+                std::size_t retires_resource_size = sizeof(retires_element_type) * num_of_retires_;
+
+                std::size_t size = header_size + records_resource_size + retires_resource_size;
+
+                auto blob = new std::uint8_t[size];
+                auto records = reinterpret_cast<records_element_type *>(blob + header_size);
+                auto retires = reinterpret_cast<retires_element_type *>(blob + header_size + records_resource_size);
+
+                records_resource _records_resource(records, num_of_records_);
+                retires_resource _retires_resource(retires, num_of_retires_);
+
+                ::new(blob) HazardThreadData(scan_threshold_, _records_resource, _retires_resource);
+                auto thread_data = reinterpret_cast<HazardThreadData *>(blob);
+
+                return thread_data;
             }
 
         private:
             std::size_t num_of_records_;
+            std::size_t num_of_retires_;
             std::size_t scan_threshold_;
         };
 
         struct Deleter {
             void operator()(HazardThreadData *thread_data) const {
-                delete thread_data;
+                thread_data->~HazardThreadData();
+                delete[] reinterpret_cast<std::uint8_t *>(thread_data);
             }
         };
 
     public:
-        HazardPointerDomain(std::size_t num_of_records, std::size_t scan_threshold)
-            : list_(Detacher(this), Creator(num_of_records, scan_threshold), Deleter()) {}
+        HazardPointerDomain(std::size_t num_of_records, std::size_t num_of_retires, std::size_t scan_threshold)
+            : list_(Detacher(this), Creator(num_of_records, num_of_retires, scan_threshold), Deleter()) {}
 
         HazardPointerDomain(const HazardPointerDomain &) = delete;
 
@@ -595,8 +637,15 @@ namespace lu {
 #endif
     };
 
+    static constexpr std::size_t DEFAULT_NUM_OF_RECORDS = 4;
+    static constexpr std::size_t DEFAULT_NUM_OF_RETIRES = 64;
+    static constexpr std::size_t DEFAULT_SCAN_THRESHOLD = 64;
+
     inline HazardPointerDomain &get_default_domain() {
-        static HazardPointerDomain domain(8, 64);
+        static HazardPointerDomain domain(
+            DEFAULT_NUM_OF_RECORDS,
+            DEFAULT_NUM_OF_RETIRES,
+            DEFAULT_SCAN_THRESHOLD);
         return domain;
     }
 
