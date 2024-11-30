@@ -97,10 +97,6 @@ namespace lu {
                 ::new (buckets.data() + i) BucketType();
             }
         }
-
-        HazardRetires(const HazardRetires &) = delete;
-
-        HazardRetires(HazardRetires &&) = delete;
     };
 
     class HazardRecord : public lu::forward_list_base_hook<> {
@@ -225,17 +221,19 @@ namespace lu {
             auto current = retires_.begin();
             while (current != retires_.end()) {
                 auto prev = current++;
-                destroy_retired(*prev);
+                reclaim(*prev);
             }
         }
 
-        void destroy_retired(HazardObject &retired) {
+        void reclaim(HazardObject &retired) {
             retires_.erase(retires_.iterator_to(retired));
             retired.reclaim();
+            num_of_reclaimed.fetch_add(1, std::memory_order_relaxed);
         }
 
         bool retire(HazardObject &retired) {
             retires_.insert(retired);
+            num_of_retired.fetch_add(1, std::memory_order_relaxed);
             return retires_.size() >= scan_threshold_;
         }
 
@@ -255,6 +253,9 @@ namespace lu {
         std::size_t scan_threshold_;
         HazardRecords records_;
         HazardRetires retires_;
+
+        std::atomic<std::size_t> num_of_retired;
+        std::atomic<std::size_t> num_of_reclaimed;
     };
 
     class HazardPointerDomain {
@@ -348,6 +349,22 @@ namespace lu {
             thread_data.release_record(record);
         }
 
+        std::size_t num_of_retired() {
+            std::size_t result{};
+            for (auto it = list_.begin(); it != list_.end(); ++it) {
+                result += it->num_of_retired.load(std::memory_order_relaxed);
+            }
+            return result;
+        }
+
+        std::size_t num_of_reclaimed() {
+            std::size_t result{};
+            for (auto it = list_.begin(); it != list_.end(); ++it) {
+                result += it->num_of_reclaimed.load(std::memory_order_relaxed);
+            }
+            return result;
+        }
+
     private:
         void scan() {
             auto &thread_data = list_.get_thread_local();
@@ -371,7 +388,7 @@ namespace lu {
                 if (prev->is_protected()) {
                     prev->make_unprotected();
                 } else {
-                    thread_data.destroy_retired(*prev);
+                    thread_data.reclaim(*prev);
                 }
             }
         }

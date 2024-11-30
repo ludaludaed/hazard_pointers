@@ -410,34 +410,11 @@ void abstractStressTest(Func &&func) {
             std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << "\t";
         }
         std::cout << std::endl;
+        lu::detach_thread();
     }
+    std::cout << lu::get_default_domain().num_of_reclaimed() << std::endl;
+    std::cout << lu::get_default_domain().num_of_retired() << std::endl;
 }
-
-// struct H : public lu::thread_local_list_base_hook {
-//     int y = 10;
-// };
-
-// struct Detacher {
-//     void operator()(H *ptr) const {
-//         std::cout << "detach " << ptr->y << std::endl;
-//     }
-// };
-
-struct Foo {
-    Foo() = default;
-
-    Foo(const Foo &f) {
-        std::cout << "copy" << std::endl;
-    }
-
-    Foo(Foo &&f) {
-        std::cout << "move" << std::endl;
-    }
-
-    ~Foo() {
-        std::cout << "destruct" << std::endl;
-    }
-};
 
 int main() {
     // hazard_pointer::ordered_list<int> list;
@@ -456,29 +433,4 @@ int main() {
     for (int i = 0; i < 1; ++i) {
         abstractStressTest(stressTest<hazard_pointer::TreiberStack<int, lu::EmptyBackOff>>);
     }
-    // lu::fixed_size_function<int(int), 64> func;
-    // func = [f = Foo()](int v) {
-    //     return v;
-    // };
-    // std::cout << func(10) << std::endl;
-    // lu::fixed_size_function<int(int), 64> func1 = func;
-    // lu::fixed_size_function<int(int), 64> func2 = std::move(func);
-    // func = [](int v) {
-    //     return v + 100;
-    // };
-    // std::cout << func(10) << std::endl;
-    // std::cout << func2(10) << std::endl;
-
-    // lu::thread_local_list<H> list(Detacher{});
-    // auto& it = list.get_thread_local();
-    // it.y = 1;
-    // std::thread thr{[&]() {
-    //     auto& it = list.get_thread_local();
-    //     it.y = 2;
-    // }};
-    // thr.join();
-    // for (auto it = list.begin(); it != list.end(); ++it) {
-    //     std::cout << list.is_acquired(*it) << " " << it->y << std::endl;
-    // }
-    // list.detach_thread();
 }
