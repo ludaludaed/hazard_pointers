@@ -2,7 +2,6 @@
 #define __HAZARD_POINTERS_H__
 
 #include <algorithm>
-#include <array>
 #include <atomic>
 #include <cassert>
 #include <cstddef>
@@ -23,8 +22,8 @@ namespace lu {
     class HazardPointerTag {};
 
     using HazardPointerHook = lu::unordered_set_base_hook<
-            lu::tag<HazardPointerTag>, 
-            lu::store_hash<false>, 
+            lu::tag<HazardPointerTag>,
+            lu::store_hash<false>,
             lu::is_auto_unlink<false>>;
 
     class HazardObject : public HazardPointerHook {
@@ -75,96 +74,33 @@ namespace lu {
         }
     };
 
-    class HazardRetires {
-        using UnorderedSet = lu::unordered_set<
-                HazardObject,
-                lu::base_hook<HazardPointerHook>,
-                lu::is_power_2_buckets<true>,
-                lu::key_of_value<RawPointerKeyOfValue<HazardObject>>,
-                lu::hash<detail::PointerHash>>;
+    using HazardRetiresSet = lu::unordered_set<
+            HazardObject,
+            lu::base_hook<HazardPointerHook>,
+            lu::is_power_2_buckets<true>,
+            lu::key_of_value<RawPointerKeyOfValue<HazardObject>>,
+            lu::hash<detail::PointerHash>>;
 
-        using BucketType = typename UnorderedSet::bucket_type;
-        using BucketTraits = typename UnorderedSet::bucket_traits;
+    class HazardRetires : public HazardRetiresSet {
+        using Base = HazardRetiresSet;
+
+        using BucketType = typename Base::bucket_type;
+        using BucketTraits = typename Base::bucket_traits;
 
     public:
         using resource = std::span<BucketType>;
 
-        using value_type = HazardObject;
-        using key_type = const HazardObject *;
-
-        using pointer = value_type *;
-        using const_pointer = const value_type *;
-        using reference = value_type &;
-        using const_reference = const value_type &;
-
-        using iterator = typename UnorderedSet::iterator;
-        using const_iterator = typename UnorderedSet::const_iterator;
-
     public:
         HazardRetires(resource buckets) noexcept
-            : buckets_(buckets),
-              retired_set_(BucketTraits(buckets_.data(), buckets_.size())) {
-            for (std::size_t i = 0; i < buckets_.size(); ++i) {
-                ::new (buckets_.data() + i) BucketType();
+            : Base(BucketTraits(buckets.data(), buckets.size())) {
+            for (std::size_t i = 0; i < buckets.size(); ++i) {
+                ::new (buckets.data() + i) BucketType();
             }
         }
 
         HazardRetires(const HazardRetires &) = delete;
 
         HazardRetires(HazardRetires &&) = delete;
-
-    public:
-        void insert(reference value) noexcept {
-            retired_set_.insert(value);
-        }
-
-        void erase(reference element) noexcept {
-            retired_set_.erase(retired_set_.iterator_to(element));
-        }
-
-        bool contains(key_type key) const noexcept {
-            return retired_set_.contains(key);
-        }
-
-        iterator find(key_type key) noexcept {
-            return retired_set_.find(key);
-        }
-
-        const_iterator find(key_type key) const noexcept {
-            return retired_set_.find(key);
-        }
-
-        void merge(HazardRetires &other) noexcept {
-            retired_set_.merge(other.retired_set_);
-        }
-
-        std::size_t size() const noexcept {
-            return retired_set_.size();
-        }
-
-        bool empty() const noexcept {
-            return retired_set_.empty();
-        }
-
-        iterator begin() noexcept {
-            return retired_set_.begin();
-        }
-
-        iterator end() noexcept {
-            return retired_set_.end();
-        }
-
-        const_iterator begin() const noexcept {
-            return retired_set_.begin();
-        }
-
-        const_iterator end() const noexcept {
-            return retired_set_.end();
-        }
-
-    private:
-        resource buckets_{};
-        UnorderedSet retired_set_;
     };
 
     class HazardRecord : public lu::forward_list_base_hook<> {
@@ -232,8 +168,7 @@ namespace lu {
         }
 
         void release(pointer record) noexcept {
-            assert((data_.data() <= record) && (data_.data() + data_.size() > record)
-                && "Can't release hazard record from other thread");
+            assert((data_.data() <= record) && (data_.data() + data_.size() > record) && "Can't release hazard record from other thread");
             if (record) [[likely]] {
                 record->reset();
                 free_list_.push_front(*record);
@@ -295,7 +230,7 @@ namespace lu {
         }
 
         void destroy_retired(HazardObject &retired) {
-            retires_.erase(retired);
+            retires_.erase(retires_.iterator_to(retired));
             retired.reclaim();
         }
 
@@ -361,7 +296,7 @@ namespace lu {
                 records_resource _records_resource(records, num_of_records_);
                 retires_resource _retires_resource(retires, num_of_retires_);
 
-                ::new(blob) HazardThreadData(scan_threshold_, _records_resource, _retires_resource);
+                ::new (blob) HazardThreadData(scan_threshold_, _records_resource, _retires_resource);
                 auto thread_data = reinterpret_cast<HazardThreadData *>(blob);
 
                 return thread_data;
@@ -643,9 +578,9 @@ namespace lu {
 
     inline HazardPointerDomain &get_default_domain() {
         static HazardPointerDomain domain(
-            DEFAULT_NUM_OF_RECORDS,
-            DEFAULT_NUM_OF_RETIRES,
-            DEFAULT_SCAN_THRESHOLD);
+                DEFAULT_NUM_OF_RECORDS,
+                DEFAULT_NUM_OF_RETIRES,
+                DEFAULT_SCAN_THRESHOLD);
         return domain;
     }
 
