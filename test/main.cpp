@@ -23,6 +23,8 @@
 #include <set>
 #include <span>
 #include <stack>
+#include <stdexcept>
+#include <string>
 #include <string_view>
 #include <thread>
 #include <type_traits>
@@ -241,7 +243,7 @@ namespace hazard_pointer {
             auto head = head_.load();
             new_node->next = head;
             while (true) {
-                if (head_.compare_exchange_weak(new_node->next, new_node)) {
+                if (head_.compare_exchange_weak(new_node->next, new_node, std::memory_order_release, std::memory_order_relaxed)) {
                     return;
                 }
                 back_off();
@@ -256,7 +258,7 @@ namespace hazard_pointer {
                 if (!head) {
                     return std::nullopt;
                 }
-                if (head_.compare_exchange_strong(head, head->next)) {
+                if (head_.compare_exchange_strong(head, head->next, std::memory_order_relaxed)) {
                     head->retire();
                     return {std::move(head->value)};
                 }
@@ -390,7 +392,12 @@ void stressTest(int actions, int threads) {
     std::sort(all_generated.begin(), all_generated.end());
     std::sort(all_extracted.begin(), all_extracted.end());
     for (int i = 0; i < all_extracted.size(); i++) {
-        assert(all_generated[i] == all_extracted[i]);
+        if (all_generated[i] != all_extracted[i]) {
+            throw std::runtime_error("the values must be equal: " 
+                            + std::to_string(all_generated[i])
+                            + ", "
+                            + std::to_string(all_extracted[i]));
+        }
     }
 }
 
@@ -413,8 +420,12 @@ void abstractStressTest(Func &&func) {
         std::cout << std::endl;
         lu::detach_thread();
     }
-    std::cout << lu::get_default_domain().num_of_reclaimed() << std::endl;
-    std::cout << lu::get_default_domain().num_of_retired() << std::endl;
+    if (lu::get_default_domain().num_of_reclaimed() != lu::get_default_domain().num_of_retired()) {
+        throw std::runtime_error("the number of reclaimed and retired must be equal: "
+                        + std::to_string(lu::get_default_domain().num_of_reclaimed())
+                        + ", "
+                        + std::to_string(lu::get_default_domain().num_of_retired()));
+    }
 }
 
 int main() {
@@ -431,7 +442,8 @@ int main() {
 
     // std::cout << sizeof(lu::unordered_set_base_hook<lu::store_hash<false>>) << std::endl;
     // std::cout << sizeof(lu::hazard_pointer_obj_base<int>) << std::endl;
-    for (int i = 0; i < 1; ++i) {
+    for (int i = 0; i < 1000; ++i) {
+        std::cout << "iteration: #" << i << std::endl;
         abstractStressTest(stressTest<hazard_pointer::TreiberStack<int, lu::EmptyBackOff>>);
     }
 }

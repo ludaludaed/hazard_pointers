@@ -369,6 +369,7 @@ namespace lu {
         void scan() {
             auto &thread_data = list_.get_thread_local();
             auto &retires = thread_data.retires_;
+            std::atomic_thread_fence(std::memory_order_seq_cst);
             for (auto current = list_.begin(); current != list_.end(); ++current) {
                 if (!current->is_acquired()) {
                     continue;
@@ -470,6 +471,7 @@ namespace lu {
             assert(record_ && "hazard_ptr must be initialized");
             auto old = ptr;
             reset_protection(func(old));
+            std::atomic_thread_fence(std::memory_order_seq_cst);
             ptr = src.load(std::memory_order_acquire);
             if (old != ptr) {
                 reset_protection();
