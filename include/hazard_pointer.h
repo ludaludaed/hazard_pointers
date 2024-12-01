@@ -112,15 +112,15 @@ namespace lu {
         HazardRecord(HazardRecord &&) = delete;
 
         inline void reset(const_pointer new_ptr = {}) {
-            protected_.store(new_ptr);
+            protected_.store(new_ptr, std::memory_order_relaxed);
         }
 
         inline const_pointer get() const noexcept {
-            return protected_.load();
+            return protected_.load(std::memory_order_relaxed);
         }
 
         inline bool empty() const noexcept {
-            return !protected_.load();
+            return !protected_.load(std::memory_order_relaxed);
         }
 
     private:
@@ -455,7 +455,7 @@ namespace lu {
 
         template<class Ptr, class Func, class = std::enable_if_t<std::is_base_of_v<HazardObject, typename std::pointer_traits<Ptr>::element_type>>>
         Ptr protect(const std::atomic<Ptr> &src, Func &&func) noexcept {
-            auto ptr = src.load();
+            auto ptr = src.load(std::memory_order_relaxed);
             while (!try_protect(ptr, src, std::forward<Func>(func))) {}
             return ptr;
         }
@@ -470,7 +470,7 @@ namespace lu {
             assert(record_ && "hazard_ptr must be initialized");
             auto old = ptr;
             reset_protection(func(old));
-            ptr = src.load();
+            ptr = src.load(std::memory_order_acquire);
             if (old != ptr) {
                 reset_protection();
                 return false;
