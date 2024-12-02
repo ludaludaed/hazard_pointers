@@ -429,19 +429,6 @@ void abstractStressTest(Func &&func) {
 }
 
 int main() {
-    // hazard_pointer::ordered_list<int> list;
-    // list.emplace(10);
-    // std::cout << list.contains(10) << std::endl;
-    // list.erase(10);
-    // std::cout << list.contains(10) << std::endl;
-    // for (int i = 0; i < 10; ++i) {
-    //     list.insert(i);
-    // }
-    // list.clear();
-    // std::cout << list.empty();
-
-    // std::cout << sizeof(lu::unordered_set_base_hook<lu::store_hash<false>>) << std::endl;
-    // std::cout << sizeof(lu::hazard_pointer_obj_base<int>) << std::endl;
     for (int i = 0; i < 1000; ++i) {
         std::cout << "iteration: #" << i << std::endl;
         abstractStressTest(stressTest<hazard_pointer::TreiberStack<int, lu::EmptyBackOff>>);

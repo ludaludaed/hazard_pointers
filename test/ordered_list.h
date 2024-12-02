@@ -281,10 +281,10 @@ namespace lu {
     };
 
     template<class ValueType, class KeyCompare = std::less<ValueType>, class BackOff = YieldBackOff>
-    using ordered_list = OrderedList<ValueType, KeyCompare, SetKeySelect<ValueType>, BackOff>;
+    using ordered_list_set = OrderedList<ValueType, KeyCompare, SetKeySelect<ValueType>, BackOff>;
 
     template<class KeyType, class ValueType, class KeyCompare = std::less<ValueType>, class BackOff = YieldBackOff>
-    using ordered_key_value_list = OrderedList<std::pair<const KeyType, ValueType>, KeyCompare, MapKeySelect<KeyType, ValueType>, BackOff>;
+    using ordered_list_map = OrderedList<std::pair<const KeyType, ValueType>, KeyCompare, MapKeySelect<KeyType, ValueType>, BackOff>;
 }// namespace lu
 
 #endif

@@ -318,7 +318,9 @@ namespace lu {
 
     public:
         HazardPointerDomain(std::size_t num_of_records, std::size_t num_of_retires, std::size_t scan_threshold)
-            : list_(Detacher(this), Creator(num_of_records, num_of_retires, scan_threshold), Deleter()) {}
+            : list_(Detacher(this),
+                    Creator(num_of_records, num_of_retires, scan_threshold),
+                    Deleter()) {}
 
         HazardPointerDomain(const HazardPointerDomain &) = delete;
 
