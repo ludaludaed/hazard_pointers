@@ -16,6 +16,7 @@
 #include <memory>
 #include <utility>
 
+
 namespace lu {
     template<class NodeTraits>
     class CircularSlistAlgo {

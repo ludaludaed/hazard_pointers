@@ -1,39 +1,3 @@
-#include "back_off.h"
-#include "fixed_size_function.h"
-#include "intrusive/empty_base_holder.h"
-#include "intrusive/options.h"
-#include <algorithm>
-#include <array>
-#include <atomic>
-#include <cstddef>
-#include <cstdint>
-#include <cstdlib>
-#include <exception>
-#include <forward_list>
-#include <fstream>
-#include <functional>
-#include <future>
-#include <iostream>
-#include <map>
-#include <memory>
-#include <mutex>
-#include <optional>
-#include <ostream>
-#include <queue>
-#include <set>
-#include <span>
-#include <stack>
-#include <stdexcept>
-#include <string>
-#include <string_view>
-#include <thread>
-#include <type_traits>
-#include <unordered_map>
-#include <unordered_set>
-#include <utility>
-#include <vector>
-
-
 #include <hazard_pointer.h>
 #include <intrusive/forward_list.h>
 #include <intrusive/hashtable.h>
@@ -41,8 +5,22 @@
 #include <marked_shared_ptr.h>
 #include <shared_ptr.h>
 
+#include "back_off.h"
 #include "ordered_list.h"
-#include "thread_local_list.h"
+#include "structures.h"
+
+#include <algorithm>
+#include <cstddef>
+#include <cstdlib>
+#include <iostream>
+#include <ostream>
+#include <stdexcept>
+#include <string>
+#include <string_view>
+#include <thread>
+#include <utility>
+#include <vector>
+
 
 struct A : lu::forward_list_base_hook<> {
     int a;
@@ -119,224 +97,6 @@ void slist_test() {
     std::cout << list_a.size() << " " << list_b.size() << std::endl;
 }
 
-namespace atomic_shared_ptr {
-    template<class ValueType, class BackOff>
-    class TreiberStack {
-        struct Node {
-            ValueType value{};
-            lu::shared_ptr<Node> next{};
-
-            template<class... Args>
-            Node(Args &&...args)
-                : value(std::forward<Args>(args)...) {
-            }
-        };
-
-    public:
-        void push(ValueType value) {
-            BackOff back_off;
-            auto new_node = lu::make_shared<Node>(value);
-            auto head = head_.load();
-            new_node->next = head;
-            while (true) {
-                if (head_.compare_exchange_weak(new_node->next, new_node)) {
-                    return;
-                }
-                back_off();
-            }
-        }
-
-        std::optional<ValueType> pop() {
-            BackOff back_off;
-            while (true) {
-                lu::shared_ptr<Node> head = head_.load();
-                if (!head) {
-                    return std::nullopt;
-                }
-                if (head_.compare_exchange_weak(head, head->next)) {
-                    return {head->value};
-                }
-                back_off();
-            }
-        }
-
-    private:
-        lu::atomic_shared_ptr<Node> head_{};
-    };
-
-    template<class ValueType, class BackOff>
-    class MSQueue {
-        struct Node {
-            ValueType value{};
-            lu::atomic_shared_ptr<Node> next{};
-
-            Node() = default;
-
-            template<class... Args>
-            Node(Args &&...args)
-                : value(std::forward<Args>(args)...) {
-            }
-        };
-
-    public:
-        MSQueue() {
-            auto dummy = lu::make_shared<Node>();
-            head_.store(dummy);
-            tail_.store(dummy);
-        }
-
-        void push(ValueType value) {
-            BackOff back_off;
-            auto new_item = lu::make_shared<Node>(value);
-            while (true) {
-                auto tail = tail_.load();
-                if (tail->next.load()) {
-                    tail_.compare_exchange_weak(tail, tail->next.load());
-                } else {
-                    lu::shared_ptr<Node> null;
-                    if (tail->next.compare_exchange_weak(null, new_item)) {
-                        tail_.compare_exchange_weak(tail, new_item);
-                        return;
-                    }
-                }
-                back_off();
-            }
-        }
-
-        std::optional<ValueType> pop() {
-            BackOff back_off;
-            while (true) {
-                auto head = head_.load();
-                auto head_next = head->next.load();
-                if (!head_next) {
-                    return std::nullopt;
-                }
-                if (head_.compare_exchange_weak(head, head_next)) {
-                    return {head_next->value};
-                }
-                back_off();
-            }
-        }
-
-    private:
-        lu::atomic_shared_ptr<Node> head_;
-        lu::atomic_shared_ptr<Node> tail_;
-    };
-}// namespace atomic_shared_ptr
-
-namespace hazard_pointer {
-    template<class ValueType, class BackOff>
-    class TreiberStack {
-        struct Node : public lu::hazard_pointer_obj_base<Node> {
-            template<class... Args>
-            Node(Args &&...args)
-                : value(std::forward<Args>(args)...) {}
-
-            ValueType value;
-            Node *next{};
-        };
-
-    public:
-        void push(ValueType value) {
-            BackOff back_off;
-            auto new_node = new Node(value);
-            auto head = head_.load();
-            new_node->next = head;
-            while (true) {
-                if (head_.compare_exchange_weak(new_node->next, new_node, std::memory_order_release, std::memory_order_relaxed)) {
-                    return;
-                }
-                back_off();
-            }
-        }
-
-        std::optional<ValueType> pop() {
-            BackOff back_off;
-            auto head_guard = lu::make_hazard_pointer();
-            while (true) {
-                auto head = head_guard.protect(head_);
-                if (!head) {
-                    return std::nullopt;
-                }
-                if (head_.compare_exchange_strong(head, head->next, std::memory_order_relaxed)) {
-                    head->retire();
-                    return {std::move(head->value)};
-                }
-                back_off();
-            }
-        }
-
-    private:
-        std::atomic<Node *> head_{nullptr};
-    };
-
-    template<class ValueType, class BackOff>
-    class MSQueue {
-        struct Node : lu::hazard_pointer_obj_base<Node> {
-            ValueType value{};
-            std::atomic<Node *> next{};
-
-            Node() = default;
-
-            template<class... Args>
-            Node(Args &&...args)
-                : value(std::forward<Args>(args)...) {
-            }
-        };
-
-    public:
-        MSQueue() {
-            auto dummy_node = new Node();
-            head_.store(dummy_node);
-            tail_.store(dummy_node);
-        }
-
-        template<class... Args>
-        void push(Args &&...args) {
-            BackOff back_off;
-
-            auto new_node = new Node(std::forward<Args>(args)...);
-            auto tail_guard = lu::make_hazard_pointer();
-
-            while (true) {
-                auto tail = tail_guard.protect(tail_);
-                auto tail_next = tail->next.load();
-                if (tail_next) {
-                    tail_.compare_exchange_weak(tail, tail_next);
-                } else {
-                    if (tail->next.compare_exchange_weak(tail_next, new_node)) {
-                        tail_.compare_exchange_weak(tail, new_node);
-                        return;
-                    }
-                }
-                back_off();
-            }
-        }
-
-        std::optional<ValueType> pop() {
-            BackOff back_off;
-            auto head_guard = lu::make_hazard_pointer();
-            auto head_next_guard = lu::make_hazard_pointer();
-            while (true) {
-                auto head = head_guard.protect(head_);
-                auto head_next = head_next_guard.protect(head->next);
-                if (!head_next) {
-                    return std::nullopt;
-                }
-                if (head_.compare_exchange_weak(head, head_next)) {
-                    head->retire();
-                    return {std::move(head_next->value)};
-                }
-                back_off();
-            }
-        }
-
-    private:
-        std::atomic<Node *> head_;
-        std::atomic<Node *> tail_;
-    };
-}// namespace hazard_pointer
-
 template<typename TContainer>
 void stressTest(int actions, int threads) {
     std::vector<std::thread> workers;
@@ -393,10 +153,7 @@ void stressTest(int actions, int threads) {
     std::sort(all_extracted.begin(), all_extracted.end());
     for (int i = 0; i < all_extracted.size(); i++) {
         if (all_generated[i] != all_extracted[i]) {
-            throw std::runtime_error("the values must be equal: " 
-                            + std::to_string(all_generated[i])
-                            + ", "
-                            + std::to_string(all_extracted[i]));
+            throw std::runtime_error("the values must be equal: " + std::to_string(all_generated[i]) + ", " + std::to_string(all_extracted[i]));
         }
     }
 }
@@ -421,16 +178,13 @@ void abstractStressTest(Func &&func) {
         lu::detach_thread();
     }
     if (lu::get_default_domain().num_of_reclaimed() != lu::get_default_domain().num_of_retired()) {
-        throw std::runtime_error("the number of reclaimed and retired must be equal: "
-                        + std::to_string(lu::get_default_domain().num_of_reclaimed())
-                        + ", "
-                        + std::to_string(lu::get_default_domain().num_of_retired()));
+        throw std::runtime_error("the number of reclaimed and retired must be equal: " + std::to_string(lu::get_default_domain().num_of_reclaimed()) + ", " + std::to_string(lu::get_default_domain().num_of_retired()));
     }
 }
 
 int main() {
     for (int i = 0; i < 1000; ++i) {
         std::cout << "iteration: #" << i << std::endl;
-        abstractStressTest(stressTest<hazard_pointer::TreiberStack<int, lu::EmptyBackOff>>);
+        abstractStressTest(stressTest<lu::hp::MSQueue<int, lu::EmptyBackOff>>);
     }
 }

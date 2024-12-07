@@ -1,12 +1,12 @@
 #ifndef __MARKED_SHARED_PTR_H__
 #define __MARKED_SHARED_PTR_H__
 
+#include "marked_ptr.h"
+#include "shared_ptr.h"
+
 #include <memory>
 #include <type_traits>
 #include <utility>
-
-#include "marked_ptr.h"
-#include "shared_ptr.h"
 
 
 namespace lu {

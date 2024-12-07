@@ -6,6 +6,7 @@
 #include <type_traits>
 #include <utility>
 
+
 namespace lu {
     template<class ResultType, class... Args>
     struct FixedSizeFunctionVTable {

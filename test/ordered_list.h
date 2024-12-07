@@ -4,6 +4,7 @@
 #include <back_off.h>
 #include <hazard_pointer.h>
 #include <marked_ptr.h>
+
 #include <type_traits>
 
 
@@ -52,16 +53,12 @@ namespace lu {
         using guarded_ptr = std::conditional_t<is_key_value, lu::guarded_ptr<ValueType>, lu::guarded_ptr<const ValueType>>;
 
     private:
-        static void delete_node(node_pointer node) {
-            node->retire();
-        }
-
         static bool unlink(position &pos) {
             node_marked_pointer next(pos.next);
             if (pos.cur->next.compare_exchange_weak(next, node_marked_pointer(next.get(), 1))) {
                 node_marked_pointer cur(pos.cur);
                 if (pos.prev_pointer->compare_exchange_weak(cur, node_marked_pointer(pos.next))) {
-                    delete_node(cur);
+                    cur->retire();
                 }
                 return true;
             }

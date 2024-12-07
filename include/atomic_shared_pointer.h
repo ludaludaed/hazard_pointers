@@ -1,9 +1,10 @@
 #ifndef __ATOMIC_SHARED_POINTER_H__
 #define __ATOMIC_SHARED_POINTER_H__
 
+#include "hazard_pointer.h"
+
 #include <atomic>
 
-#include "hazard_pointer.h"
 
 namespace lu {
     template<class RefCountTraits>

@@ -19,7 +19,7 @@ namespace lu::detail {
 
     struct PointerHash {
         template<class T>
-        std::size_t operator()(T* p) const noexcept {
+        std::size_t operator()(T *p) const noexcept {
             std::uintptr_t ptr = reinterpret_cast<std::uintptr_t>(p);
             std::uintptr_t hash = ptr >> log<std::max(sizeof(T), alignof(T))>;
             return static_cast<std::size_t>(hash);

@@ -5,6 +5,7 @@
 #include <type_traits>
 #include <utility>
 
+
 namespace lu {
     template<class ValueType>
     class MarkedPointer {

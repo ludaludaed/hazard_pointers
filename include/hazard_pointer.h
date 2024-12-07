@@ -1,6 +1,12 @@
 #ifndef __HAZARD_POINTERS_H__
 #define __HAZARD_POINTERS_H__
 
+#include "intrusive/forward_list.h"
+#include "intrusive/options.h"
+#include "intrusive/unordered_set.h"
+#include "thread_local_list.h"
+#include "utils.h"
+
 #include <algorithm>
 #include <atomic>
 #include <cassert>
@@ -10,12 +16,6 @@
 #include <span>
 #include <type_traits>
 #include <utility>
-
-#include "intrusive/forward_list.h"
-#include "intrusive/options.h"
-#include "intrusive/unordered_set.h"
-#include "thread_local_list.h"
-#include "utils.h"
 
 
 namespace lu {

@@ -1,20 +1,19 @@
 #ifndef __SHARED_PTR_H__
 #define __SHARED_PTR_H__
 
+#include "atomic_shared_pointer.h"
+#include "hazard_pointer.h"
+#include "intrusive/forward_list.h"
+#include "intrusive/options.h"
+#include "intrusive/utils.h"
+#include "utils.h"
+
 #include <atomic>
 #include <cassert>
 #include <cstdint>
 #include <memory>
 #include <type_traits>
 #include <utility>
-
-#include "atomic_shared_pointer.h"
-#include "hazard_pointer.h"
-#include "utils.h"
-
-#include "intrusive/forward_list.h"
-#include "intrusive/options.h"
-#include "intrusive/utils.h"
 
 
 namespace lu {
