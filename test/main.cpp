@@ -36,22 +36,30 @@ void stressTest(int actions, int threads) {
                     generated[i].push_back(a);
                 } else {
                     auto a = container.pop();
-                    if (a) { extracted[i].push_back(*a); }
+                    if (a) {
+                        extracted[i].push_back(*a);
+                    }
                 }
             }
         });
     }
 
-    for (auto &thread: workers) { thread.join(); }
+    for (auto &thread: workers) {
+        thread.join();
+    }
 
     std::vector<int> all_generated;
     std::vector<int> all_extracted;
     for (int i = 0; i < generated.size(); i++) {
-        for (int j = 0; j < generated[i].size(); j++) { all_generated.push_back(generated[i][j]); }
+        for (int j = 0; j < generated[i].size(); j++) {
+            all_generated.push_back(generated[i][j]);
+        }
     }
 
     for (int i = 0; i < extracted.size(); i++) {
-        for (int j = 0; j < extracted[i].size(); j++) { all_extracted.push_back(extracted[i][j]); }
+        for (int j = 0; j < extracted[i].size(); j++) {
+            all_extracted.push_back(extracted[i][j]);
+        }
     }
 
     while (true) {
@@ -77,7 +85,9 @@ void stressTest(int actions, int threads) {
 template<class Func>
 void abstractStressTest(Func &&func) {
     std::size_t num_of_threads = std::thread::hardware_concurrency();
-    for (int i = 1; i <= num_of_threads; i++) { std::cout << "\t" << i; }
+    for (int i = 1; i <= num_of_threads; i++) {
+        std::cout << "\t" << i;
+    }
     // num_of_threads = 1;
     std::cout << std::endl;
     for (int i = 500000; i <= 6000000; i += 500000) {
