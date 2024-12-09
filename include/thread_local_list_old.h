@@ -167,7 +167,7 @@ namespace lu {
         }
 
         ThreadLocalListIterator operator++(int) noexcept {
-            ThreadLocalListIterator result = *this;
+            ThreadLocalListIterator result(*this);
             Increment();
             return result;
         }
@@ -237,7 +237,7 @@ namespace lu {
         }
 
         ThreadLocalListConstIterator operator++(int) noexcept {
-            ThreadLocalListConstIterator result = *this;
+            ThreadLocalListConstIterator result(*this);
             Increment();
             return result;
         }

@@ -319,7 +319,7 @@ namespace lu {
         }
 
         SlistIterator operator++(int) noexcept {
-            SlistIterator result = *this;
+            SlistIterator result(*this);
             Increment();
             return result;
         }
@@ -390,7 +390,7 @@ namespace lu {
         }
 
         SlistConstIterator operator++(int) noexcept {
-            SlistConstIterator result = *this;
+            SlistConstIterator result(*this);
             Increment();
             return result;
         }

@@ -164,7 +164,7 @@ namespace lu {
         }
 
         ActiveListIterator operator++(int) noexcept {
-            ActiveListIterator result = *this;
+            ActiveListIterator result(*this);
             Increment();
             return result;
         }
@@ -234,7 +234,7 @@ namespace lu {
         }
 
         ActiveListConstIterator operator++(int) noexcept {
-            ActiveListConstIterator result = *this;
+            ActiveListConstIterator result(*this);
             Increment();
             return result;
         }

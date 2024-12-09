@@ -40,6 +40,88 @@ namespace lu {
             lu::hazard_pointer prev_guard{lu::make_hazard_pointer()};
         };
 
+        class Iterator {
+        friend class OrderedList;
+
+        public:
+            using iterator_category = std::forward_iterator_tag;
+            using value_type = ValueType;
+            using difference_type = std::ptrdiff_t;
+            using pointer = const ValueType*;
+            using reference = const ValueType&;
+
+        private:
+            Iterator(lu::hazard_pointer guard, node_marked_pointer current, OrderedList* list) noexcept
+                : guard_(std::move(guard))
+                , current_(current)
+                , list_(list) {}
+
+        public:
+            Iterator(const Iterator& other) noexcept
+                : guard_(lu::make_hazard_pointer())
+                , current_(other.current_)
+                , list_(other.list_) {
+                guard_.reset_protection(current_);
+            }
+
+            Iterator(Iterator&& other) noexcept {
+                std::swap(guard_, other.guard_);
+                std::swap(current_, other.current_);
+                std::swap(list_, other.list_);
+            }
+
+            Iterator& operator=(const Iterator& other) noexcept {
+                guard_.reset_protection(other.current_);
+                current_ = other.current_;
+                list_ = other.list_;
+            }
+
+            Iterator& operator=(Iterator&& other) noexcept {
+                std::swap(guard_, other.guard_);
+                std::swap(current_, other.current_);
+                std::swap(list_, other.list_);
+            }
+
+            Iterator& operator++() noexcept {
+                increment();
+                return *this;
+            }
+
+            Iterator operator++(int) noexcept {
+                Iterator copy(*this);
+                increment();
+                return copy;
+            }
+
+            reference operator*() const noexcept {
+                return *this->operator->();
+            }
+
+            pointer operator->() const noexcept {
+                return &current_->value;
+            }
+
+        private:
+            void increment() noexcept {
+                auto next_guard = lu::make_hazard_pointer();
+                auto next = next_guard.protect(current_->next, [](node_marked_pointer ptr) { return ptr.get(); });
+                if (next.get_bit()) {
+                    position new_pos;
+                    list_->find(current_->value, new_pos);
+                    guard_ = std::move(new_pos.cur_guard);
+                    current_ = new_pos.cur;
+                } else {
+                    guard_ = std::move(next_guard);
+                    current_ = next;
+                }
+            }
+
+        private:
+            lu::hazard_pointer guard_{};
+            node_marked_pointer current_{};
+            OrderedList* list_{};
+        };
+
     public:
         using value_type = ValueType;
         using key_type = typename KeySelect::type;

@@ -417,7 +417,7 @@ namespace lu {
         }
 
         HashIterator operator++(int) noexcept {
-            HashIterator result = *this;
+            HashIterator result(*this);
             Increment();
             return result;
         }
@@ -487,7 +487,7 @@ namespace lu {
         }
 
         HashConstIterator operator++(int) noexcept {
-            HashConstIterator result = *this;
+            HashConstIterator result(*this);
             Increment();
             return result;
         }
@@ -553,7 +553,7 @@ namespace lu {
         }
 
         HashLocalIterator operator++(int) noexcept {
-            HashLocalIterator result = *this;
+            HashLocalIterator result(*this);
             Increment();
             return result;
         }
@@ -626,7 +626,7 @@ namespace lu {
         }
 
         HashConstLocalIterator operator++(int) noexcept {
-            HashConstLocalIterator result = *this;
+            HashConstLocalIterator result(*this);
             Increment();
             return result;
         }

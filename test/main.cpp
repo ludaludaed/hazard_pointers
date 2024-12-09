@@ -146,6 +146,9 @@ class SetFixture {
     using operations = std::array<OperationType, 100>;
     using operations_view = std::span<OperationType, 100>;
 
+    using set_type = Set;
+    using key_type = typename set_type::key_type;
+
     class Worker {
     public:
         Worker(operations_view operations, std::size_t actions, std::size_t num_of_keys)
@@ -153,7 +156,7 @@ class SetFixture {
             , num_of_actions_(actions)
             , num_of_keys_(num_of_keys) {}
 
-        void operator()() {
+        void operator()(set_type& set) {
             XorShiftRand rand;
         }
 
@@ -162,6 +165,9 @@ class SetFixture {
         std::size_t num_of_actions_;
 
         std::size_t num_of_keys_;
+
+        std::vector<key_type> generated_;
+        std::vector<key_type> erased_;
     };
 
 public:
