@@ -51,7 +51,7 @@ namespace lu {
             using reference = const ValueType&;
 
         private:
-            Iterator(lu::hazard_pointer guard, node_marked_pointer current, OrderedList* list) noexcept
+            Iterator(lu::hazard_pointer guard, node_pointer current, OrderedList* list) noexcept
                 : guard_(std::move(guard))
                 , current_(current)
                 , list_(list) {}
@@ -101,6 +101,14 @@ namespace lu {
                 return &current_->value;
             }
 
+            friend bool operator==(const Iterator &left, const Iterator &right) {
+                return left.current_ == right.current_;
+            }
+
+            friend bool operator!=(const Iterator &left, const Iterator &right) {
+                return !(left == right);
+            }
+
         private:
             void increment() noexcept {
                 auto next_guard = lu::make_hazard_pointer();
@@ -118,7 +126,7 @@ namespace lu {
 
         private:
             lu::hazard_pointer guard_{};
-            node_marked_pointer current_{};
+            node_pointer current_{};
             OrderedList* list_{};
         };
 
@@ -240,7 +248,6 @@ namespace lu {
             position pos;
             while (true) {
                 if (find(new_node->value, pos)) {
-                    delete new_node;
                     return false;
                 }
                 if (link(pos, new_node)) {
