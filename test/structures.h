@@ -1,9 +1,10 @@
 #ifndef __STRUCTURES_H__
 #define __STRUCTURES_H__
 
+#include "shared_ptr.h"
+
 #include <optional>
 
-#include "shared_ptr.h"
 
 
 namespace lu {
@@ -16,8 +17,7 @@ namespace lu {
 
                 template<class... Args>
                 Node(Args &&...args)
-                    : value(std::forward<Args>(args)...) {
-                }
+                    : value(std::forward<Args>(args)...) {}
             };
 
         public:
@@ -62,8 +62,7 @@ namespace lu {
 
                 template<class... Args>
                 Node(Args &&...args)
-                    : value(std::forward<Args>(args)...) {
-                }
+                    : value(std::forward<Args>(args)...) {}
             };
 
         public:
@@ -140,7 +139,8 @@ namespace lu {
                 auto head = head_.load();
                 new_node->next = head;
                 while (true) {
-                    if (head_.compare_exchange_weak(new_node->next, new_node, std::memory_order_release, std::memory_order_relaxed)) {
+                    if (head_.compare_exchange_weak(new_node->next, new_node, std::memory_order_release,
+                                                    std::memory_order_relaxed)) {
                         return;
                     }
                     back_off();
@@ -177,8 +177,7 @@ namespace lu {
 
                 template<class... Args>
                 Node(Args &&...args)
-                    : value(std::forward<Args>(args)...) {
-                }
+                    : value(std::forward<Args>(args)...) {}
             };
 
         public:

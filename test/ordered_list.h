@@ -20,8 +20,7 @@ namespace lu {
         public:
             template<class... Args>
             explicit Node(Args &&...args)
-                : value(std::forward<Args>(args)...) {
-            }
+                : value(std::forward<Args>(args)...) {}
 
         public:
             ValueType value;
@@ -43,14 +42,15 @@ namespace lu {
 
     public:
         using value_type = ValueType;
-        using key_type = KeySelect::type;
+        using key_type = typename KeySelect::type;
 
         using compare = KeyCompare;
         using key_select = KeySelect;
 
         constexpr static bool is_key_value = !std::is_same_v<value_type, key_type>;
 
-        using guarded_ptr = std::conditional_t<is_key_value, lu::guarded_ptr<ValueType>, lu::guarded_ptr<const ValueType>>;
+        using guarded_ptr
+                = std::conditional_t<is_key_value, lu::guarded_ptr<ValueType>, lu::guarded_ptr<const ValueType>>;
 
     private:
         static bool unlink(position &pos) {
@@ -77,7 +77,8 @@ namespace lu {
         }
 
         template<class Compare>
-        static bool find(std::atomic<node_marked_pointer> *head, const value_type &value, position &pos, Compare &&comp) {
+        static bool find(std::atomic<node_marked_pointer> *head, const value_type &value, position &pos,
+                         Compare &&comp) {
             std::atomic<node_marked_pointer> *prev_pointer;
             node_marked_pointer cur{};
 
@@ -86,9 +87,7 @@ namespace lu {
         try_again:
             prev_pointer = head;
 
-            cur = pos.cur_guard.protect(*head, [](node_marked_pointer ptr) {
-                return ptr.get();
-            });
+            cur = pos.cur_guard.protect(*head, [](node_marked_pointer ptr) { return ptr.get(); });
 
             while (true) {
                 if (!cur) {
@@ -98,9 +97,8 @@ namespace lu {
                     return false;
                 }
 
-                node_marked_pointer next = pos.next_guard.protect(cur->next, [](node_marked_pointer ptr) {
-                    return ptr.get();
-                });
+                node_marked_pointer next
+                        = pos.next_guard.protect(cur->next, [](node_marked_pointer ptr) { return ptr.get(); });
 
                 if (prev_pointer->load().all() != cur.get()) {
                     back_off();
@@ -132,8 +130,8 @@ namespace lu {
 
     public:
         explicit OrderedList(const compare &compare = {}, const key_select &key_select = {})
-            : KeyCompareHolder(compare),
-              KeySelectHolder(key_select) {}
+            : KeyCompareHolder(compare)
+            , KeySelectHolder(key_select) {}
 
         OrderedList(const OrderedList &other) = delete;
 
@@ -224,9 +222,7 @@ namespace lu {
             lu::hazard_pointer head_guard = lu::make_hazard_pointer();
             position pos;
             while (true) {
-                auto head = head_guard.protect(head_, [](node_marked_pointer ptr) {
-                    return ptr.get();
-                });
+                auto head = head_guard.protect(head_, [](node_marked_pointer ptr) { return ptr.get(); });
                 if (!head) {
                     break;
                 }
@@ -281,7 +277,8 @@ namespace lu {
     using ordered_list_set = OrderedList<ValueType, KeyCompare, SetKeySelect<ValueType>, BackOff>;
 
     template<class KeyType, class ValueType, class KeyCompare = std::less<ValueType>, class BackOff = YieldBackOff>
-    using ordered_list_map = OrderedList<std::pair<const KeyType, ValueType>, KeyCompare, MapKeySelect<KeyType, ValueType>, BackOff>;
+    using ordered_list_map
+            = OrderedList<std::pair<const KeyType, ValueType>, KeyCompare, MapKeySelect<KeyType, ValueType>, BackOff>;
 }// namespace lu
 
 #endif

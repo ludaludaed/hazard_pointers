@@ -10,13 +10,17 @@
 #include "structures.h"
 
 #include <algorithm>
+#include <array>
 #include <cstddef>
+#include <cstdint>
 #include <cstdlib>
 #include <iostream>
 #include <ostream>
+#include <span>
 #include <stdexcept>
 #include <string>
 #include <thread>
+#include <type_traits>
 #include <vector>
 
 
@@ -107,6 +111,80 @@ void abstractStressTest(Func &&func) {
                                  + std::to_string(lu::get_default_domain().num_of_retired()));
     }
 }
+
+class XorShiftRand {
+    static constexpr std::size_t default_seed
+            = std::conditional_t<sizeof(std::size_t) == 64, std::integral_constant<std::size_t, 88172645463325252LL>,
+                                 std::integral_constant<std::size_t, 2463534242UL>>::value;
+
+public:
+    explicit XorShiftRand(std::size_t seed = 0) {
+        if (seed) {
+            rand_ = seed;
+        }
+    }
+
+    std::size_t next() {
+        rand_ ^= rand_ << 13;
+        rand_ ^= rand_ >> 7;
+        rand_ ^= rand_ << 17;
+        return rand_;
+    }
+
+    std::size_t operator*() const {
+        return rand_;
+    }
+
+private:
+    std::size_t rand_{default_seed};
+};
+
+template<class Set>
+class SetFixture {
+    enum class OperationType : std::uint8_t { insert, erase, find };
+
+    using operations = std::array<OperationType, 100>;
+    using operations_view = std::span<OperationType, 100>;
+
+    class Worker {
+    public:
+        Worker(operations_view operations, std::size_t actions, std::size_t num_of_keys)
+            : operations_(operations)
+            , num_of_actions_(actions)
+            , num_of_keys_(num_of_keys) {}
+
+        void operator()() {
+            XorShiftRand rand;
+        }
+
+    private:
+        operations_view operations_;
+        std::size_t num_of_actions_;
+
+        std::size_t num_of_keys_;
+    };
+
+public:
+    struct Config {
+        std::size_t insert_percentage;
+        std::size_t erase_percentage;
+        std::size_t find_percentage;
+
+        std::size_t num_of_keys;
+        std::size_t num_of_actions;
+        std::size_t num_of_threads;
+    };
+
+public:
+    explicit SetFixture(Config config)
+        : config_(config) {}
+
+    void test() {}
+
+private:
+    operations operations_;
+    Config config_;
+};
 
 int main() {
     for (int i = 0; i < 1000; ++i) {

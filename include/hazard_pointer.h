@@ -112,15 +112,15 @@ namespace lu {
         HazardRecord(HazardRecord &&) = delete;
 
         inline void reset(const_pointer new_ptr = {}) {
-            protected_.store(new_ptr, std::memory_order_relaxed);
+            protected_.store(new_ptr, std::memory_order_release);
         }
 
         inline const_pointer get() const noexcept {
-            return protected_.load(std::memory_order_relaxed);
+            return protected_.load(std::memory_order_acquire);
         }
 
         inline bool empty() const noexcept {
-            return !protected_.load(std::memory_order_relaxed);
+            return !protected_.load(std::memory_order_acquire);
         }
 
     private:
@@ -142,7 +142,8 @@ namespace lu {
         using const_iterator = const_pointer;
 
     public:
-        HazardRecords(resource data) noexcept : data_(data) {
+        HazardRecords(resource data) noexcept
+            : data_(data) {
             for (std::size_t i = 0; i < data_.size(); ++i) {
                 ::new (data_.data() + i) value_type();
                 free_list_.push_front(data_[i]);
@@ -164,7 +165,8 @@ namespace lu {
         }
 
         void release(pointer record) noexcept {
-            assert((data_.data() <= record) && (data_.data() + data_.size() > record) && "Can't release hazard record from other thread");
+            assert((data_.data() <= record) && (data_.data() + data_.size() > record)
+                   && "Can't release hazard record from other thread");
             if (record) [[likely]] {
                 record->reset();
                 free_list_.push_front(*record);
@@ -205,9 +207,9 @@ namespace lu {
 
     public:
         HazardThreadData(std::size_t scan_threshold, records_resource records_resource, retires_resource retires_resource)
-            : scan_threshold_(scan_threshold),
-              records_(records_resource),
-              retires_(retires_resource) {}
+            : scan_threshold_(scan_threshold)
+            , records_(records_resource)
+            , retires_(retires_resource) {}
 
         HazardThreadData(const HazardThreadData &) = delete;
 
@@ -273,9 +275,9 @@ namespace lu {
 
         struct Creator {
             Creator(std::size_t num_of_records, std::size_t num_of_retires, std::size_t scan_threshold)
-                : num_of_records_(num_of_records),
-                  num_of_retires_(num_of_retires),
-                  scan_threshold_(scan_threshold) {}
+                : num_of_records_(num_of_records)
+                , num_of_retires_(num_of_retires)
+                , scan_threshold_(scan_threshold) {}
 
             HazardThreadData *operator()() const {
                 using records_resource = typename HazardThreadData::records_resource;
@@ -418,13 +420,14 @@ namespace lu {
         HazardPointer() = default;
 
         explicit HazardPointer(HazardPointerDomain *domain) noexcept
-            : domain_(domain),
-              record_(domain_->acquire_record()) {}
+            : domain_(domain)
+            , record_(domain_->acquire_record()) {}
 
         HazardPointer(const HazardPointer &) = delete;
 
         HazardPointer(HazardPointer &&other) noexcept
-            : domain_(other.domain_), record_(other.record_) {
+            : domain_(other.domain_)
+            , record_(other.record_) {
             other.record_ = {};
         }
 
@@ -473,7 +476,6 @@ namespace lu {
             assert(record_ && "hazard_ptr must be initialized");
             auto old = ptr;
             reset_protection(func(old));
-            std::atomic_thread_fence(std::memory_order_seq_cst);
             ptr = src.load(std::memory_order_acquire);
             if (old != ptr) {
                 reset_protection();
@@ -486,11 +488,13 @@ namespace lu {
         void reset_protection(const Ptr ptr) noexcept {
             assert(record_ && "hazard_ptr must be initialized");
             record_->reset(ptr);
+            std::atomic_thread_fence(std::memory_order_seq_cst);
         }
 
         void reset_protection(nullptr_t = nullptr) noexcept {
             assert(record_ && "hazard_ptr must be initialized");
             record_->reset();
+            std::atomic_thread_fence(std::memory_order_seq_cst);
         }
 
         void swap(HazardPointer &other) noexcept {
@@ -521,7 +525,8 @@ namespace lu {
         GuardedPointer() = default;
 
         GuardedPointer(HazardPointer guard, pointer ptr)
-            : guard_(std::move(guard)), ptr_(ptr) {}
+            : guard_(std::move(guard))
+            , ptr_(ptr) {}
 
         GuardedPointer(const GuardedPointer &) = delete;
 
@@ -598,10 +603,7 @@ namespace lu {
     static constexpr std::size_t DEFAULT_SCAN_THRESHOLD = 64;
 
     inline HazardPointerDomain &get_default_domain() {
-        static HazardPointerDomain domain(
-                DEFAULT_NUM_OF_RECORDS,
-                DEFAULT_NUM_OF_RETIRES,
-                DEFAULT_SCAN_THRESHOLD);
+        static HazardPointerDomain domain(DEFAULT_NUM_OF_RECORDS, DEFAULT_NUM_OF_RETIRES, DEFAULT_SCAN_THRESHOLD);
         return domain;
     }
 
