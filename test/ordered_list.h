@@ -2,10 +2,10 @@
 #define __ORDERED_LIST_H__
 
 #include <back_off.h>
-#include <cstddef>
 #include <hazard_pointer.h>
 #include <marked_ptr.h>
 
+#include <cstddef>
 #include <type_traits>
 
 
@@ -13,8 +13,8 @@ namespace lu {
     template<class ValueType>
     struct OrderedListNode : public lu::hazard_pointer_obj_base<OrderedListNode<ValueType>> {
     public:
-        template <class... Args>
-        explicit OrderedListNode(Args&&... args)
+        template<class... Args>
+        explicit OrderedListNode(Args &&...args)
             : value(std::forward<Args>(args)...) {}
 
     public:
@@ -45,8 +45,9 @@ namespace lu {
         };
 
         template<class Types>
-        class Iterator {
-        friend class OrderedList;
+        class OrderedListIterator {
+            template<class, class, class, class>
+            friend class OrderedList;
 
         public:
             using value_type = typename Types::value_type;
@@ -55,50 +56,53 @@ namespace lu {
             using reference = typename Types::reference;
             using iterator_category = std::forward_iterator_tag;
 
-            using node_ptr = typename Types::node_pointer;
+            using node_ptr = typename Types::node_ptr;
             using list_ptr = typename Types::list_ptr;
 
+            using node_marked_ptr = typename Types::node_marked_ptr;
+            using position = typename Types::position;
+
         private:
-            Iterator(lu::hazard_pointer guard, node_ptr current, list_ptr list) noexcept
+            OrderedListIterator(lu::hazard_pointer guard, node_ptr current, list_ptr list) noexcept
                 : guard_(std::move(guard))
                 , current_(current)
                 , list_(list) {}
 
         public:
-            Iterator() = default;
+            OrderedListIterator() = default;
 
-            Iterator(const Iterator& other) noexcept
+            OrderedListIterator(const OrderedListIterator &other) noexcept
                 : guard_(lu::make_hazard_pointer())
                 , current_(other.current_)
                 , list_(other.list_) {
                 guard_.reset_protection(current_);
             }
 
-            Iterator(Iterator&& other) noexcept {
+            OrderedListIterator(OrderedListIterator &&other) noexcept {
                 std::swap(guard_, other.guard_);
                 std::swap(current_, other.current_);
                 std::swap(list_, other.list_);
             }
 
-            Iterator& operator=(const Iterator& other) noexcept {
+            OrderedListIterator &operator=(const OrderedListIterator &other) noexcept {
                 guard_.reset_protection(other.current_);
                 current_ = other.current_;
                 list_ = other.list_;
             }
 
-            Iterator& operator=(Iterator&& other) noexcept {
+            OrderedListIterator &operator=(OrderedListIterator &&other) noexcept {
                 std::swap(guard_, other.guard_);
                 std::swap(current_, other.current_);
                 std::swap(list_, other.list_);
             }
 
-            Iterator& operator++() noexcept {
+            OrderedListIterator &operator++() noexcept {
                 increment();
                 return *this;
             }
 
-            Iterator operator++(int) noexcept {
-                Iterator copy(*this);
+            OrderedListIterator operator++(int) noexcept {
+                OrderedListIterator copy(*this);
                 increment();
                 return copy;
             }
@@ -111,11 +115,11 @@ namespace lu {
                 return &current_->value;
             }
 
-            friend bool operator==(const Iterator &left, const Iterator &right) {
+            friend bool operator==(const OrderedListIterator &left, const OrderedListIterator &right) {
                 return left.current_ == right.current_;
             }
 
-            friend bool operator!=(const Iterator &left, const Iterator &right) {
+            friend bool operator!=(const OrderedListIterator &left, const OrderedListIterator &right) {
                 return !(left == right);
             }
 
@@ -143,6 +147,11 @@ namespace lu {
     public:
         using value_type = ValueType;
         using key_type = typename KeySelect::type;
+
+        using pointer = value_type *;
+        using const_pointer = const value_type *;
+        using reference = value_type &;
+        using const_reference = const value_type &;
 
         using compare = KeyCompare;
         using key_select = KeySelect;
@@ -177,8 +186,7 @@ namespace lu {
         }
 
         template<class Compare>
-        static bool find(std::atomic<node_marked_ptr> *head, const value_type &value, position &pos,
-                         Compare &&comp) {
+        static bool find(std::atomic<node_marked_ptr> *head, const value_type &value, position &pos, Compare &&comp) {
             std::atomic<node_marked_ptr> *prev_pointer;
             node_marked_ptr cur{};
 
@@ -197,8 +205,7 @@ namespace lu {
                     return false;
                 }
 
-                node_marked_ptr next
-                        = pos.next_guard.protect(cur->next, [](node_marked_ptr ptr) { return ptr.get(); });
+                node_marked_ptr next = pos.next_guard.protect(cur->next, [](node_marked_ptr ptr) { return ptr.get(); });
 
                 if (prev_pointer->load().all() != cur.get()) {
                     back_off();
