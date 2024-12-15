@@ -50,7 +50,8 @@ namespace lu {
             template<class, class, class, class>
             friend class OrderedList;
 
-            using NonConstIter = OrderedListIterator<Types, false>;
+            class DummyNonConstIter;
+            using NonConstIter = std::conditional_t<IsConst, OrderedListIterator<Types, false>, DummyNonConstIter>;
 
         public:
             using value_type = typename Types::value_type;
@@ -177,6 +178,7 @@ namespace lu {
         using value_type = ValueType;
         using key_type = typename KeySelect::type;
 
+        using difference_type = std::ptrdiff_t;
         using pointer = value_type *;
         using const_pointer = const value_type *;
         using reference = value_type &;
@@ -185,7 +187,7 @@ namespace lu {
         using compare = KeyCompare;
         using key_select = KeySelect;
 
-        constexpr static bool is_key_value = !std::is_same_v<value_type, key_type>;
+        static constexpr bool is_key_value = !std::is_same_v<value_type, key_type>;
 
         using guarded_ptr
                 = std::conditional_t<is_key_value, lu::guarded_ptr<ValueType>, lu::guarded_ptr<const ValueType>>;
@@ -307,19 +309,12 @@ namespace lu {
         }
 
     public:
-        template<class _ValueType, class = std::enable_if_t<!is_key_value>>
-        bool insert(_ValueType &&value) {
-            return emplace(std::forward<_ValueType>(value));
+        bool insert(const value_type &value) {
+            return emplace(value);
         }
 
-        template<class _ValueType, class = std::enable_if_t<is_key_value>>
-        bool insert(const key_type &key, _ValueType &&value) {
-            node_ptr new_node = new node_type(key, std::forward<_ValueType>(value));
-            if (!insert_node(new_node)) {
-                delete new_node;
-                return false;
-            }
-            return true;
+        bool insert(value_type &&value) {
+            return emplace(std::move(value));
         }
 
         template<class... Args>
@@ -443,8 +438,8 @@ namespace lu {
     using ordered_list_set = OrderedList<ValueType, KeyCompare, SetKeySelect<ValueType>, BackOff>;
 
     template<class KeyType, class ValueType, class KeyCompare = std::less<ValueType>, class BackOff = YieldBackOff>
-    using ordered_list_map
-            = OrderedList<std::pair<const KeyType, ValueType>, KeyCompare, MapKeySelect<KeyType, ValueType>, BackOff>;
+    using ordered_list_map = OrderedList<std::pair<const KeyType, ValueType>, KeyCompare,
+                                         MapKeySelect<const KeyType, ValueType>, BackOff>;
 }// namespace lu
 
 #endif
