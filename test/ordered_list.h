@@ -33,7 +33,7 @@ namespace lu {
         using node_ptr = node_type *;
         using node_marked_ptr = lu::marked_ptr<node_type>;
 
-        using list_ptr = OrderedList *;
+        using list_ptr = const OrderedList *;
 
         struct position {
             node_ptr cur;
@@ -159,7 +159,7 @@ namespace lu {
                 auto next = next_guard.protect(current_->next, [](node_marked_ptr ptr) { return ptr.get(); });
                 if (next.get_bit()) {
                     position new_pos;
-                    list_->find(current_->value, new_pos);
+                    list_->find(list_->select_key(current_->value), new_pos);
                     guard_ = std::move(new_pos.cur_guard);
                     current_ = new_pos.cur;
                 } else {
@@ -219,8 +219,8 @@ namespace lu {
             }
         }
 
-        template<class Compare>
-        static bool find(std::atomic<node_marked_ptr> *head, const value_type &value, position &pos, Compare &&comp) {
+        template<class _KeyCompare, class _KeySelect>
+        static bool find(std::atomic<node_marked_ptr> *head, const key_type &key, position &pos, _KeyCompare &&comp, _KeySelect &&key_select) {
             std::atomic<node_marked_ptr> *prev_pointer;
             node_marked_ptr cur{};
 
@@ -255,11 +255,11 @@ namespace lu {
                         goto try_again;
                     }
                 } else {
-                    if (!comp(cur->value, value)) {
+                    if (!comp(key_select(cur->value), key)) {
                         pos.prev_pointer = prev_pointer;
                         pos.cur = cur;
                         pos.next = next;
-                        return !comp(value, cur->value);
+                        return !comp(key, key_select(cur->value));
                     }
                     prev_pointer = &(cur->next);
                     pos.prev_guard.reset_protection(cur.get());
@@ -283,22 +283,24 @@ namespace lu {
         }
 
     private:
-        bool find(const value_type &value, position &pos) {
+        decltype(auto) select_key(const value_type& value) const {
+            auto key_select = KeySelectHolder::get();
+            return key_select(value);
+        }
+
+        bool find(const key_type &key, position &pos) const {
             auto comp = KeyCompareHolder::get();
             auto key_select = KeySelectHolder::get();
 
-            auto compare = [&comp, &key_select](const value_type &left, const value_type &right) {
-                return comp(key_select(left), key_select(right));
-            };
-
-            return find(&head_, value, pos, compare);
+            return find(const_cast<std::atomic<node_marked_ptr>*>(&head_), key, pos, comp, key_select);
         }
 
         bool insert_node(node_ptr new_node) {
+            auto key_select = KeySelectHolder::get();
             BackOff back_off;
             position pos;
             while (true) {
-                if (find(new_node->value, pos)) {
+                if (find(key_select(new_node->value), pos)) {
                     return false;
                 }
                 if (link(pos, new_node)) {
@@ -352,6 +354,7 @@ namespace lu {
         }
 
         void clear() {
+            auto key_select = KeySelectHolder::get();
             lu::hazard_pointer head_guard = lu::make_hazard_pointer();
             position pos;
             while (true) {
@@ -359,13 +362,13 @@ namespace lu {
                 if (!head) {
                     break;
                 }
-                if (find(head->value, pos) && pos.cur == head.get()) {
+                if (find(key_select(head->value), pos) && pos.cur == head.get()) {
                     unlink(pos);
                 }
             }
         }
 
-        guarded_ptr find(const key_type &value) {
+        guarded_ptr find(const key_type &value) const {
             position pos;
             if (find(value, pos)) {
                 return guarded_ptr(std::move(pos.cur_guard), &pos.cur->value);
@@ -374,7 +377,7 @@ namespace lu {
             }
         }
 
-        bool contains(const key_type &value) {
+        bool contains(const key_type &value) const  {
             position pos;
             return find(value, pos);
         }

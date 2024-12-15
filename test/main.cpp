@@ -203,6 +203,8 @@ int main() {
         std::cout << it->first << it->second << " ";
     }
 
+    std::cout << std::endl << set.contains(5);
+
     // for (int i = 0; i < 1000; ++i) {
     //     std::cout << "iteration: #" << i << std::endl;
     //     abstractStressTest(stressTest<lu::hp::TreiberStack<int, lu::EmptyBackOff>>);
