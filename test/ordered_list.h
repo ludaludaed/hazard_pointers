@@ -30,9 +30,10 @@ namespace lu {
         using KeySelectHolder = lu::detail::EmptyBaseHolder<KeySelect>;
 
         using node_type = OrderedListNode<ValueType>;
-
         using node_ptr = node_type *;
         using node_marked_ptr = lu::marked_ptr<node_type>;
+
+        using list_ptr = OrderedList *;
 
         struct position {
             node_ptr cur;
@@ -44,21 +45,22 @@ namespace lu {
             lu::hazard_pointer prev_guard{lu::make_hazard_pointer()};
         };
 
-        template<class Types>
+        template<class Types, bool IsConst>
         class OrderedListIterator {
             template<class, class, class, class>
             friend class OrderedList;
 
+            using NonConstIter = OrderedListIterator<Types, false>;
+
         public:
             using value_type = typename Types::value_type;
             using difference_type = typename Types::difference_type;
-            using pointer = typename Types::pointer;
-            using reference = typename Types::reference;
+            using pointer = std::conditional_t<IsConst, typename Types::const_pointer, typename Types::pointer>;
+            using reference = std::conditional_t<IsConst, typename Types::const_reference, typename Types::reference>;
             using iterator_category = std::forward_iterator_tag;
 
-            using node_ptr = typename Types::node_ptr;
             using list_ptr = typename Types::list_ptr;
-
+            using node_ptr = typename Types::node_ptr;
             using node_marked_ptr = typename Types::node_marked_ptr;
             using position = typename Types::position;
 
@@ -78,22 +80,43 @@ namespace lu {
                 guard_.reset_protection(current_);
             }
 
+            OrderedListIterator(const NonConstIter &other) noexcept
+                : guard_(lu::make_hazard_pointer())
+                , current_(other.current_)
+                , list_(other.list_) {
+                guard_.reset_protection(current_);
+            }
+
             OrderedListIterator(OrderedListIterator &&other) noexcept {
-                std::swap(guard_, other.guard_);
-                std::swap(current_, other.current_);
-                std::swap(list_, other.list_);
+                swap(other);
+            }
+
+            OrderedListIterator(NonConstIter &&other) noexcept {
+                swap(other);
             }
 
             OrderedListIterator &operator=(const OrderedListIterator &other) noexcept {
-                guard_.reset_protection(other.current_);
-                current_ = other.current_;
-                list_ = other.list_;
+                OrderedListIterator temp(other);
+                swap(temp);
+                return *this;
+            }
+
+            OrderedListIterator &operator=(const NonConstIter &other) noexcept {
+                OrderedListIterator temp(other);
+                swap(temp);
+                return *this;
             }
 
             OrderedListIterator &operator=(OrderedListIterator &&other) noexcept {
-                std::swap(guard_, other.guard_);
-                std::swap(current_, other.current_);
-                std::swap(list_, other.list_);
+                OrderedListIterator temp(std::move(other));
+                swap(temp);
+                return *this;
+            }
+
+            OrderedListIterator &operator=(NonConstIter &&other) noexcept {
+                OrderedListIterator temp(std::move(other));
+                swap(temp);
+                return *this;
             }
 
             OrderedListIterator &operator++() noexcept {
@@ -121,6 +144,12 @@ namespace lu {
 
             friend bool operator!=(const OrderedListIterator &left, const OrderedListIterator &right) {
                 return !(left == right);
+            }
+
+            void swap(OrderedListIterator &other) {
+                std::swap(guard_, other.guard_);
+                std::swap(current_, other.current_);
+                std::swap(list_, other.list_);
             }
 
         private:
@@ -160,6 +189,9 @@ namespace lu {
 
         using guarded_ptr
                 = std::conditional_t<is_key_value, lu::guarded_ptr<ValueType>, lu::guarded_ptr<const ValueType>>;
+
+        using iterator = OrderedListIterator<OrderedList, !is_key_value>;
+        using const_iterator = OrderedListIterator<OrderedList, true>;
 
     private:
         static bool unlink(position &pos) {
@@ -215,7 +247,7 @@ namespace lu {
                 if (next.get_bit()) {
                     node_marked_ptr not_marked_cur(cur.get(), 0);
                     if (prev_pointer->compare_exchange_weak(not_marked_cur, node_marked_ptr(next.get(), 0))) {
-                        delete_node(cur);
+                        cur->retire();
                     } else {
                         back_off();
                         goto try_again;
@@ -354,6 +386,34 @@ namespace lu {
 
         bool empty() const {
             return !head_.load();
+        }
+
+        iterator begin() {
+            auto head_guard = lu::make_hazard_pointer();
+            auto head = head_guard.protect(head_, [](node_marked_ptr ptr) { return ptr.get(); });
+            return iterator(std::move(head_guard), head, this);
+        }
+
+        iterator end() {
+            return iterator();
+        }
+
+        const_iterator cbegin() const {
+            auto head_guard = lu::make_hazard_pointer();
+            auto head = head_guard.protect(head_, [](node_marked_ptr ptr) { return ptr.get(); });
+            return const_iterator(std::move(head_guard), head, this);
+        }
+
+        const_iterator cend() const {
+            return const_iterator();
+        }
+
+        const_iterator begin() const {
+            return cbegin();
+        }
+
+        const_iterator end() const {
+            return cend();
         }
 
     private:

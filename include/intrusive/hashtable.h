@@ -763,6 +763,7 @@ namespace lu {
         IntrusiveHashtable &operator=(const IntrusiveHashtable &other) = delete;
 
         IntrusiveHashtable &operator=(IntrusiveHashtable &&other) noexcept {
+            IntrusiveHashtable temp(std::move(other));
             swap(other);
             return *this;
         }

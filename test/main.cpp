@@ -193,6 +193,8 @@ private:
 };
 
 int main() {
+    lu::ordered_list_map<int, int> set;
+
     for (int i = 0; i < 1000; ++i) {
         std::cout << "iteration: #" << i << std::endl;
         abstractStressTest(stressTest<lu::hp::TreiberStack<int, lu::EmptyBackOff>>);

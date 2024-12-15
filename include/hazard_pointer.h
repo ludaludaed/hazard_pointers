@@ -434,8 +434,8 @@ namespace lu {
         HazardPointer &operator=(const HazardPointer &) = delete;
 
         HazardPointer &operator=(HazardPointer &&other) noexcept {
-            HazardPointer dummy(std::move(other));
-            swap(dummy);
+            HazardPointer temp(std::move(other));
+            swap(temp);
             return *this;
         }
 

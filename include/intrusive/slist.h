@@ -480,7 +480,8 @@ namespace lu {
         IntrusiveSlist &operator=(const IntrusiveSlist &other) = delete;
 
         IntrusiveSlist &operator=(IntrusiveSlist &&other) noexcept {
-            swap(other);
+            IntrusiveSlist temp(std::move(other));
+            swap(temp);
             return *this;
         }
 
