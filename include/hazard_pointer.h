@@ -206,7 +206,8 @@ namespace lu {
         using retires_resource = typename HazardRetires::resource;
 
     public:
-        HazardThreadData(std::size_t scan_threshold, records_resource records_resource, retires_resource retires_resource)
+        HazardThreadData(std::size_t scan_threshold, records_resource records_resource,
+                         retires_resource retires_resource)
             : scan_threshold_(scan_threshold)
             , records_(records_resource)
             , retires_(retires_resource) {}
@@ -320,9 +321,7 @@ namespace lu {
 
     public:
         HazardPointerDomain(std::size_t num_of_records, std::size_t num_of_retires, std::size_t scan_threshold)
-            : list_(Detacher(this),
-                    Creator(num_of_records, num_of_retires, scan_threshold),
-                    Deleter()) {}
+            : list_(Detacher(this), Creator(num_of_records, num_of_retires, scan_threshold), Deleter()) {}
 
         HazardPointerDomain(const HazardPointerDomain &) = delete;
 
@@ -440,18 +439,18 @@ namespace lu {
         }
 
         ~HazardPointer() {
-            if (record_) {
+            if (record_) [[likely]] {
                 domain_->release_record(record_);
             }
         }
 
     public:
         bool empty() const noexcept {
-            return !record_ || record_->empty();
+            return !record_;
         }
 
         explicit operator bool() const noexcept {
-            return empty();
+            return !empty();
         }
 
         template<class Ptr, class = std::enable_if_t<std::is_base_of_v<HazardObject, typename std::pointer_traits<Ptr>::element_type>>>
@@ -473,7 +472,7 @@ namespace lu {
 
         template<class Ptr, class Func, class = std::enable_if_t<std::is_base_of_v<HazardObject, typename std::pointer_traits<Ptr>::element_type>>>
         bool try_protect(Ptr &ptr, const std::atomic<Ptr> &src, Func &&func) noexcept {
-            assert(record_ && "hazard_ptr must be initialized");
+            assert(!empty() && "hazard_ptr must be initialized");
             auto old = ptr;
             reset_protection(func(old));
             ptr = src.load(std::memory_order_acquire);
@@ -486,13 +485,13 @@ namespace lu {
 
         template<class Ptr, class = std::enable_if_t<std::is_base_of_v<HazardObject, typename std::pointer_traits<Ptr>::element_type>>>
         void reset_protection(const Ptr ptr) noexcept {
-            assert(record_ && "hazard_ptr must be initialized");
+            assert(!empty() && "hazard_ptr must be initialized");
             record_->reset(ptr);
             std::atomic_thread_fence(std::memory_order_seq_cst);
         }
 
         void reset_protection(nullptr_t = nullptr) noexcept {
-            assert(record_ && "hazard_ptr must be initialized");
+            assert(!empty() && "hazard_ptr must be initialized");
             record_->reset();
             std::atomic_thread_fence(std::memory_order_seq_cst);
         }
@@ -502,7 +501,6 @@ namespace lu {
             std::swap(record_, other.record_);
         }
 
-    public:
         friend void swap(HazardPointer &left, HazardPointer &right) noexcept {
             left.swap(right);
         }
