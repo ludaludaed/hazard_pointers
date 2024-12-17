@@ -3,6 +3,7 @@
 #include <intrusive/hashtable.h>
 #include <intrusive/unordered_set.h>
 #include <marked_shared_ptr.h>
+#include <random>
 #include <shared_ptr.h>
 
 #include "back_off.h"
@@ -214,22 +215,45 @@ public:
 
     void test() {}
 
+    static void generate_operations(operations& operations, std::size_t insert_percentage, std::size_t erase_percentage) {
+        std::size_t current = 0;
+        for (std::size_t i = 0; i < insert_percentage; ++i) {
+            operations[current++] = OperationType::insert;
+        }
+        for (std::size_t i = 0; i < erase_percentage; ++i) {
+            operations[current++] = OperationType::erase;
+        }
+        while (current < operations.size()) {
+            operations[current++] = OperationType::find;
+        }
+
+        for (int i = 0; i < operations.size(); ++i) {
+            std::cout << (int)operations[i] << std::endl;
+        }
+
+        std::cout << std::endl;
+
+        std::random_device rd;
+        std::mt19937 g(rd());
+        std::shuffle(operations.begin(), operations.end(), g);
+    }
+
 private:
     operations operations_;
     Config config_;
 };
 
 int main() {
-    // lu::ordered_list_map<int, int> set;
-    // for (int i = 0; i < 10; ++i) {
-    //     set.insert({i, i});
-    // }
+    lu::ordered_list_map<int, int> set;
+    for (int i = 0; i < 10; ++i) {
+        set.insert({i, i});
+    }
 
-    // for (auto it = set.begin(); it != set.end(); ++it) {
-    //     std::cout << it->first << it->second << " ";
-    // }
+    for (auto it = set.begin(); it != set.end(); ++it) {
+        std::cout << it->first << it->second << " ";
+    }
 
-    // std::cout << std::endl << set.contains(5) << std::endl;
+    std::cout << std::endl << set.contains(5) << std::endl;
 
     for (int i = 0; i < 1000; ++i) {
         std::cout << "iteration: #" << i << std::endl;
