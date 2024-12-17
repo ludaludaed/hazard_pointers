@@ -157,8 +157,33 @@ class SetFixture {
             , num_of_actions_(actions)
             , num_of_keys_(num_of_keys) {}
 
-        void operator()(set_type& set) {
+        void operator()(set_type &set) {
             XorShiftRand rand;
+            std::size_t op_index = 0;
+            for (std::size_t i = 0; i < num_of_actions_; ++i) {
+                std::size_t key = rand.next() % num_of_keys_;
+                switch (operations_[op_index]) {
+                    case OperationType::insert:
+                        if (set.insert(key)) {
+                            inserted_.push_back(key);
+                        }
+                        break;
+                    case OperationType::erase:
+                        if (set.erase(key)) {
+                            erased_.push_back(key);
+                        }
+                        break;
+                    case OperationType::find:
+                        auto found = set.find(key);
+                        if (found) {
+                            founded_.push_back(key);
+                        }
+                        break;
+                }
+                if (++op_index >= operations_.size()) [[unlikely]] {
+                    op_index = 0;
+                }
+            }
         }
 
     private:
@@ -167,8 +192,9 @@ class SetFixture {
 
         std::size_t num_of_keys_;
 
-        std::vector<key_type> generated_;
+        std::vector<key_type> inserted_;
         std::vector<key_type> erased_;
+        std::vector<key_type> founded_;
     };
 
 public:
@@ -194,16 +220,16 @@ private:
 };
 
 int main() {
-    lu::ordered_list_map<int, int> set;
-    for (int i = 0; i < 10; ++i) {
-        set.insert({i, i});
-    }
+    // lu::ordered_list_map<int, int> set;
+    // for (int i = 0; i < 10; ++i) {
+    //     set.insert({i, i});
+    // }
 
-    for (auto it = set.begin(); it != set.end(); ++it) {
-        std::cout << it->first << it->second << " ";
-    }
+    // for (auto it = set.begin(); it != set.end(); ++it) {
+    //     std::cout << it->first << it->second << " ";
+    // }
 
-    std::cout << std::endl << set.contains(5);
+    // std::cout << std::endl << set.contains(5) << std::endl;
 
     for (int i = 0; i < 1000; ++i) {
         std::cout << "iteration: #" << i << std::endl;
