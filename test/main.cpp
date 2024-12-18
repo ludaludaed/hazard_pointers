@@ -134,7 +134,7 @@ class SetFixture {
         void operator()(set_type &set) {
             std::random_device rd;
             std::mt19937 gen(rd());
-            std::size_t op_index = 0;
+            std::size_t op_index = gen() % operations_.size();
             for (std::size_t i = 0; i < num_of_actions_; ++i) {
                 std::size_t key = gen() % num_of_keys_;
                 switch (operations_[op_index]) {
@@ -151,7 +151,9 @@ class SetFixture {
                     case OperationType::find:
                         auto found = set.find(key);
                         if (found) {
-                            founded.push_back(key);
+                            num_of_found++;
+                        } else {
+                            num_of_not_found++;
                         }
                         break;
                 }
@@ -168,9 +170,10 @@ class SetFixture {
         std::size_t num_of_keys_;
 
     public:
-        std::vector<key_type> inserted;
-        std::vector<key_type> erased;
-        std::vector<key_type> founded;
+        std::vector<key_type> inserted{};
+        std::vector<key_type> erased{};
+        std::size_t num_of_found{};
+        std::size_t num_of_not_found{};
 
     private:
         char padding_[128];
@@ -178,9 +181,9 @@ class SetFixture {
 
 public:
     struct Config {
-        std::size_t insert_percentage = 25;
-        std::size_t erase_percentage = 25;
-        std::size_t find_percentage = 50;
+        std::size_t insert_percentage = 10;
+        std::size_t erase_percentage = 50;
+        std::size_t find_percentage = 40;
 
         std::size_t num_of_keys = 100;
         std::size_t num_of_actions = 100000000;
@@ -215,6 +218,9 @@ public:
         std::vector<typename Set::value_type> inserted;
         std::vector<typename Set::value_type> erased;
 
+        std::size_t num_of_found{};
+        std::size_t num_of_not_found{};
+
         for (auto &&worker: workers) {
             for (auto &item: worker.inserted) {
                 inserted.emplace_back(item);
@@ -222,6 +228,8 @@ public:
             for (auto &item: worker.erased) {
                 erased.emplace_back(item);
             }
+            num_of_found += worker.num_of_found;
+            num_of_not_found += worker.num_of_not_found;
         }
 
         for (auto it = set.begin(); it != set.end(); ++it) {
@@ -238,6 +246,8 @@ public:
                 throw std::runtime_error("Error");
             }
         }
+        std::cout << "num_of_found:\t\t" << num_of_found << std::endl;
+        std::cout << "num_of_not_found:\t" << num_of_not_found << std::endl;
     }
 
     static void generate_operations(operations &operations, std::size_t insert_percentage,
@@ -264,9 +274,11 @@ private:
 };
 
 int main() {
-    SetFixture<lu::ordered_list_set<int>> fixture({});
-    fixture.test();
-    std::cout << "End" << std::endl;
+    for (int i = 0; i < 1000; ++i) {
+        std::cout << "iteration: #" << i << std::endl;
+        SetFixture<lu::ordered_list_set<int>> fixture({});
+        fixture.test();
+    }
 
     // lu::ordered_list_map<int, int> set;
     // for (int i = 0; i < 10; ++i) {
@@ -279,8 +291,8 @@ int main() {
 
     // std::cout << std::endl << set.contains(5) << std::endl;
 
-    for (int i = 0; i < 1000; ++i) {
-        std::cout << "iteration: #" << i << std::endl;
-        abstractStressTest(stressTest<lu::hp::TreiberStack<int, lu::EmptyBackOff>>);
-    }
+    // for (int i = 0; i < 1000; ++i) {
+    //     std::cout << "iteration: #" << i << std::endl;
+    //     abstractStressTest(stressTest<lu::hp::TreiberStack<int, lu::EmptyBackOff>>);
+    // }
 }
