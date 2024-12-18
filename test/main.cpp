@@ -3,7 +3,6 @@
 #include <intrusive/hashtable.h>
 #include <intrusive/unordered_set.h>
 #include <marked_shared_ptr.h>
-#include <random>
 #include <shared_ptr.h>
 
 #include "back_off.h"
@@ -17,6 +16,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <ostream>
+#include <random>
 #include <span>
 #include <stdexcept>
 #include <string>
@@ -114,33 +114,6 @@ void abstractStressTest(Func &&func) {
     }
 }
 
-class XorShiftRand {
-    static constexpr std::size_t default_seed
-            = std::conditional_t<sizeof(std::size_t) == 64, std::integral_constant<std::size_t, 88172645463325252LL>,
-                                 std::integral_constant<std::size_t, 2463534242UL>>::value;
-
-public:
-    explicit XorShiftRand(std::size_t seed = 0) {
-        if (seed) {
-            rand_ = seed;
-        }
-    }
-
-    std::size_t next() {
-        rand_ ^= rand_ << 13;
-        rand_ ^= rand_ >> 7;
-        rand_ ^= rand_ << 17;
-        return rand_;
-    }
-
-    std::size_t operator*() const {
-        return rand_;
-    }
-
-private:
-    std::size_t rand_{default_seed};
-};
-
 template<class Set>
 class SetFixture {
     enum class OperationType : std::uint8_t { insert, erase, find };
@@ -159,25 +132,26 @@ class SetFixture {
             , num_of_keys_(num_of_keys) {}
 
         void operator()(set_type &set) {
-            XorShiftRand rand;
+            std::random_device rd;
+            std::mt19937 gen(rd());
             std::size_t op_index = 0;
             for (std::size_t i = 0; i < num_of_actions_; ++i) {
-                std::size_t key = rand.next() % num_of_keys_;
+                std::size_t key = gen() % num_of_keys_;
                 switch (operations_[op_index]) {
                     case OperationType::insert:
                         if (set.insert(key)) {
-                            inserted_.push_back(key);
+                            inserted.push_back(key);
                         }
                         break;
                     case OperationType::erase:
                         if (set.erase(key)) {
-                            erased_.push_back(key);
+                            erased.push_back(key);
                         }
                         break;
                     case OperationType::find:
                         auto found = set.find(key);
                         if (found) {
-                            founded_.push_back(key);
+                            founded.push_back(key);
                         }
                         break;
                 }
@@ -193,29 +167,81 @@ class SetFixture {
 
         std::size_t num_of_keys_;
 
-        std::vector<key_type> inserted_;
-        std::vector<key_type> erased_;
-        std::vector<key_type> founded_;
+    public:
+        std::vector<key_type> inserted;
+        std::vector<key_type> erased;
+        std::vector<key_type> founded;
+
+    private:
+        char padding_[128];
     };
 
 public:
     struct Config {
-        std::size_t insert_percentage;
-        std::size_t erase_percentage;
-        std::size_t find_percentage;
+        std::size_t insert_percentage = 25;
+        std::size_t erase_percentage = 25;
+        std::size_t find_percentage = 50;
 
-        std::size_t num_of_keys;
-        std::size_t num_of_actions;
-        std::size_t num_of_threads;
+        std::size_t num_of_keys = 100;
+        std::size_t num_of_actions = 100000000;
+        std::size_t num_of_threads = 16;
     };
 
 public:
     explicit SetFixture(Config config)
         : config_(config) {}
 
-    void test() {}
+    void test() {
+        Set set;
+        generate_operations(operations_, config_.insert_percentage, config_.erase_percentage);
 
-    static void generate_operations(operations& operations, std::size_t insert_percentage, std::size_t erase_percentage) {
+        std::vector<Worker> workers;
+        workers.reserve(config_.num_of_threads);
+        std::size_t actions_per_thread = config_.num_of_actions / config_.num_of_threads;
+        for (std::size_t i = 0; i < config_.num_of_threads; ++i) {
+            workers.emplace_back(operations_, actions_per_thread, config_.num_of_keys);
+        }
+
+        std::vector<std::thread> threads;
+        threads.reserve(config_.num_of_threads);
+        for (auto &&worker: workers) {
+            threads.emplace_back([&worker, &set]() { worker(set); });
+        }
+
+        for (auto &&thread: threads) {
+            thread.join();
+        }
+
+        std::vector<typename Set::value_type> inserted;
+        std::vector<typename Set::value_type> erased;
+
+        for (auto &&worker: workers) {
+            for (auto &item: worker.inserted) {
+                inserted.emplace_back(item);
+            }
+            for (auto &item: worker.erased) {
+                erased.emplace_back(item);
+            }
+        }
+
+        for (auto it = set.begin(); it != set.end(); ++it) {
+            erased.emplace_back(*it);
+        }
+
+        std::sort(inserted.begin(), inserted.end());
+        std::sort(erased.begin(), erased.end());
+        if (inserted.size() != erased.size()) {
+            throw std::runtime_error("Error");
+        }
+        for (std::size_t i = 0; i < inserted.size(); ++i) {
+            if (inserted[i] != erased[i]) {
+                throw std::runtime_error("Error");
+            }
+        }
+    }
+
+    static void generate_operations(operations &operations, std::size_t insert_percentage,
+                                    std::size_t erase_percentage) {
         std::size_t current = 0;
         for (std::size_t i = 0; i < insert_percentage; ++i) {
             operations[current++] = OperationType::insert;
@@ -227,15 +253,9 @@ public:
             operations[current++] = OperationType::find;
         }
 
-        for (int i = 0; i < operations.size(); ++i) {
-            std::cout << (int)operations[i] << std::endl;
-        }
-
-        std::cout << std::endl;
-
         std::random_device rd;
-        std::mt19937 g(rd());
-        std::shuffle(operations.begin(), operations.end(), g);
+        std::mt19937 gen(rd());
+        std::shuffle(operations.begin(), operations.end(), gen);
     }
 
 private:
@@ -244,16 +264,20 @@ private:
 };
 
 int main() {
-    lu::ordered_list_map<int, int> set;
-    for (int i = 0; i < 10; ++i) {
-        set.insert({i, i});
-    }
+    SetFixture<lu::ordered_list_set<int>> fixture({});
+    fixture.test();
+    std::cout << "End" << std::endl;
 
-    for (auto it = set.begin(); it != set.end(); ++it) {
-        std::cout << it->first << it->second << " ";
-    }
+    // lu::ordered_list_map<int, int> set;
+    // for (int i = 0; i < 10; ++i) {
+    //     set.insert({i, i});
+    // }
 
-    std::cout << std::endl << set.contains(5) << std::endl;
+    // for (auto it = set.begin(); it != set.end(); ++it) {
+    //     std::cout << it->first << it->second << " ";
+    // }
+
+    // std::cout << std::endl << set.contains(5) << std::endl;
 
     for (int i = 0; i < 1000; ++i) {
         std::cout << "iteration: #" << i << std::endl;
