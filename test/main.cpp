@@ -1,3 +1,4 @@
+#include <functional>
 #include <hazard_pointer.h>
 #include <intrusive/forward_list.h>
 #include <intrusive/hashtable.h>
@@ -6,6 +7,7 @@
 #include <shared_ptr.h>
 
 #include "back_off.h"
+#include "fixed_size_function.h"
 #include "ordered_list.h"
 #include "structures.h"
 
@@ -126,17 +128,16 @@ class SetFixture {
 
     class Worker {
     public:
-        Worker(operations_view operations, std::size_t actions, std::size_t num_of_keys)
+        template<class KeyGen>
+        Worker(operations_view operations, std::size_t actions, KeyGen&& key_gen)
             : operations_(operations)
             , num_of_actions_(actions)
-            , num_of_keys_(num_of_keys) {}
+            , key_gen_(std::forward<KeyGen>(key_gen)) {}
 
         void operator()(set_type &set) {
-            std::random_device rd;
-            std::mt19937 gen(rd());
-            std::size_t op_index = gen() % operations_.size();
+            std::size_t op_index = std::rand() % operations_.size();
             for (std::size_t i = 0; i < num_of_actions_; ++i) {
-                std::size_t key = gen() % num_of_keys_;
+                key_type key = key_gen_();
                 switch (operations_[op_index]) {
                     case OperationType::insert:
                         if (set.insert(key)) {
@@ -166,8 +167,7 @@ class SetFixture {
     private:
         operations_view operations_;
         std::size_t num_of_actions_;
-
-        std::size_t num_of_keys_;
+        std::function<key_type()> key_gen_;
 
     public:
         std::vector<key_type> inserted{};
@@ -176,15 +176,14 @@ class SetFixture {
         std::size_t num_of_not_found{};
 
     private:
-        char padding_[128];
+        char padding_[512];
     };
 
 public:
     struct Config {
-        std::size_t insert_percentage = 25;
-        std::size_t erase_percentage = 25;
-
-        std::size_t num_of_keys = 10;
+        std::size_t insert_percentage = 50;
+        std::size_t erase_percentage = 50;
+        std::size_t num_of_keys = 100;
     };
 
 public:
@@ -199,8 +198,13 @@ public:
         std::vector<Worker> workers;
         workers.reserve(num_of_threads);
         std::size_t actions_per_thread = num_of_actions / num_of_threads;
+
         for (std::size_t i = 0; i < num_of_threads; ++i) {
-            workers.emplace_back(operations_, actions_per_thread, config_.num_of_keys);
+            std::random_device rd;
+            auto key_gen = [num_of_keys = config_.num_of_keys, gen = std::mt19937(rd())]() mutable {
+                return (int) gen() % num_of_keys;
+            };
+            workers.emplace_back(operations_, actions_per_thread, key_gen);
         }
 
         std::vector<std::thread> threads;
@@ -213,8 +217,8 @@ public:
             thread.join();
         }
 
-        std::vector<typename Set::value_type> inserted;
-        std::vector<typename Set::value_type> erased;
+        std::vector<key_type> inserted;
+        std::vector<key_type> erased;
 
         std::size_t num_of_found{};
         std::size_t num_of_not_found{};

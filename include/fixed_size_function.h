@@ -118,14 +118,16 @@ namespace lu {
     private:
         template<class Functor, class = std::enable_if_t<sizeof(Functor) <= BufferLen>>
         void Construct(Functor &&func) {
-            new (&data_) Functor(std::forward<Functor>(func));
-            table_.call = Call<Functor>;
-            table_.destruct = Destruct<Functor>;
-            if constexpr (std::is_copy_constructible_v<Functor>) {
-                table_.copy = CopyConstruct<Functor>;
+            using functor_type = typename std::decay_t<Functor>;
+            new (&data_) functor_type (std::forward<Functor>(func));
+
+            table_.call = Call<functor_type>;
+            table_.destruct = Destruct<functor_type>;
+            if constexpr (std::is_copy_constructible_v<functor_type>) {
+                table_.copy = CopyConstruct<functor_type>;
             }
-            if constexpr (std::is_move_constructible_v<Functor>) {
-                table_.move = MoveConstruct<Functor>;
+            if constexpr (std::is_move_constructible_v<functor_type>) {
+                table_.move = MoveConstruct<functor_type>;
             }
         }
 
