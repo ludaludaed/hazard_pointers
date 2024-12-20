@@ -181,32 +181,30 @@ class SetFixture {
 
 public:
     struct Config {
-        std::size_t insert_percentage = 10;
-        std::size_t erase_percentage = 50;
-        std::size_t find_percentage = 40;
+        std::size_t insert_percentage = 25;
+        std::size_t erase_percentage = 25;
 
-        std::size_t num_of_keys = 100;
-        std::size_t num_of_actions = 100000000;
-        std::size_t num_of_threads = 16;
+        std::size_t num_of_keys = 10;
     };
 
 public:
     explicit SetFixture(Config config)
-        : config_(config) {}
-
-    void test() {
-        Set set;
+        : config_(config) {
         generate_operations(operations_, config_.insert_percentage, config_.erase_percentage);
+    }
+
+    void operator()(std::size_t num_of_actions, std::size_t num_of_threads) {
+        Set set;
 
         std::vector<Worker> workers;
-        workers.reserve(config_.num_of_threads);
-        std::size_t actions_per_thread = config_.num_of_actions / config_.num_of_threads;
-        for (std::size_t i = 0; i < config_.num_of_threads; ++i) {
+        workers.reserve(num_of_threads);
+        std::size_t actions_per_thread = num_of_actions / num_of_threads;
+        for (std::size_t i = 0; i < num_of_threads; ++i) {
             workers.emplace_back(operations_, actions_per_thread, config_.num_of_keys);
         }
 
         std::vector<std::thread> threads;
-        threads.reserve(config_.num_of_threads);
+        threads.reserve(num_of_threads);
         for (auto &&worker: workers) {
             threads.emplace_back([&worker, &set]() { worker(set); });
         }
@@ -246,8 +244,6 @@ public:
                 throw std::runtime_error("Error");
             }
         }
-        std::cout << "num_of_found:\t\t" << num_of_found << std::endl;
-        std::cout << "num_of_not_found:\t" << num_of_not_found << std::endl;
     }
 
     static void generate_operations(operations &operations, std::size_t insert_percentage,
@@ -269,15 +265,14 @@ public:
     }
 
 private:
-    operations operations_;
-    Config config_;
+    operations operations_{};
+    Config config_{};
 };
 
 int main() {
     for (int i = 0; i < 1000; ++i) {
         std::cout << "iteration: #" << i << std::endl;
-        SetFixture<lu::ordered_list_set<int>> fixture({});
-        fixture.test();
+        abstractStressTest(SetFixture<lu::ordered_list_set<int>>({}));
     }
 
     // lu::ordered_list_map<int, int> set;

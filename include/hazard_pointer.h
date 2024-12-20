@@ -493,7 +493,6 @@ namespace lu {
         void reset_protection(nullptr_t = nullptr) noexcept {
             assert(!empty() && "hazard_ptr must be initialized");
             record_->reset();
-            std::atomic_thread_fence(std::memory_order_seq_cst);
         }
 
         void swap(HazardPointer &other) noexcept {
@@ -596,7 +595,7 @@ namespace lu {
 #endif
     };
 
-    static constexpr std::size_t DEFAULT_NUM_OF_RECORDS = 4;
+    static constexpr std::size_t DEFAULT_NUM_OF_RECORDS = 8;
     static constexpr std::size_t DEFAULT_NUM_OF_RETIRES = 64;
     static constexpr std::size_t DEFAULT_SCAN_THRESHOLD = 64;
 
