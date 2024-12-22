@@ -14,7 +14,7 @@ namespace lu_adl {
 namespace lu {
     namespace detail {
         template<class ValueType>
-        inline std::size_t HashDispatch(const ValueType &value) {
+        inline std::size_t hash_dispatch(const ValueType &value) {
             using lu_adl::hash_value;
             return hash_value(value);
         }

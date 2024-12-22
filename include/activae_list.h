@@ -50,7 +50,8 @@ namespace lu {
             node_ptr current = head.load(std::memory_order_relaxed);
             do {
                 node_traits::set_next(new_node, current);
-            } while (!head.compare_exchange_weak(current, new_node, std::memory_order_release, std::memory_order_relaxed));
+            } while (!head.compare_exchange_weak(current, new_node, std::memory_order_release,
+                                                 std::memory_order_relaxed));
         }
     };
 
@@ -152,8 +153,8 @@ namespace lu {
 
     private:
         explicit ActiveListIterator(node_ptr current_node, value_traits_ptr value_traits) noexcept
-            : current_node_(current_node),
-              value_traits_(value_traits) {}
+            : current_node_(current_node)
+            , value_traits_(value_traits) {}
 
     public:
         ActiveListIterator() noexcept = default;
@@ -218,15 +219,15 @@ namespace lu {
 
     private:
         explicit ActiveListConstIterator(node_ptr current_node, value_traits_ptr value_traits) noexcept
-            : current_node_(current_node),
-              value_traits_(value_traits) {}
+            : current_node_(current_node)
+            , value_traits_(value_traits) {}
 
     public:
         ActiveListConstIterator() noexcept = default;
 
         ActiveListConstIterator(const NonConstIter &other) noexcept
-            : current_node_(other.current_node_),
-              value_traits_(other.value_traits_) {}
+            : current_node_(other.current_node_)
+            , value_traits_(other.value_traits_) {}
 
         ActiveListConstIterator &operator++() noexcept {
             Increment();
@@ -379,10 +380,10 @@ namespace lu {
     };
 
     template<class VoidPointer, class Tag>
-    struct ActiveListBaseHook : public ActiveListHook<VoidPointer, Tag>,
-                                public std::conditional_t<std::is_same_v<Tag, DefaultHookTag>,
-                                                          ActiveListDefaultHook<ActiveListHook<VoidPointer, Tag>>,
-                                                          detail::NotDefaultHook> {};
+    struct ActiveListBaseHook
+        : public ActiveListHook<VoidPointer, Tag>,
+          public std::conditional_t<std::is_same_v<Tag, DefaultHookTag>,
+                                    ActiveListDefaultHook<ActiveListHook<VoidPointer, Tag>>, detail::NotDefaultHook> {};
 
     struct ActiveListDefaults {
         using proto_value_traits = DefaultActiveListHookApplier;
@@ -397,7 +398,8 @@ namespace lu {
     struct make_active_list {
         using pack_options = typename GetPackOptions<ActiveListDefaults, Options...>::type;
 
-        using value_traits = typename detail::GetValueTraits<ValueType, typename pack_options::proto_value_traits>::type;
+        using value_traits =
+                typename detail::GetValueTraits<ValueType, typename pack_options::proto_value_traits>::type;
 
         using type = ActiveList<value_traits>;
     };

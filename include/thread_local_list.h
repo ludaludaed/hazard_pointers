@@ -21,7 +21,8 @@ namespace lu {
 
         template<class Pointer>
         struct DefaultCreator {
-            static_assert(std::is_same_v<get_void_ptr_t<Pointer>, void *>, "The default creator can only work with void*");
+            static_assert(std::is_same_v<get_void_ptr_t<Pointer>, void *>,
+                          "The default creator can only work with void*");
 
             using value_type = typename std::pointer_traits<Pointer>::element_type;
 
@@ -32,7 +33,8 @@ namespace lu {
 
         template<class Pointer>
         struct DefaultDeleter {
-            static_assert(std::is_same_v<get_void_ptr_t<Pointer>, void *>, "The default deleter can only work with void*");
+            static_assert(std::is_same_v<get_void_ptr_t<Pointer>, void *>,
+                          "The default deleter can only work with void*");
 
             using value_type = typename std::pointer_traits<Pointer>::element_type;
 
@@ -42,9 +44,7 @@ namespace lu {
         };
     }// namespace detail
 
-    class ThreadLocalListHook
-        : public lu::unordered_set_base_hook<>,
-          public lu::active_list_base_hook<> {
+    class ThreadLocalListHook : public lu::unordered_set_base_hook<>, public lu::active_list_base_hook<> {
 
         template<class>
         friend class ThreadLocalList;
@@ -79,11 +79,8 @@ namespace lu {
         };
 
         class ThreadLocalOwner {
-            using UnorderedSet = lu::unordered_set<
-                    value_type,
-                    lu::key_of_value<KeyOfValue>,
-                    lu::is_power_2_buckets<true>,
-                    lu::hash<detail::PointerHash>>;
+            using UnorderedSet = lu::unordered_set<value_type, lu::key_of_value<KeyOfValue>,
+                                                   lu::is_power_2_buckets<true>, lu::hash<detail::PointerHash>>;
 
             using BucketTraits = typename UnorderedSet::bucket_traits;
             using BucketType = typename UnorderedSet::bucket_type;
@@ -137,15 +134,12 @@ namespace lu {
         };
 
     public:
-        template<class Detacher = detail::DefaultDetacher<pointer>,
-                 class Creator = detail::DefaultCreator<pointer>,
+        template<class Detacher = detail::DefaultDetacher<pointer>, class Creator = detail::DefaultCreator<pointer>,
                  class Deleter = detail::DefaultDeleter<pointer>>
-        explicit ThreadLocalList(Detacher detacher = {},
-                                 Creator creator = {},
-                                 Deleter deleter = {})
-            : detacher_(std::move(detacher)),
-              creator_(std::move(creator)),
-              deleter_(std::move(deleter)) {}
+        explicit ThreadLocalList(Detacher detacher = {}, Creator creator = {}, Deleter deleter = {})
+            : detacher_(std::move(detacher))
+            , creator_(std::move(creator))
+            , deleter_(std::move(deleter)) {}
 
         ThreadLocalList(const ThreadLocalList &) = delete;
 

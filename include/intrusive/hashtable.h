@@ -114,11 +114,16 @@ namespace lu {
 
     public:
         BucketTraitsImpl(bucket_ptr buckets, size_type size) noexcept
-            : buckets_(buckets), size_(size) {}
+            : buckets_(buckets)
+            , size_(size) {}
 
-        BucketTraitsImpl(const BucketTraitsImpl &other) noexcept : buckets_(other.buckets_), size_(other.size_) {}
+        BucketTraitsImpl(const BucketTraitsImpl &other) noexcept
+            : buckets_(other.buckets_)
+            , size_(other.size_) {}
 
-        BucketTraitsImpl(BucketTraitsImpl &&other) noexcept : buckets_(other.buckets_), size_(other.size_) {
+        BucketTraitsImpl(BucketTraitsImpl &&other) noexcept
+            : buckets_(other.buckets_)
+            , size_(other.size_) {
             other.buckets_ = BucketPtr{};
             other.size_ = SizeType{};
         }
@@ -405,8 +410,8 @@ namespace lu {
 
     private:
         HashIterator(node_ptr current_node, value_traits_ptr value_traits) noexcept
-            : current_node_(current_node),
-              value_traits_(value_traits) {}
+            : current_node_(current_node)
+            , value_traits_(value_traits) {}
 
     public:
         HashIterator() noexcept = default;
@@ -471,15 +476,15 @@ namespace lu {
 
     private:
         HashConstIterator(node_ptr current_node, value_traits_ptr value_traits) noexcept
-            : current_node_(current_node),
-              value_traits_(value_traits) {}
+            : current_node_(current_node)
+            , value_traits_(value_traits) {}
 
     public:
         HashConstIterator() noexcept = default;
 
         HashConstIterator(const NonConstIter &other) noexcept
-            : current_node_(other.current_node_),
-              value_traits_(other.value_traits_) {}
+            : current_node_(other.current_node_)
+            , value_traits_(other.value_traits_) {}
 
         HashConstIterator &operator++() noexcept {
             Increment();
@@ -541,8 +546,8 @@ namespace lu {
 
     private:
         HashLocalIterator(node_ptr node, value_traits_ptr value_traits) noexcept
-            : current_node_(node),
-              value_traits_(value_traits) {}
+            : current_node_(node)
+            , value_traits_(value_traits) {}
 
     public:
         HashLocalIterator() noexcept = default;
@@ -610,15 +615,15 @@ namespace lu {
 
     private:
         HashConstLocalIterator(node_ptr node, value_traits_ptr value_traits) noexcept
-            : current_node_(node),
-              value_traits_(value_traits) {}
+            : current_node_(node)
+            , value_traits_(value_traits) {}
 
     public:
         HashConstLocalIterator() noexcept = default;
 
         HashConstLocalIterator(const NonConstIter &other) noexcept
-            : current_node_(other.current_node_),
-              value_traits_(other.value_traits_) {}
+            : current_node_(other.current_node_)
+            , value_traits_(other.value_traits_) {}
 
         HashConstLocalIterator &operator++() noexcept {
             Increment();
@@ -667,7 +672,8 @@ namespace lu {
         static const bool is_multi = IsMulti;
     };
 
-    template<class ValueTraits, class BucketTraits, class KeyOfValue, class KeyHash, class KeyEqual, class SizeType, class Flags>
+    template<class ValueTraits, class BucketTraits, class KeyOfValue, class KeyHash, class KeyEqual, class SizeType,
+             class Flags>
     class IntrusiveHashtable
         : private detail::EmptyBaseHolder<ValueTraits, detail::ValueTraitsTag>,
           private detail::EmptyBaseHolder<BucketTraits, detail::BucketTraitsTag>,
@@ -721,30 +727,26 @@ namespace lu {
         using const_local_iterator = HashConstLocalIterator<Self, Algo>;
 
         using value_traits_ptr = typename std::pointer_traits<pointer>::template rebind<value_traits>;
-        using const_value_traits_ptr = typename std::pointer_traits<value_traits_ptr>::template rebind<const value_traits>;
+        using const_value_traits_ptr =
+                typename std::pointer_traits<value_traits_ptr>::template rebind<const value_traits>;
 
     public:
-        explicit IntrusiveHashtable(const bucket_traits &buckets = {},
-                                    const hasher &key_hash = {},
-                                    const key_equal &equal = {},
-                                    const value_traits &value_traits = {})
-            : BucketTraitsHolder(buckets),
-              KeyHashHolder(key_hash),
-              KeyEqualHolder(equal),
-              ValueTraitsHolder(value_traits) {
+        explicit IntrusiveHashtable(const bucket_traits &buckets = {}, const hasher &key_hash = {},
+                                    const key_equal &equal = {}, const value_traits &value_traits = {})
+            : BucketTraitsHolder(buckets)
+            , KeyHashHolder(key_hash)
+            , KeyEqualHolder(equal)
+            , ValueTraitsHolder(value_traits) {
             Construct();
         }
 
         template<class Iterator>
-        IntrusiveHashtable(Iterator begin, Iterator end,
-                           const bucket_traits &buckets = {},
-                           const hasher &key_hash = {},
-                           const key_equal &equal = {},
-                           const value_traits &value_traits = {})
-            : BucketTraitsHolder(buckets),
-              KeyHashHolder(key_hash),
-              KeyEqualHolder(equal),
-              ValueTraitsHolder(value_traits) {
+        IntrusiveHashtable(Iterator begin, Iterator end, const bucket_traits &buckets = {}, const hasher &key_hash = {},
+                           const key_equal &equal = {}, const value_traits &value_traits = {})
+            : BucketTraitsHolder(buckets)
+            , KeyHashHolder(key_hash)
+            , KeyEqualHolder(equal)
+            , ValueTraitsHolder(value_traits) {
             Construct();
             insert(begin, end);
         }
@@ -924,7 +926,7 @@ namespace lu {
             }
         }
 
-        std::pair<iterator, bool> Insert(reference value, std::false_type /* is_multi */) {
+        std::pair<iterator, bool> InsertUnique(reference value) {
             const value_traits &_value_traits = ValueTraitsHolder::get();
             const hasher &_key_hash = KeyHashHolder::get();
 
@@ -948,7 +950,7 @@ namespace lu {
             }
         }
 
-        iterator Insert(reference value, std::true_type /* is_multi */) {
+        iterator InsertEqual(reference value) {
             const value_traits &_value_traits = ValueTraitsHolder::get();
             const hasher &_key_hash = KeyHashHolder::get();
 
@@ -1014,7 +1016,12 @@ namespace lu {
 
     public:
         auto insert(reference value) {
-            return Insert(value, get_bool_t<Flags::is_multi>{});
+            bool v = Flags::is_multi;
+            if constexpr (Flags::is_multi) {
+                return InsertEqual(value);
+            } else {
+                return InsertUnique(value);
+            }
         }
 
         template<class Iterator>
@@ -1058,8 +1065,10 @@ namespace lu {
             }
         }
 
-        template<class OtherBucketTraits, class OtherKeyOfValue, class OtherKeyHash, class OtherKeyEqual, class OtherSizeType, class OtherFlags>
-        void merge(IntrusiveHashtable<ValueTraits, OtherBucketTraits, OtherKeyOfValue, OtherKeyHash, OtherKeyEqual, OtherSizeType, OtherFlags> &other) {
+        template<class OtherBucketTraits, class OtherKeyOfValue, class OtherKeyHash, class OtherKeyEqual,
+                 class OtherSizeType, class OtherFlags>
+        void merge(IntrusiveHashtable<ValueTraits, OtherBucketTraits, OtherKeyOfValue, OtherKeyHash, OtherKeyEqual,
+                                      OtherSizeType, OtherFlags> &other) {
             for (iterator it = other.begin(); it != other.end();) {
                 iterator next = std::next(it);
                 other.erase(it);
@@ -1068,8 +1077,10 @@ namespace lu {
             }
         }
 
-        template<class OtherBucketTraits, class OtherKeyOfValue, class OtherKeyHash, class OtherKeyEqual, class OtherSizeType, class OtherFlags>
-        void merge(IntrusiveHashtable<ValueTraits, OtherBucketTraits, OtherKeyOfValue, OtherKeyHash, OtherKeyEqual, OtherSizeType, OtherFlags> &&other) {
+        template<class OtherBucketTraits, class OtherKeyOfValue, class OtherKeyHash, class OtherKeyEqual,
+                 class OtherSizeType, class OtherFlags>
+        void merge(IntrusiveHashtable<ValueTraits, OtherBucketTraits, OtherKeyOfValue, OtherKeyHash, OtherKeyEqual,
+                                      OtherSizeType, OtherFlags> &&other) {
             merge(other);
         }
 
@@ -1253,8 +1264,8 @@ namespace lu {
                 std::pair<const_iterator, const_iterator> left_equal_range = left.equal_range(left.GetKey(*it));
                 std::pair<const_iterator, const_iterator> right_equal_range = right.equal_range(right.GetKey(*it));
 
-                if (std::distance(left_equal_range.first, left_equal_range.second) !=
-                    std::distance(right_equal_range.first, right_equal_range.second)) {
+                if (std::distance(left_equal_range.first, left_equal_range.second)
+                    != std::distance(right_equal_range.first, right_equal_range.second)) {
                     return false;
                 }
                 it = left_equal_range.second;
@@ -1285,7 +1296,8 @@ namespace lu {
         template<class ValueTraits, class SizeType>
         struct Apply {
             using bucket_type = BucketValue<typename ValueTraits::node_traits, true>;
-            using bucket_pointer = typename std::pointer_traits<typename ValueTraits::pointer>::template rebind<bucket_type>;
+            using bucket_pointer =
+                    typename std::pointer_traits<typename ValueTraits::pointer>::template rebind<bucket_type>;
             using type = BucketTraitsImpl<bucket_pointer, SizeType>;
         };
     };
@@ -1296,10 +1308,14 @@ namespace lu {
     };
 
     template<class VoidPointer, class Tag, bool StoreHash, bool IsAutoUnlink>
-    class HashtableBaseHook : public detail::GenericHook<HashtableAlgo<HashtableNodeTraits<VoidPointer, StoreHash>>, HashtableNodeTraits<VoidPointer, StoreHash>, Tag, IsAutoUnlink>,
-                              public std::conditional_t<std::is_same_v<Tag, DefaultHookTag>,
-                                                        HashtableDefaultHook<detail::GenericHook<HashtableAlgo<HashtableNodeTraits<VoidPointer, StoreHash>>, HashtableNodeTraits<VoidPointer, StoreHash>, Tag, IsAutoUnlink>>,
-                                                        detail::NotDefaultHook> {};
+    class HashtableBaseHook
+        : public detail::GenericHook<HashtableAlgo<HashtableNodeTraits<VoidPointer, StoreHash>>,
+                                     HashtableNodeTraits<VoidPointer, StoreHash>, Tag, IsAutoUnlink>,
+          public std::conditional_t<std::is_same_v<Tag, DefaultHookTag>,
+                                    HashtableDefaultHook<detail::GenericHook<
+                                            HashtableAlgo<HashtableNodeTraits<VoidPointer, StoreHash>>,
+                                            HashtableNodeTraits<VoidPointer, StoreHash>, Tag, IsAutoUnlink>>,
+                                    detail::NotDefaultHook> {};
 
     template<class ValueType>
     struct DefaultKeyOfValue {
@@ -1314,7 +1330,7 @@ namespace lu {
     template<class ValueType>
     struct DefaultKeyHash {
         std::size_t operator()(const ValueType &value) const {
-            return detail::HashDispatch(value);
+            return detail::hash_dispatch(value);
         }
     };
 

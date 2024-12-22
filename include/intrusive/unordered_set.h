@@ -60,7 +60,7 @@ namespace lu {
     };
 
     template<class ValueType, class... Options>
-    using unordered_multiset = typename make_unordered_set<ValueType, Options...>::type;
+    using unordered_multiset = typename make_unordered_multiset<ValueType, Options...>::type;
 }// namespace lu
 
 #endif

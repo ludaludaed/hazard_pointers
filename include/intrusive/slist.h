@@ -139,8 +139,12 @@ namespace lu {
                     node_traits::set_next(other_next == this_node ? this_node : get_prev(this_node), other_node);
                 }
 
-                node_traits::set_next(this_node, other_node == other_next ? this_node : (other_next == this_node ? other_node : other_next));
-                node_traits::set_next(other_node, this_node == this_next ? other_node : (this_next == other_node ? this_node : this_next));
+                node_traits::set_next(this_node, other_node == other_next
+                                                         ? this_node
+                                                         : (other_next == this_node ? other_node : other_next));
+                node_traits::set_next(other_node, this_node == this_next
+                                                          ? other_node
+                                                          : (this_next == other_node ? this_node : this_next));
             }
         }
 
@@ -307,8 +311,8 @@ namespace lu {
 
     private:
         SlistIterator(node_ptr current_node, value_traits_ptr value_traits) noexcept
-            : current_node_(current_node),
-              value_traits_(value_traits) {}
+            : current_node_(current_node)
+            , value_traits_(value_traits) {}
 
     public:
         SlistIterator() noexcept = default;
@@ -373,16 +377,15 @@ namespace lu {
 
     private:
         SlistConstIterator(node_ptr current_node, value_traits_ptr value_traits) noexcept
-            : current_node_(current_node),
-              value_traits_(value_traits) {}
+            : current_node_(current_node)
+            , value_traits_(value_traits) {}
 
     public:
         SlistConstIterator() noexcept = default;
 
         SlistConstIterator(const NonConstIter &other) noexcept
-            : current_node_(other.current_node_),
-              value_traits_(other.value_traits_) {
-        }
+            : current_node_(other.current_node_)
+            , value_traits_(other.value_traits_) {}
 
         SlistConstIterator &operator++() noexcept {
             Increment();
@@ -422,9 +425,8 @@ namespace lu {
     };
 
     template<class ValueTraits, class SizeType>
-    class IntrusiveSlist
-        : private detail::EmptyBaseHolder<ValueTraits, detail::ValueTraitsTag>,
-          private detail::EmptyBaseHolder<detail::SizeTraits<SizeType, !ValueTraits::is_auto_unlink>> {
+    class IntrusiveSlist : private detail::EmptyBaseHolder<ValueTraits, detail::ValueTraitsTag>,
+                           private detail::EmptyBaseHolder<detail::SizeTraits<SizeType, !ValueTraits::is_auto_unlink>> {
     private:
         using ValueTraitsHolder = detail::EmptyBaseHolder<ValueTraits, detail::ValueTraitsTag>;
         using SizeTraitsHolder = detail::EmptyBaseHolder<detail::SizeTraits<SizeType, !ValueTraits::is_auto_unlink>>;
@@ -455,7 +457,8 @@ namespace lu {
         using const_iterator = SlistConstIterator<Self>;
 
         using value_traits_ptr = typename std::pointer_traits<pointer>::template rebind<value_traits>;
-        using const_value_traits_ptr = typename std::pointer_traits<value_traits_ptr>::template rebind<const value_traits>;
+        using const_value_traits_ptr =
+                typename std::pointer_traits<value_traits_ptr>::template rebind<const value_traits>;
 
     public:
         explicit IntrusiveSlist(const value_traits &value_traits = {})
@@ -514,16 +517,12 @@ namespace lu {
             return Algo::get_last(GetNilPtr());
         }
 
-        size_type GetSize(get_bool_t<true>) const noexcept {
-            return SizeTraitsHolder::get().get_size();
-        }
-
-        size_type GetSize(get_bool_t<false>) const noexcept {
-            return Algo::count(GetNilPtr()) - 1;
-        }
-
         size_type GetSize() const noexcept {
-            return GetSize(get_bool_t<SizeTraits::is_const_size>{});
+            if constexpr (SizeTraits::is_const_size) {
+                return SizeTraitsHolder::get().get_size();
+            } else {
+                return Algo::count(GetNilPtr()) - 1;
+            }
         }
 
         void SetSize(size_type new_size) noexcept {
@@ -548,21 +547,14 @@ namespace lu {
             return last;
         }
 
-        void SpliceAfter(node_ptr where, IntrusiveSlist &other, node_ptr before_first, node_ptr before_last, get_bool_t<true> /* cache size */) noexcept {
-            size_type distance(Algo::distance(node_traits::get_next(before_first), node_traits::get_next(before_last)));
-
-            other.SizeTraits::get().decrease(distance);
-            SizeTraits::get().increase(distance);
-
-            Algo::transfer_after(where, before_first, before_last);
-        }
-
-        void SpliceAfter(node_ptr where, IntrusiveSlist &other, node_ptr before_first, node_ptr before_last, get_bool_t<false> /* not cache size */) noexcept {
-            Algo::transfer_after(where, before_first, before_last);
-        }
-
         void SpliceAfter(node_ptr where, IntrusiveSlist &other, node_ptr before_first, node_ptr before_last) noexcept {
-            SpliceAfter(where, other, before_first, before_last, get_bool_t<SizeTraits::is_const_size>());
+            if constexpr (SizeTraits::is_const_size) {
+                size_type distance(Algo::distance(node_traits::get_next(before_first), node_traits::get_next(before_last)));
+
+                other.SizeTraits::get().decrease(distance);
+                SizeTraits::get().increase(distance);
+            } 
+            Algo::transfer_after(where, before_first, before_last);
         }
 
         void SpliceAfter(node_ptr where, IntrusiveSlist &other, node_ptr before) noexcept {
@@ -718,21 +710,21 @@ namespace lu {
             splice_after(position, other, before);
         }
 
-        void splice_after(const_iterator position, IntrusiveSlist &other, const_iterator before_first, const_iterator last) noexcept {
+        void splice_after(const_iterator position, IntrusiveSlist &other, const_iterator before_first,
+                          const_iterator last) noexcept {
             node_ptr where_node = position.current_node_;
             node_ptr before_first_node = before_first.current_node_;
             node_ptr before_last_node = Algo::get_prev(before_first_node, last.current_node_);
             SpliceAfter(where_node, other, before_first_node, before_last_node);
         }
 
-        void splice_after(const_iterator position, IntrusiveSlist &&other, const_iterator before_first, const_iterator last) noexcept {
+        void splice_after(const_iterator position, IntrusiveSlist &&other, const_iterator before_first,
+                          const_iterator last) noexcept {
             splice_after(position, other, before_first, last);
         }
 
         size_type remove(const_reference value) noexcept {
-            return remove_if([&value](const_reference other) {
-                return std::equal_to<value_type>()(value, other);
-            });
+            return remove_if([&value](const_reference other) { return std::equal_to<value_type>()(value, other); });
         }
 
         template<class UnaryPredicate>
@@ -880,10 +872,14 @@ namespace lu {
     };
 
     template<class VoidPointer, class Tag, bool IsAutoUnlink>
-    class SlistBaseHook : public detail::GenericHook<CircularSlistAlgo<SlistNodeTraits<VoidPointer>>, SlistNodeTraits<VoidPointer>, Tag, IsAutoUnlink>,
-                          public std::conditional_t<std::is_same_v<Tag, DefaultHookTag>,
-                                                    DefaultSlistHook<detail::GenericHook<CircularSlistAlgo<SlistNodeTraits<VoidPointer>>, SlistNodeTraits<VoidPointer>, Tag, IsAutoUnlink>>,
-                                                    detail::NotDefaultHook> {};
+    class SlistBaseHook
+        : public detail::GenericHook<CircularSlistAlgo<SlistNodeTraits<VoidPointer>>, SlistNodeTraits<VoidPointer>, Tag,
+                                     IsAutoUnlink>,
+          public std::conditional_t<
+                  std::is_same_v<Tag, DefaultHookTag>,
+                  DefaultSlistHook<detail::GenericHook<CircularSlistAlgo<SlistNodeTraits<VoidPointer>>,
+                                                       SlistNodeTraits<VoidPointer>, Tag, IsAutoUnlink>>,
+                  detail::NotDefaultHook> {};
 
     struct SlistDefaults {
         using proto_value_traits = DefaultSlistHookApplier;

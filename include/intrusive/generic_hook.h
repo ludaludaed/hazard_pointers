@@ -14,14 +14,6 @@ namespace lu {
     namespace detail {
         class NotDefaultHook {};
 
-        template<class Hook>
-        inline void DeleterImpl(Hook &hook, std::true_type) {
-            hook.unlink();
-        }
-
-        template<class Hook>
-        inline void DeleterImpl(Hook &hook, std::false_type) {}
-
         template<class NodeTraits, class Tag, bool IsAutoUnlink>
         struct HookTags {
             using node_traits = NodeTraits;
@@ -56,7 +48,9 @@ namespace lu {
             }
 
             ~GenericHook() {
-                DeleterImpl(*this, get_bool_t<IsAutoUnlink>{});
+                if constexpr (IsAutoUnlink) {
+                    unlink();
+                }
             }
 
             node_ptr as_node_ptr() noexcept {
