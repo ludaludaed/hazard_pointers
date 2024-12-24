@@ -274,10 +274,27 @@ private:
 };
 
 int main() {
-    for (int i = 0; i < 1000; ++i) {
-        std::cout << "iteration: #" << i << std::endl;
-        abstractStressTest(SetFixture<lu::ordered_list_set<int>>({}));
+    lu::ordered_list_set<int> set;
+    for (int i = 0; i < 10; ++i) {
+        set.insert(i);
     }
+
+    {
+        auto f = set.find_no_less(-1);
+        std::cout << f.operator bool() << " " << *f << std::endl;
+    }
+    {
+        auto f = set.find_no_less(9);
+        std::cout << f.operator bool() << " " << *f << std::endl;
+    }
+    {
+        auto f = set.find_no_less(10);
+        std::cout << f.operator bool() << " " << *f << std::endl;
+    }
+    // for (int i = 0; i < 1000; ++i) {
+    //     std::cout << "iteration: #" << i << std::endl;
+    //     abstractStressTest(SetFixture<lu::ordered_list_set<int>>({}));
+    // }
 
     // lu::ordered_list_map<int, int> set;
     // for (int i = 0; i < 10; ++i) {

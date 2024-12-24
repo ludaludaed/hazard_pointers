@@ -545,6 +545,10 @@ namespace lu {
             return ptr_;
         }
 
+        std::pair<HazardPointer, pointer> unpack() && {
+            return {std::move(guard_), ptr_};
+        }
+
     private:
         HazardPointer guard_{};
         pointer ptr_{};

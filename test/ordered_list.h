@@ -377,6 +377,16 @@ namespace lu {
             }
         }
 
+        guarded_ptr find_no_less(const key_type &value) const {
+            position pos;
+            find(value, pos);
+            if (pos.cur) {
+                return guarded_ptr(std::move(pos.cur_guard), &pos.cur->value);
+            } else {
+                return guarded_ptr();
+            }
+        }
+
         bool contains(const key_type &value) const  {
             position pos;
             return find(value, pos);
