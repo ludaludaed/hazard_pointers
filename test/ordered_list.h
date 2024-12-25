@@ -37,7 +37,7 @@ namespace lu {
 
         struct position {
             node_ptr cur;
-            node_ptr next;
+            node_marked_ptr next;
             std::atomic<node_marked_ptr> *prev_pointer;
 
             lu::hazard_pointer cur_guard{lu::make_hazard_pointer()};
@@ -197,10 +197,10 @@ namespace lu {
 
     private:
         static bool unlink(position &pos) {
-            node_marked_ptr next(pos.next);
-            if (pos.cur->next.compare_exchange_weak(next, node_marked_ptr(next.get(), 1))) {
-                node_marked_ptr cur(pos.cur);
-                if (pos.prev_pointer->compare_exchange_weak(cur, node_marked_ptr(pos.next))) {
+            node_marked_ptr next(pos.next, 0);
+            if (pos.cur->next.compare_exchange_weak(next, node_marked_ptr(pos.next, 1))) {
+                node_marked_ptr cur(pos.cur, 0);
+                if (pos.prev_pointer->compare_exchange_weak(cur, next)) {
                     cur->retire();
                 }
                 return true;
@@ -209,9 +209,9 @@ namespace lu {
         }
 
         static bool link(position &pos, node_ptr new_node) {
-            node_marked_ptr cur(pos.cur);
+            node_marked_ptr cur(pos.cur, 0);
             new_node->next.store(cur);
-            if (pos.prev_pointer->compare_exchange_weak(cur, node_marked_ptr(new_node))) {
+            if (pos.prev_pointer->compare_exchange_weak(cur, node_marked_ptr(new_node, 0))) {
                 return true;
             } else {
                 new_node->next.store({});
@@ -221,51 +221,44 @@ namespace lu {
 
         template<class _KeyCompare, class _KeySelect>
         static bool find(std::atomic<node_marked_ptr> *head, const key_type &key, position &pos, _KeyCompare &&comp, _KeySelect &&key_select) {
-            std::atomic<node_marked_ptr> *prev_pointer;
-            node_marked_ptr cur{};
-
             BackOff back_off;
 
         try_again:
-            prev_pointer = head;
+            pos.prev_pointer = head;
 
-            cur = pos.cur_guard.protect(*head, [](node_marked_ptr ptr) { return ptr.get(); });
+            pos.cur = pos.cur_guard.protect(*head, [](node_marked_ptr ptr) { return ptr.get(); });
 
             while (true) {
-                if (!cur) {
-                    pos.prev_pointer = prev_pointer;
+                if (!pos.cur) {
                     pos.cur = {};
                     pos.next = {};
                     return false;
                 }
 
-                node_marked_ptr next = pos.next_guard.protect(cur->next, [](node_marked_ptr ptr) { return ptr.get(); });
+                pos.next = pos.next_guard.protect(pos.cur->next, [](node_marked_ptr ptr) { return ptr.get(); });
 
-                if (prev_pointer->load().all() != cur.get()) {
+                if (pos.prev_pointer->load().all() != pos.cur) {
                     back_off();
                     goto try_again;
                 }
 
-                if (next.get_bit()) {
-                    node_marked_ptr not_marked_cur(cur.get(), 0);
-                    if (prev_pointer->compare_exchange_weak(not_marked_cur, node_marked_ptr(next.get(), 0))) {
-                        cur->retire();
+                if (pos.next.get_bit()) {
+                    node_marked_ptr not_marked_cur(pos.cur, 0);
+                    if (pos.prev_pointer->compare_exchange_weak(not_marked_cur, node_marked_ptr(pos.next, 0))) {
+                        pos.cur->retire();
                     } else {
                         back_off();
                         goto try_again;
                     }
                 } else {
-                    if (!comp(key_select(cur->value), key)) {
-                        pos.prev_pointer = prev_pointer;
-                        pos.cur = cur;
-                        pos.next = next;
-                        return !comp(key, key_select(cur->value));
+                    if (!comp(key_select(pos.cur->value), key)) {
+                        return !comp(key, key_select(pos.cur->value));
                     }
-                    prev_pointer = &(cur->next);
-                    pos.prev_guard.reset_protection(cur.get());
+                    pos.prev_pointer = &(pos.cur->next);
+                    pos.prev_guard.reset_protection(pos.cur);
                 }
-                pos.cur_guard.reset_protection(next.get());
-                cur = next;
+                pos.cur_guard.reset_protection(pos.next.get());
+                pos.cur = pos.next;
             }
         }
 

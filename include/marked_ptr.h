@@ -23,6 +23,10 @@ namespace lu {
         MarkedPointer(_ValueType *other, bool bit_value) noexcept
             : ptr_(reinterpret_cast<uintptr_t>(other) | uintptr_t(bit_value)) {}
 
+        template<class _ValueType, class = std::enable_if_t<std::is_convertible_v<_ValueType *, ValueType *>>>
+        MarkedPointer(const MarkedPointer<_ValueType> &other, bool bit_value) noexcept
+            : ptr_(reinterpret_cast<uintptr_t>(other.get()) | uintptr_t(bit_value)) {}
+
         MarkedPointer(const MarkedPointer &other) = default;
 
         template<class _ValueType, class = std::enable_if_t<std::is_convertible_v<_ValueType *, ValueType *>>>
