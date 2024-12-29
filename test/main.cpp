@@ -233,6 +233,13 @@ public:
             num_of_found += worker.num_of_found;
             num_of_not_found += worker.num_of_not_found;
         }
+        /*
+          We perform a find operation because we need to remove the first marked element,
+          if present (a marked element is one we have flagged for deletion).
+          In a regular iteration, this might not be crucial, but for this particular test,
+          we must ensure that all elements marked for deletion are indeed removed from the list.
+        */
+        set.find(config_.num_of_keys + 1);
 
         for (auto it = set.begin(); it != set.end(); ++it) {
             erased.emplace_back(*it);
@@ -241,7 +248,7 @@ public:
         std::sort(inserted.begin(), inserted.end());
         std::sort(erased.begin(), erased.end());
         if (inserted.size() != erased.size()) {
-            throw std::runtime_error("Error");
+            throw std::runtime_error("Error non equals sizes " + std::to_string(inserted.size()) + " " + std::to_string(erased.size()));
         }
         for (std::size_t i = 0; i < inserted.size(); ++i) {
             if (inserted[i] != erased[i]) {
