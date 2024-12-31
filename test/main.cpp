@@ -234,7 +234,7 @@ public:
             num_of_not_found += worker.num_of_not_found;
         }
         /*
-          We perform a find operation because we need to remove the first marked element,
+          We perform a find operation because we need to remove marked elements,
           if present (a marked element is one we have flagged for deletion).
           In a regular iteration, this might not be crucial, but for this particular test,
           we must ensure that all elements marked for deletion are indeed removed from the list.
