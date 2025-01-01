@@ -2,17 +2,19 @@
 #define __INTRUSIVE_EMPTY_BASE_TAGS_H__
 
 namespace lu {
-    namespace detail {
-        class ValueTraitsTag {};
+namespace detail {
 
-        class BucketTraitsTag {};
+class ValueTraitsTag {};
 
-        class keyOfValueTag {};
+class BucketTraitsTag {};
 
-        class KeyHashTag {};
+class keyOfValueTag {};
 
-        class KeyEqualTag {};
-    }// namespace detail
+class KeyHashTag {};
+
+class KeyEqualTag {};
+
+}// namespace detail
 }// namespace lu
 
 #endif

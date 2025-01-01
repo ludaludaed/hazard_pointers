@@ -5,101 +5,103 @@
 
 
 namespace lu {
-    template<class HookType>
-    struct base_hook {
-        template<class Base>
-        struct pack : public Base {
-            using proto_value_traits = detail::BaseHookApplier<HookType>;
-        };
-    };
 
-    template<class ValueTraits>
-    struct value_traits {
-        template<class Base>
-        struct pack : public Base {
-            using proto_value_traits = detail::ValueTraitsApplier<ValueTraits>;
-        };
+template<class HookType>
+struct base_hook {
+    template<class Base>
+    struct pack : public Base {
+        using proto_value_traits = detail::BaseHookApplier<HookType>;
     };
+};
 
-    template<class BucketTraits>
-    struct bucket_traits {
-        template<class Base>
-        struct pack : public Base {
-            using proto_bucket_traits = detail::BucketTraitsApplier<BucketTraits>;
-        };
+template<class ValueTraits>
+struct value_traits {
+    template<class Base>
+    struct pack : public Base {
+        using proto_value_traits = detail::ValueTraitsApplier<ValueTraits>;
     };
+};
 
-    template<bool IsPower2Buckets>
-    struct is_power_2_buckets {
-        template<class Base>
-        struct pack : Base {
-            static const bool is_power_2_buckets = IsPower2Buckets;
-        };
+template<class BucketTraits>
+struct bucket_traits {
+    template<class Base>
+    struct pack : public Base {
+        using proto_bucket_traits = detail::BucketTraitsApplier<BucketTraits>;
     };
+};
 
-    template<class SizeType>
-    struct size_type {
-        template<class Base>
-        struct pack : public Base {
-            using size_type = SizeType;
-        };
+template<bool IsPower2Buckets>
+struct is_power_2_buckets {
+    template<class Base>
+    struct pack : Base {
+        static const bool is_power_2_buckets = IsPower2Buckets;
     };
+};
 
-    template<class Hash>
-    struct hash {
-        template<class Base>
-        struct pack : public Base {
-            using hash = Hash;
-        };
+template<class SizeType>
+struct size_type {
+    template<class Base>
+    struct pack : public Base {
+        using size_type = SizeType;
     };
+};
 
-    template<class KeyOfValue>
-    struct key_of_value {
-        template<class Base>
-        struct pack : public Base {
-            using key_of_value = KeyOfValue;
-        };
+template<class Hash>
+struct hash {
+    template<class Base>
+    struct pack : public Base {
+        using hash = Hash;
     };
+};
 
-    template<class Equal>
-    struct equal {
-        template<class Base>
-        struct pack : public Base {
-            using equal = Equal;
-        };
+template<class KeyOfValue>
+struct key_of_value {
+    template<class Base>
+    struct pack : public Base {
+        using key_of_value = KeyOfValue;
     };
+};
 
-    template<bool IsAutoUnlink>
-    struct is_auto_unlink {
-        template<class Base>
-        struct pack : public Base {
-            static const bool is_auto_unlink = IsAutoUnlink;
-        };
+template<class Equal>
+struct equal {
+    template<class Base>
+    struct pack : public Base {
+        using equal = Equal;
     };
+};
 
-    template<bool StoreHash>
-    struct store_hash {
-        template<class Base>
-        struct pack : public Base {
-            static const bool store_hash = StoreHash;
-        };
+template<bool IsAutoUnlink>
+struct is_auto_unlink {
+    template<class Base>
+    struct pack : public Base {
+        static const bool is_auto_unlink = IsAutoUnlink;
     };
+};
 
-    template<class VoidPointer>
-    struct void_pointer {
-        template<class Base>
-        struct pack : public Base {
-            using void_pointer = VoidPointer;
-        };
+template<bool StoreHash>
+struct store_hash {
+    template<class Base>
+    struct pack : public Base {
+        static const bool store_hash = StoreHash;
     };
+};
 
-    template<class Tag>
-    struct tag {
-        template<class Base>
-        struct pack : public Base {
-            using tag = Tag;
-        };
+template<class VoidPointer>
+struct void_pointer {
+    template<class Base>
+    struct pack : public Base {
+        using void_pointer = VoidPointer;
     };
-};// namespace lu
+};
+
+template<class Tag>
+struct tag {
+    template<class Base>
+    struct pack : public Base {
+        using tag = Tag;
+    };
+};
+
+}// namespace lu
 
 #endif

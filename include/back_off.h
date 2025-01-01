@@ -5,15 +5,17 @@
 
 
 namespace lu {
-    struct EmptyBackOff {
-        void operator()() const {}
-    };
 
-    struct YieldBackOff {
-        void operator()() const {
-            std::this_thread::yield();
-        }
-    };
+struct EmptyBackOff {
+    void operator()() const {}
+};
+
+struct YieldBackOff {
+    void operator()() const {
+        std::this_thread::yield();
+    }
+};
+
 }// namespace lu
 
 #endif

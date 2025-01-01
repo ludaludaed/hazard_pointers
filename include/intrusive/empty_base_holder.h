@@ -6,90 +6,92 @@
 
 
 namespace lu {
-    namespace detail {
-        class DefaultHolderTag {};
+namespace detail {
 
-        template<class ValueType>
-        constexpr bool is_empty_base = std::is_empty_v<ValueType> && !std::is_final_v<ValueType>;
+class DefaultHolderTag {};
 
-        template<class ValueType, class Tag = DefaultHolderTag, bool EmptyBase = is_empty_base<ValueType>>
-        class EmptyBaseHolder;
+template<class ValueType>
+constexpr bool is_empty_base = std::is_empty_v<ValueType> && !std::is_final_v<ValueType>;
 
-        template<class ValueType, class Tag>
-        class EmptyBaseHolder<ValueType, Tag, false> {
-        public:
-            using type = ValueType;
+template<class ValueType, class Tag = DefaultHolderTag, bool EmptyBase = is_empty_base<ValueType>>
+class EmptyBaseHolder;
 
-        public:
-            template<class... Args, class = std::enable_if_t<std::is_constructible_v<ValueType, Args...>>>
-            explicit EmptyBaseHolder(Args &&...args) noexcept(std::is_nothrow_constructible_v<ValueType, Args...>)
-                : value_(std::forward<Args>(args)...) {}
+template<class ValueType, class Tag>
+class EmptyBaseHolder<ValueType, Tag, false> {
+public:
+    using type = ValueType;
 
-            EmptyBaseHolder(const EmptyBaseHolder &other) noexcept(std::is_nothrow_copy_constructible_v<ValueType>)
-                : value_(other.value_) {}
+public:
+    template<class... Args, class = std::enable_if_t<std::is_constructible_v<ValueType, Args...>>>
+    explicit EmptyBaseHolder(Args &&...args) noexcept(std::is_nothrow_constructible_v<ValueType, Args...>)
+        : value_(std::forward<Args>(args)...) {}
 
-            EmptyBaseHolder(EmptyBaseHolder &&other) noexcept(std::is_nothrow_move_constructible_v<ValueType>)
-                : value_(std::move(other.value_)) {}
+    EmptyBaseHolder(const EmptyBaseHolder &other) noexcept(std::is_nothrow_copy_constructible_v<ValueType>)
+        : value_(other.value_) {}
 
-            EmptyBaseHolder &operator=(const EmptyBaseHolder &other) {
-                value_ = other.value_;
-                return *this;
-            }
+    EmptyBaseHolder(EmptyBaseHolder &&other) noexcept(std::is_nothrow_move_constructible_v<ValueType>)
+        : value_(std::move(other.value_)) {}
 
-            EmptyBaseHolder &operator=(EmptyBaseHolder &&other) noexcept(std::is_nothrow_move_assignable_v<ValueType>) {
-                value_ = std::move(other.value_);
-                return *this;
-            }
+    EmptyBaseHolder &operator=(const EmptyBaseHolder &other) {
+        value_ = other.value_;
+        return *this;
+    }
 
-        public:
-            ValueType &get() noexcept {
-                return value_;
-            }
+    EmptyBaseHolder &operator=(EmptyBaseHolder &&other) noexcept(std::is_nothrow_move_assignable_v<ValueType>) {
+        value_ = std::move(other.value_);
+        return *this;
+    }
 
-            const ValueType &get() const noexcept {
-                return value_;
-            }
+public:
+    ValueType &get() noexcept {
+        return value_;
+    }
 
-        private:
-            ValueType value_;
-        };
+    const ValueType &get() const noexcept {
+        return value_;
+    }
 
-        template<class ValueType, class Tag>
-        class EmptyBaseHolder<ValueType, Tag, true> : public ValueType {
-        public:
-            using type = ValueType;
+private:
+    ValueType value_;
+};
 
-        public:
-            template<class... Args, class = std::enable_if_t<std::is_constructible_v<ValueType, Args...>>>
-            explicit EmptyBaseHolder(Args &&...args) noexcept(std::is_nothrow_constructible_v<ValueType, Args...>)
-                : ValueType(std::forward<Args>(args)...) {}
+template<class ValueType, class Tag>
+class EmptyBaseHolder<ValueType, Tag, true> : public ValueType {
+public:
+    using type = ValueType;
 
-            EmptyBaseHolder(const EmptyBaseHolder &other) noexcept(std::is_nothrow_copy_constructible_v<ValueType>)
-                : ValueType(other.get()) {}
+public:
+    template<class... Args, class = std::enable_if_t<std::is_constructible_v<ValueType, Args...>>>
+    explicit EmptyBaseHolder(Args &&...args) noexcept(std::is_nothrow_constructible_v<ValueType, Args...>)
+        : ValueType(std::forward<Args>(args)...) {}
 
-            EmptyBaseHolder(EmptyBaseHolder &&other) noexcept(std::is_nothrow_move_constructible_v<ValueType>)
-                : ValueType(std::move(other.get())) {}
+    EmptyBaseHolder(const EmptyBaseHolder &other) noexcept(std::is_nothrow_copy_constructible_v<ValueType>)
+        : ValueType(other.get()) {}
 
-            EmptyBaseHolder &operator=(const EmptyBaseHolder &other) {
-                ValueType::operator=(other.get());
-                return *this;
-            }
+    EmptyBaseHolder(EmptyBaseHolder &&other) noexcept(std::is_nothrow_move_constructible_v<ValueType>)
+        : ValueType(std::move(other.get())) {}
 
-            EmptyBaseHolder &operator=(EmptyBaseHolder &&other) noexcept(std::is_nothrow_move_assignable_v<ValueType>) {
-                ValueType::operator=(std::move(other.get()));
-                return *this;
-            }
+    EmptyBaseHolder &operator=(const EmptyBaseHolder &other) {
+        ValueType::operator=(other.get());
+        return *this;
+    }
 
-        public:
-            ValueType &get() noexcept {
-                return *this;
-            }
+    EmptyBaseHolder &operator=(EmptyBaseHolder &&other) noexcept(std::is_nothrow_move_assignable_v<ValueType>) {
+        ValueType::operator=(std::move(other.get()));
+        return *this;
+    }
 
-            const ValueType &get() const noexcept {
-                return *this;
-            }
-        };
-    }// namespace detail
+public:
+    ValueType &get() noexcept {
+        return *this;
+    }
+
+    const ValueType &get() const noexcept {
+        return *this;
+    }
+};
+
+}// namespace detail
 }// namespace lu
 
 #endif
