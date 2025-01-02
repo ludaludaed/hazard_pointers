@@ -7,6 +7,7 @@
 
 
 namespace lu {
+namespace detail {
 
 template<class RefCountTraits>
 class AtomicRefCountPointer {
@@ -126,6 +127,7 @@ private:
     std::atomic<control_block_ptr> control_block_{};
 };
 
+}// namespace detail
 }// namespace lu
 
 #endif

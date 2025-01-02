@@ -17,6 +17,7 @@
 
 
 namespace lu {
+namespace detail {
 
 struct ControlBlockDeleter {
     template<class ControlBlock>
@@ -179,7 +180,7 @@ private:
     }
 
 private:
-    detail::AlignedStorage<ValueType> data_;
+    AlignedStorage<ValueType> data_;
     allocator_type allocator_;
 };
 
@@ -192,8 +193,8 @@ OutplaceControlBlock<ValueType, Deleter, Allocator> *make_outplace_control_block
 
     AllocatorType internal_allocator(allocator);
 
-    detail::DeleterGuard deleter_guard(value_ptr, deleter);
-    detail::AllocateGuard allocate_guard(internal_allocator);
+    DeleterGuard deleter_guard(value_ptr, deleter);
+    AllocateGuard allocate_guard(internal_allocator);
 
     auto result = allocate_guard.allocate();
     AllocatorTraits::construct(internal_allocator, result, value_ptr, std::move(deleter), allocator);
@@ -210,7 +211,7 @@ InplaceControlBlock<ValueType, Allocator> *make_inplace_control_block(const Allo
 
     AllocatorType internal_allocator(allocator);
 
-    detail::AllocateGuard allocate_guard(internal_allocator);
+    AllocateGuard allocate_guard(internal_allocator);
 
     auto result = allocate_guard.allocate();
     AllocatorTraits::construct(internal_allocator, result, allocator, std::forward<Args>(args)...);
@@ -510,27 +511,36 @@ private:
     element_ptr value_{};
 };
 
-template<class ValueType>
-class SharedPointer;
+}// namespace detail
+
+namespace detail {
+
+template<class>
+class SharedPointerTraits;
+
+}// namespace detail
 
 template<class ValueType>
-class WeakPointer;
+class shared_ptr;
 
 template<class ValueType>
-class SharedPointer : public StrongRefCountPointer<ValueType *, ControlBlock *> {
-    using Base = StrongRefCountPointer<ValueType *, ControlBlock *>;
+class weak_ptr;
+
+template<class ValueType>
+class shared_ptr : public detail::StrongRefCountPointer<ValueType *, detail::ControlBlock *> {
+    using Base = detail::StrongRefCountPointer<ValueType *, detail::ControlBlock *>;
 
     template<class _ValueType, class Allocator, class... Args>
-    friend SharedPointer<_ValueType> alloc_shared(const Allocator &allocator, Args &&...args);
+    friend shared_ptr<_ValueType> alloc_shared(const Allocator &allocator, Args &&...args);
 
     template<class _ValueType, class... Args>
-    friend SharedPointer<_ValueType> make_shared(Args &&...args);
+    friend shared_ptr<_ValueType> make_shared(Args &&...args);
 
     template<class>
-    friend class SharedPointer;
+    friend class shared_ptr;
 
     template<class>
-    friend class SharedPointerTraits;
+    friend class detail::SharedPointerTraits;
 
 public:
     using Base::Base;
@@ -542,55 +552,55 @@ public:
     using element_ptr = typename Base::element_ptr;
 
 private:
-    explicit SharedPointer(control_block_ptr control_block) {
+    explicit shared_ptr(control_block_ptr control_block) {
         this->SetData(reinterpret_cast<element_ptr>(control_block->get()), control_block);
     }
 
 public:
-    SharedPointer() noexcept = default;
+    shared_ptr() noexcept = default;
 
     template<class _ValueType, class Deleter = std::default_delete<_ValueType>,
              class Allocator = std::allocator<_ValueType>,
              class = std::enable_if_t<std::is_convertible_v<_ValueType *, ValueType *>>>
-    explicit SharedPointer(_ValueType *value_ptr, Deleter deleter = {}, const Allocator &allocator = {}) noexcept {
+    explicit shared_ptr(_ValueType *value_ptr, Deleter deleter = {}, const Allocator &allocator = {}) noexcept {
         Construct(value_ptr, std::move(deleter), allocator);
     }
 
-    SharedPointer(const SharedPointer &other) noexcept {
+    shared_ptr(const shared_ptr &other) noexcept {
         this->CopyConstruct(other);
     }
 
     template<class _ValuePtr, class _ControlBlockPtr,
              class = std::enable_if_t<std::is_convertible_v<_ValuePtr, element_ptr>
                                       && std::is_convertible_v<_ControlBlockPtr, control_block_ptr>>>
-    SharedPointer(const StrongRefCountPointer<_ValuePtr, _ControlBlockPtr> &other) noexcept {
+    shared_ptr(const detail::StrongRefCountPointer<_ValuePtr, _ControlBlockPtr> &other) noexcept {
         this->CopyConstruct(other);
     }
 
-    SharedPointer(SharedPointer &&other) noexcept {
+    shared_ptr(shared_ptr &&other) noexcept {
         this->MoveConstruct(std::move(other));
     }
 
     template<class _ValuePtr, class _ControlBlockPtr,
              class = std::enable_if_t<std::is_convertible_v<_ValuePtr, element_ptr>
                                       && std::is_convertible_v<_ControlBlockPtr, control_block_ptr>>>
-    SharedPointer(StrongRefCountPointer<_ValuePtr, _ControlBlockPtr> &&other) noexcept {
+    shared_ptr(detail::StrongRefCountPointer<_ValuePtr, _ControlBlockPtr> &&other) noexcept {
         this->MoveConstruct(std::move(other));
     }
 
     template<class _ValuePtr, class _ControlBlockPtr,
              class = std::enable_if_t<std::is_convertible_v<_ValuePtr, element_ptr>
                                       && std::is_convertible_v<_ControlBlockPtr, control_block_ptr>>>
-    explicit SharedPointer(const WeakRefCountPointer<_ValuePtr, _ControlBlockPtr> &other) {
+    explicit shared_ptr(const detail::WeakRefCountPointer<_ValuePtr, _ControlBlockPtr> &other) {
         this->ConstructFromWeak(other);
     }
 
-    ~SharedPointer() {
+    ~shared_ptr() {
         this->DecRef();
     }
 
-    SharedPointer &operator=(const SharedPointer &other) noexcept {
-        SharedPointer temp(other);
+    shared_ptr &operator=(const shared_ptr &other) noexcept {
+        shared_ptr temp(other);
         this->swap(temp);
         return *this;
     }
@@ -598,14 +608,14 @@ public:
     template<class _ValuePtr, class _ControlBlockPtr,
              class = std::enable_if_t<std::is_convertible_v<_ValuePtr, element_ptr>
                                       && std::is_convertible_v<_ControlBlockPtr, control_block_ptr>>>
-    SharedPointer &operator=(const StrongRefCountPointer<_ValuePtr, _ControlBlockPtr> &other) noexcept {
-        SharedPointer temp(other);
+    shared_ptr &operator=(const detail::StrongRefCountPointer<_ValuePtr, _ControlBlockPtr> &other) noexcept {
+        shared_ptr temp(other);
         this->swap(temp);
         return *this;
     }
 
-    SharedPointer &operator=(SharedPointer &&other) noexcept {
-        SharedPointer temp(std::move(other));
+    shared_ptr &operator=(shared_ptr &&other) noexcept {
+        shared_ptr temp(std::move(other));
         this->swap(temp);
         return *this;
     }
@@ -613,8 +623,8 @@ public:
     template<class _ValuePtr, class _ControlBlockPtr,
              class = std::enable_if_t<std::is_convertible_v<_ValuePtr, element_ptr>
                                       && std::is_convertible_v<_ControlBlockPtr, control_block_ptr>>>
-    SharedPointer &operator=(StrongRefCountPointer<_ValuePtr, _ControlBlockPtr> &&other) noexcept {
-        SharedPointer temp(std::move(other));
+    shared_ptr &operator=(detail::StrongRefCountPointer<_ValuePtr, _ControlBlockPtr> &&other) noexcept {
+        shared_ptr temp(std::move(other));
         this->swap(temp);
         return *this;
     }
@@ -623,7 +633,7 @@ public:
              class Allocator = std::allocator<_ValueType>,
              class = std::enable_if_t<std::is_convertible_v<_ValueType *, ValueType *>>>
     void reset(_ValueType *value_ptr = {}, Deleter deleter = {}, const Allocator &allocator = {}) noexcept {
-        SharedPointer temp(value_ptr, std::move(deleter), allocator);
+        shared_ptr temp(value_ptr, std::move(deleter), allocator);
         this->swap(temp);
     }
 
@@ -636,34 +646,15 @@ private:
     }
 };
 
-template<class ValueType, class Allocator = std::allocator<ValueType>, class... Args>
-SharedPointer<ValueType> alloc_shared(const Allocator &allocator, Args &&...args) {
-    using shared_ptr = SharedPointer<ValueType>;
-    using control_block_ptr = typename shared_ptr::control_block_ptr;
-
-    auto control_block = make_inplace_control_block<ValueType>(allocator, std::forward<Args>(args)...);
-    auto raw_value_ptr = reinterpret_cast<ValueType *>(control_block->get());
-
-    SharedPointer<ValueType> result;
-
-    result.SetData(raw_value_ptr, control_block);
-    return result;
-}
-
-template<class ValueType, class... Args>
-SharedPointer<ValueType> make_shared(Args &&...args) {
-    return alloc_shared<ValueType>(std::allocator<ValueType>{}, std::forward<Args>(args)...);
-}
-
 template<class ValueType>
-class WeakPointer : WeakRefCountPointer<ValueType *, ControlBlock *> {
-    using Base = WeakRefCountPointer<ValueType *, ControlBlock *>;
+class weak_ptr : public detail::WeakRefCountPointer<ValueType *, detail::ControlBlock *> {
+    using Base = detail::WeakRefCountPointer<ValueType *, detail::ControlBlock *>;
 
     template<class>
-    friend class SharedPointer;
+    friend class shared_ptr;
 
     template<class>
-    friend class WeakPointer;
+    friend class weak_ptr;
 
 public:
     using Base::Base;
@@ -675,48 +666,48 @@ public:
     using element_ptr = typename Base::element_ptr;
 
 private:
-    explicit WeakPointer(control_block_ptr control_block) noexcept {
+    explicit weak_ptr(control_block_ptr control_block) noexcept {
         this->SetData(reinterpret_cast<element_ptr>(control_block->get()), control_block);
     }
 
 public:
-    WeakPointer() noexcept = default;
+    weak_ptr() noexcept = default;
 
     template<class _ValuePtr, class _ControlBlockPtr,
              class = std::enable_if_t<std::is_convertible_v<_ValuePtr, element_ptr>
                                       && std::is_convertible_v<_ControlBlockPtr, control_block_ptr>>>
-    explicit WeakPointer(const StrongRefCountPointer<_ValuePtr, _ControlBlockPtr> &other) noexcept {
+    explicit weak_ptr(const detail::StrongRefCountPointer<_ValuePtr, _ControlBlockPtr> &other) noexcept {
         this->ConstructFromStrong(other);
     }
 
-    WeakPointer(const WeakPointer &other) noexcept {
+    weak_ptr(const weak_ptr &other) noexcept {
         this->CopyConstruct(other);
     }
 
     template<class _ValuePtr, class _ControlBlockPtr,
              class = std::enable_if_t<std::is_convertible_v<_ValuePtr, element_ptr>
                                       && std::is_convertible_v<_ControlBlockPtr, control_block_ptr>>>
-    WeakPointer(const WeakRefCountPointer<_ValuePtr, _ControlBlockPtr> &other) noexcept {
+    weak_ptr(const detail::WeakRefCountPointer<_ValuePtr, _ControlBlockPtr> &other) noexcept {
         this->CopyConstruct(other);
     }
 
-    WeakPointer(WeakPointer &&other) noexcept {
+    weak_ptr(weak_ptr &&other) noexcept {
         this->MoveConstruct(std::move(other));
     }
 
     template<class _ValuePtr, class _ControlBlockPtr,
              class = std::enable_if_t<std::is_convertible_v<_ValuePtr, element_ptr>
                                       && std::is_convertible_v<_ControlBlockPtr, control_block_ptr>>>
-    WeakPointer(WeakRefCountPointer<_ValuePtr, _ControlBlockPtr> &&other) noexcept {
+    weak_ptr(detail::WeakRefCountPointer<_ValuePtr, _ControlBlockPtr> &&other) noexcept {
         this->MoveConstruct(std::move(other));
     }
 
-    ~WeakPointer() {
+    ~weak_ptr() {
         this->DecWeak();
     }
 
-    WeakPointer &operator=(const WeakPointer &other) noexcept {
-        WeakPointer temp(other);
+    weak_ptr &operator=(const weak_ptr &other) noexcept {
+        weak_ptr temp(other);
         this->swap(temp);
         return *this;
     }
@@ -724,23 +715,14 @@ public:
     template<class _ValuePtr, class _ControlBlockPtr,
              class = std::enable_if_t<std::is_convertible_v<_ValuePtr, element_ptr>
                                       && std::is_convertible_v<_ControlBlockPtr, control_block_ptr>>>
-    WeakPointer &operator=(const WeakRefCountPointer<_ValuePtr, _ControlBlockPtr> &other) noexcept {
-        WeakPointer temp(other);
+    weak_ptr &operator=(const detail::WeakRefCountPointer<_ValuePtr, _ControlBlockPtr> &other) noexcept {
+        weak_ptr temp(other);
         this->swap(temp);
         return *this;
     }
 
-    WeakPointer &operator=(WeakPointer &&other) noexcept {
-        WeakPointer temp(std::move(other));
-        this->swap(temp);
-        return *this;
-    }
-
-    template<class _ValuePtr, class _ControlBlockPtr,
-             class = std::enable_if_t<std::is_convertible_v<_ValuePtr, element_ptr>
-                                      && std::is_convertible_v<_ControlBlockPtr, control_block_ptr>>>
-    WeakPointer &operator=(WeakRefCountPointer<_ValuePtr, _ControlBlockPtr> &&other) noexcept {
-        WeakPointer temp(std::move(other));
+    weak_ptr &operator=(weak_ptr &&other) noexcept {
+        weak_ptr temp(std::move(other));
         this->swap(temp);
         return *this;
     }
@@ -748,14 +730,23 @@ public:
     template<class _ValuePtr, class _ControlBlockPtr,
              class = std::enable_if_t<std::is_convertible_v<_ValuePtr, element_ptr>
                                       && std::is_convertible_v<_ControlBlockPtr, control_block_ptr>>>
-    WeakPointer &operator=(const StrongRefCountPointer<_ValuePtr, _ControlBlockPtr> &other) noexcept {
-        WeakPointer temp(other);
+    weak_ptr &operator=(detail::WeakRefCountPointer<_ValuePtr, _ControlBlockPtr> &&other) noexcept {
+        weak_ptr temp(std::move(other));
+        this->swap(temp);
+        return *this;
+    }
+
+    template<class _ValuePtr, class _ControlBlockPtr,
+             class = std::enable_if_t<std::is_convertible_v<_ValuePtr, element_ptr>
+                                      && std::is_convertible_v<_ControlBlockPtr, control_block_ptr>>>
+    weak_ptr &operator=(const detail::StrongRefCountPointer<_ValuePtr, _ControlBlockPtr> &other) noexcept {
+        weak_ptr temp(other);
         this->swap(temp);
         return *this;
     }
 
     void reset() noexcept {
-        WeakPointer temp;
+        weak_ptr temp;
         this->swap(temp);
     }
 
@@ -763,15 +754,17 @@ public:
         return this->control_block_;
     }
 
-    SharedPointer<ValueType> lock() const noexcept {
-        SharedPointer<ValueType> result(*this);
+    shared_ptr<ValueType> lock() const noexcept {
+        shared_ptr<ValueType> result(*this);
         return std::move(result);
     }
 };
 
+namespace detail {
+
 template<class ValueType>
 struct SharedPointerTraits {
-    using ref_count_ptr = SharedPointer<ValueType>;
+    using ref_count_ptr = shared_ptr<ValueType>;
     using control_block_ptr = typename ref_count_ptr::control_block_ptr;
 
     static control_block_ptr get_control_block(ref_count_ptr &ptr) {
@@ -799,14 +792,28 @@ struct SharedPointerTraits {
     }
 };
 
-template<class ValueType>
-using shared_ptr = SharedPointer<ValueType>;
+}// namespace detail
+
+template<class ValueType, class Allocator = std::allocator<ValueType>, class... Args>
+shared_ptr<ValueType> alloc_shared(const Allocator &allocator, Args &&...args) {
+    using control_block_ptr = typename shared_ptr<ValueType>::control_block_ptr;
+
+    auto control_block = detail::make_inplace_control_block<ValueType>(allocator, std::forward<Args>(args)...);
+    auto raw_value_ptr = reinterpret_cast<ValueType *>(control_block->get());
+
+    shared_ptr<ValueType> result;
+
+    result.SetData(raw_value_ptr, control_block);
+    return result;
+}
+
+template<class ValueType, class... Args>
+shared_ptr<ValueType> make_shared(Args &&...args) {
+    return alloc_shared<ValueType>(std::allocator<ValueType>{}, std::forward<Args>(args)...);
+}
 
 template<class ValueType>
-using weak_ptr = WeakPointer<ValueType>;
-
-template<class ValueType>
-using atomic_shared_ptr = AtomicRefCountPointer<SharedPointerTraits<ValueType>>;
+using atomic_shared_ptr = detail::AtomicRefCountPointer<detail::SharedPointerTraits<ValueType>>;
 
 }// namespace lu
 
