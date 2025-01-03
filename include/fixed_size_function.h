@@ -8,6 +8,7 @@
 
 
 namespace lu {
+namespace detail {
 
 template<class ResultType, class... Args>
 struct FixedSizeFunctionVTable {
@@ -22,70 +23,72 @@ struct FixedSizeFunctionVTable {
     move_func_ptr move{};
 };
 
+}// namespace detail
+
 template<class, std::size_t>
-class FixedSizeFunction;
+class fixed_size_function;
 
 template<class ResultType, class... Args, std::size_t BufferLen>
-class FixedSizeFunction<ResultType(Args...), BufferLen> {
+class fixed_size_function<ResultType(Args...), BufferLen> {
     using storage = unsigned char[BufferLen];
-    using vtable = FixedSizeFunctionVTable<ResultType, Args...>;
+    using vtable = detail::FixedSizeFunctionVTable<ResultType, Args...>;
 
 public:
     using result_type = ResultType;
 
 public:
-    FixedSizeFunction() noexcept = default;
+    fixed_size_function() noexcept = default;
 
     template<class Functor, class = std::enable_if_t<sizeof(Functor) <= BufferLen>>
-    FixedSizeFunction(Functor &&func) {
+    fixed_size_function(Functor &&func) {
         Construct(std::forward<Functor>(func));
     }
 
-    FixedSizeFunction(std::nullptr_t) noexcept {}
+    fixed_size_function(std::nullptr_t) noexcept {}
 
-    FixedSizeFunction(const FixedSizeFunction &other) {
+    fixed_size_function(const fixed_size_function &other) {
         Copy(other);
     }
 
-    FixedSizeFunction(FixedSizeFunction &&other) {
+    fixed_size_function(fixed_size_function &&other) {
         Move(std::move(other));
     }
 
-    ~FixedSizeFunction() {
+    ~fixed_size_function() {
         Destruct();
     }
 
-    FixedSizeFunction &operator=(const FixedSizeFunction &other) {
+    fixed_size_function &operator=(const fixed_size_function &other) {
         Destruct();
         Copy(other);
         return *this;
     }
 
-    FixedSizeFunction &operator=(FixedSizeFunction &&other) {
+    fixed_size_function &operator=(fixed_size_function &&other) {
         Destruct();
         Move(std::move(other));
         return *this;
     }
 
-    FixedSizeFunction &operator=(std::nullptr_t) {
+    fixed_size_function &operator=(std::nullptr_t) {
         Destruct();
         return *this;
     }
 
     template<class Functor, class = std::enable_if_t<sizeof(Functor) <= BufferLen>>
-    FixedSizeFunction &operator=(Functor &&func) {
+    fixed_size_function &operator=(Functor &&func) {
         Destruct();
         Construct(std::forward<Functor>(func));
         return *this;
     }
 
-    void swap(FixedSizeFunction &other) {
-        FixedSizeFunction temp(other);
+    void swap(fixed_size_function &other) {
+        fixed_size_function temp(other);
         other = std::move(*this);
         *this = std::move(temp);
     }
 
-    friend void swap(FixedSizeFunction &left, FixedSizeFunction &right) {
+    friend void swap(fixed_size_function &left, fixed_size_function &right) {
         left.swap(right);
     }
 
@@ -100,19 +103,19 @@ public:
         throw std::bad_function_call();
     }
 
-    friend bool operator==(const FixedSizeFunction &left, std::nullptr_t right) {
+    friend bool operator==(const fixed_size_function &left, std::nullptr_t right) {
         return !left;
     }
 
-    friend bool operator==(std::nullptr_t left, const FixedSizeFunction &right) {
+    friend bool operator==(std::nullptr_t left, const fixed_size_function &right) {
         return !right;
     }
 
-    friend bool operator!=(const FixedSizeFunction &left, std::nullptr_t right) {
+    friend bool operator!=(const fixed_size_function &left, std::nullptr_t right) {
         return !(left == right);
     }
 
-    friend bool operator!=(std::nullptr_t left, const FixedSizeFunction &right) {
+    friend bool operator!=(std::nullptr_t left, const fixed_size_function &right) {
         return !(left == right);
     }
 
@@ -132,14 +135,14 @@ private:
         }
     }
 
-    void Copy(const FixedSizeFunction &other) {
+    void Copy(const fixed_size_function &other) {
         if (other.table_.copy) {
             other.table_.copy(&data_, &other);
             table_ = other.table_;
         }
     }
 
-    void Move(FixedSizeFunction &&other) {
+    void Move(fixed_size_function &&other) {
         if (other.table_.move) {
             other.table_.move(&data_, &other);
             table_ = other.table_;
@@ -180,9 +183,6 @@ private:
     vtable table_;
     storage data_;
 };
-
-template<class Signature, std::size_t BufferLen>
-using fixed_size_function = FixedSizeFunction<Signature, BufferLen>;
 
 }// namespace lu
 

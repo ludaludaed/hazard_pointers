@@ -6,11 +6,11 @@
 
 namespace lu {
 
-struct EmptyBackOff {
+struct none_backoff {
     void operator()() const {}
 };
 
-struct YieldBackOff {
+struct yield_backoff {
     void operator()() const {
         std::this_thread::yield();
     }

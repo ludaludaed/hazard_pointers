@@ -440,10 +440,10 @@ struct SetKeySelect {
     }
 };
 
-template<class ValueType, class KeyCompare = std::less<ValueType>, class BackOff = YieldBackOff>
+template<class ValueType, class KeyCompare = std::less<ValueType>, class BackOff = none_backoff>
 using ordered_list_set = OrderedList<ValueType, KeyCompare, SetKeySelect<ValueType>, BackOff>;
 
-template<class KeyType, class ValueType, class KeyCompare = std::less<ValueType>, class BackOff = YieldBackOff>
+template<class KeyType, class ValueType, class KeyCompare = std::less<ValueType>, class BackOff = none_backoff>
 using ordered_list_map
         = OrderedList<std::pair<const KeyType, ValueType>, KeyCompare, MapKeySelect<const KeyType, ValueType>, BackOff>;
 

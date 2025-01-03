@@ -1,4 +1,3 @@
-#include <functional>
 #include <hazard_pointer.h>
 #include <intrusive/forward_list.h>
 #include <intrusive/hashtable.h>
@@ -8,6 +7,7 @@
 
 #include "back_off.h"
 #include "fixed_size_function.h"
+#include "intrusive/slist.h"
 #include "ordered_list.h"
 #include "structures.h"
 
@@ -16,6 +16,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
+#include <functional>
 #include <iostream>
 #include <memory>
 #include <ostream>
@@ -130,7 +131,7 @@ class SetFixture {
     class Worker {
     public:
         template<class KeyGen>
-        Worker(operations_view operations, std::size_t actions, KeyGen&& key_gen)
+        Worker(operations_view operations, std::size_t actions, KeyGen &&key_gen)
             : operations_(operations)
             , num_of_actions_(actions)
             , key_gen_(std::forward<KeyGen>(key_gen)) {}
@@ -249,7 +250,8 @@ public:
         std::sort(inserted.begin(), inserted.end());
         std::sort(erased.begin(), erased.end());
         if (inserted.size() != erased.size()) {
-            throw std::runtime_error("Error non equals sizes " + std::to_string(inserted.size()) + " " + std::to_string(erased.size()));
+            throw std::runtime_error("Error non equals sizes " + std::to_string(inserted.size()) + " "
+                                     + std::to_string(erased.size()));
         }
         for (std::size_t i = 0; i < inserted.size(); ++i) {
             if (inserted[i] != erased[i]) {
@@ -281,42 +283,21 @@ private:
     Config config_{};
 };
 
-int main() {
-    // lu::ordered_list_set<int> set;
-    // for (int i = 0; i < 10; ++i) {
-    //     set.insert(i);
-    // }
+struct Foo : lu::unordered_set_base_hook<> {
+    int a = 0;
 
-    // {
-    //     auto f = set.find_no_less(-1);
-    //     std::cout << f.operator bool() << " " << *f << std::endl;
-    // }
-    // {
-    //     auto f = set.find_no_less(9);
-    //     std::cout << f.operator bool() << " " << *f << std::endl;
-    // }
-    // {
-    //     auto f = set.find_no_less(10);
-    //     std::cout << f.operator bool() << " " << *f << std::endl;
-    // }
+    friend std::size_t hash_value(const Foo &foo) {
+        return (std::size_t) foo.a;
+    }
+
+    friend bool operator==(const Foo &left, const Foo &right) {
+        return left.a == right.a;
+    }
+};
+
+int main() {
     for (int i = 0; i < 1000; ++i) {
         std::cout << "iteration: #" << i << std::endl;
         abstractStressTest(SetFixture<lu::ordered_list_set<int>>({}));
     }
-
-    // lu::ordered_list_map<int, int> set;
-    // for (int i = 0; i < 10; ++i) {
-    //     set.insert({i, i});
-    // }
-
-    // for (auto it = set.begin(); it != set.end(); ++it) {
-    //     std::cout << it->first << it->second << " ";
-    // }
-
-    // std::cout << std::endl << set.contains(5) << std::endl;
-
-    // for (int i = 0; i < 1000; ++i) {
-    //     std::cout << "iteration: #" << i << std::endl;
-    //     abstractStressTest(stressTest<lu::hp::TreiberStack<int, lu::EmptyBackOff>>);
-    // }
 }

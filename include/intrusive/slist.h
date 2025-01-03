@@ -14,6 +14,7 @@
 #include <cstddef>
 #include <functional>
 #include <memory>
+#include <type_traits>
 #include <utility>
 
 
@@ -289,18 +290,19 @@ public:
     }
 };
 
-template<class Types>
+template<class Types, bool IsConst>
 class SlistIterator {
     template<class, class>
     friend class IntrusiveSlist;
+    friend class SlistIterator<Types, true>;
 
-    template<class>
-    friend class SlistConstIterator;
+    class DummyNonConstIter;
+    using NonConstIter = typename std::conditional_t<IsConst, SlistIterator<Types, false>, DummyNonConstIter>;
 
 public:
     using value_type = typename Types::value_type;
-    using pointer = typename Types::pointer;
-    using reference = typename Types::reference;
+    using pointer = std::conditional_t<IsConst, typename Types::const_pointer, typename Types::pointer>;
+    using reference = std::conditional_t<IsConst, typename Types::const_reference, typename Types::reference>;
     using difference_type = typename Types::difference_type;
     using iterator_category = std::forward_iterator_tag;
 
@@ -317,6 +319,16 @@ private:
 
 public:
     SlistIterator() noexcept = default;
+
+    SlistIterator(const NonConstIter &other)
+        : current_node_(other.current_node_)
+        , value_traits_(other.value_traits_) {}
+
+    SlistIterator &operator=(const NonConstIter &other) {
+        current_node_ = other.current_node_;
+        value_traits_ = other.value_traits_;
+        return *this;
+    }
 
     SlistIterator &operator++() noexcept {
         Increment();
@@ -342,76 +354,6 @@ public:
     }
 
     friend bool operator!=(const SlistIterator &left, const SlistIterator &right) {
-        return !(left == right);
-    }
-
-private:
-    void Increment() {
-        current_node_ = node_traits::get_next(current_node_);
-    }
-
-private:
-    node_ptr current_node_{};
-    value_traits_ptr value_traits_{};
-};
-
-template<class Types>
-class SlistConstIterator {
-    template<class, class>
-    friend class IntrusiveSlist;
-
-private:
-    using NonConstIter = SlistIterator<Types>;
-
-public:
-    using value_type = typename Types::value_type;
-    using pointer = typename Types::const_pointer;
-    using reference = typename Types::const_reference;
-    using difference_type = typename Types::difference_type;
-    using iterator_category = std::forward_iterator_tag;
-
-    using value_traits = typename Types::value_traits;
-    using value_traits_ptr = typename Types::const_value_traits_ptr;
-
-    using node_traits = typename value_traits::node_traits;
-    using node_ptr = typename node_traits::node_ptr;
-
-private:
-    SlistConstIterator(node_ptr current_node, value_traits_ptr value_traits) noexcept
-        : current_node_(current_node)
-        , value_traits_(value_traits) {}
-
-public:
-    SlistConstIterator() noexcept = default;
-
-    SlistConstIterator(const NonConstIter &other) noexcept
-        : current_node_(other.current_node_)
-        , value_traits_(other.value_traits_) {}
-
-    SlistConstIterator &operator++() noexcept {
-        Increment();
-        return *this;
-    }
-
-    SlistConstIterator operator++(int) noexcept {
-        SlistConstIterator result(*this);
-        Increment();
-        return result;
-    }
-
-    inline reference operator*() const noexcept {
-        return *operator->();
-    }
-
-    inline pointer operator->() const noexcept {
-        return value_traits_->to_value_ptr(current_node_);
-    }
-
-    friend bool operator==(const SlistConstIterator &left, const SlistConstIterator &right) {
-        return left.current_node_ == right.current_node_ && left.value_traits_ == right.value_traits_;
-    }
-
-    friend bool operator!=(const SlistConstIterator &left, const SlistConstIterator &right) {
         return !(left == right);
     }
 
@@ -454,8 +396,8 @@ public:
     using node_ptr = typename node_traits::node_ptr;
     using const_node_ptr = typename node_traits::const_node_ptr;
 
-    using iterator = SlistIterator<Self>;
-    using const_iterator = SlistConstIterator<Self>;
+    using iterator = SlistIterator<Self, false>;
+    using const_iterator = SlistIterator<Self, true>;
 
     using value_traits_ptr = typename std::pointer_traits<pointer>::template rebind<value_traits>;
     using const_value_traits_ptr = typename std::pointer_traits<value_traits_ptr>::template rebind<const value_traits>;
@@ -859,6 +801,8 @@ private:
     node nil_node_;
 };
 
+namespace detail {
+
 struct DefaultSlistHookApplier {
     template<class ValueType>
     struct Apply {
@@ -891,6 +835,7 @@ struct SlistHookDefaults {
     static const bool is_auto_unlink = true;
 };
 
+}// namespace detail
 }// namespace lu
 
 #endif

@@ -10,7 +10,6 @@
 
 
 namespace lu {
-
 namespace detail {
 
 template<class>

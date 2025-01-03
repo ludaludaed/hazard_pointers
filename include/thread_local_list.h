@@ -44,16 +44,15 @@ struct DefaultDeleter {
 
 }// namespace detail
 
-class ThreadLocalListHook : public lu::unordered_set_base_hook<>, public lu::active_list_base_hook<> {
-
+class thread_local_list_base_hook : public lu::unordered_set_base_hook<>, public lu::active_list_base_hook<> {
     template<class>
-    friend class ThreadLocalList;
+    friend class thread_local_list;
 
     void *key{};
 };
 
 template<class ValueType>
-class ThreadLocalList {
+class thread_local_list {
     using ActiveList = lu::active_list<ValueType>;
 
 public:
@@ -68,12 +67,12 @@ public:
     using const_iterator = typename ActiveList::const_iterator;
 
 private:
-    using list_pointer = const ThreadLocalList *;
+    using list_pointer = const thread_local_list *;
 
     struct KeyOfValue {
         using type = list_pointer;
 
-        type operator()(const ThreadLocalListHook &value) const {
+        type operator()(const thread_local_list_base_hook &value) const {
             return reinterpret_cast<type>(value.key);
         }
     };
@@ -136,16 +135,16 @@ private:
 public:
     template<class Detacher = detail::DefaultDetacher<pointer>, class Creator = detail::DefaultCreator<pointer>,
              class Deleter = detail::DefaultDeleter<pointer>>
-    explicit ThreadLocalList(Detacher detacher = {}, Creator creator = {}, Deleter deleter = {})
+    explicit thread_local_list(Detacher detacher = {}, Creator creator = {}, Deleter deleter = {})
         : detacher_(std::move(detacher))
         , creator_(std::move(creator))
         , deleter_(std::move(deleter)) {}
 
-    ThreadLocalList(const ThreadLocalList &) = delete;
+    thread_local_list(const thread_local_list &) = delete;
 
-    ThreadLocalList(ThreadLocalList &&) = delete;
+    thread_local_list(thread_local_list &&) = delete;
 
-    ~ThreadLocalList() {
+    ~thread_local_list() {
         auto current = list_.begin();
         while (current != list_.end()) {
             auto prev = current++;
@@ -228,11 +227,6 @@ private:
     lu::fixed_size_function<void(pointer), 64> deleter_;
     lu::fixed_size_function<void(pointer), 64> detacher_;
 };
-
-template<class ValueType>
-using thread_local_list = ThreadLocalList<ValueType>;
-
-using thread_local_list_base_hook = ThreadLocalListHook;
 
 }// namespace lu
 

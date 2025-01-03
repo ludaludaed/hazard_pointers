@@ -130,34 +130,45 @@ public:
     }
 };
 
-template<class Types>
+template<class Types, bool IsConst>
 class ActiveListIterator {
     template<class>
     friend class ActiveList;
+    friend class ActiveListIterator<Types, true>;
 
-    template<class>
-    friend class ActiveListConstIterator;
+    class DummyNonConstIter;
+    using NonConstIter = typename std::conditional_t<IsConst, ActiveListIterator<Types, false>, DummyNonConstIter>;
 
 public:
     using value_type = typename Types::value_type;
-    using pointer = typename Types::pointer;
-    using reference = typename Types::reference;
+    using pointer = std::conditional_t<IsConst, typename Types::const_pointer, typename Types::pointer>;
+    using reference = std::conditional_t<IsConst, typename Types::const_reference, typename Types::reference>;
     using difference_type = typename Types::difference_type;
     using iterator_category = std::forward_iterator_tag;
 
     using value_traits = typename Types::value_traits;
     using value_traits_ptr = typename Types::value_traits_ptr;
 
-    using node_traits = typename Types::node_traits;
-    using node_ptr = typename Types::node_ptr;
+    using node_traits = typename value_traits::node_traits;
+    using node_ptr = typename node_traits::node_ptr;
 
 private:
-    explicit ActiveListIterator(node_ptr current_node, value_traits_ptr value_traits) noexcept
+    ActiveListIterator(node_ptr current_node, value_traits_ptr value_traits) noexcept
         : current_node_(current_node)
         , value_traits_(value_traits) {}
 
 public:
     ActiveListIterator() noexcept = default;
+
+    ActiveListIterator(const NonConstIter &other)
+        : current_node_(other.current_node_)
+        , value_traits_(other.value_traits_) {}
+
+    ActiveListIterator &operator=(const NonConstIter &other) {
+        current_node_ = other.current_node_;
+        value_traits_ = other.value_traits_;
+        return *this;
+    }
 
     ActiveListIterator &operator++() noexcept {
         Increment();
@@ -196,76 +207,6 @@ private:
     value_traits_ptr value_traits_{};
 };
 
-template<class Types>
-class ActiveListConstIterator {
-    template<class>
-    friend class ActiveList;
-
-private:
-    using NonConstIter = ActiveListIterator<Types>;
-
-public:
-    using value_type = typename Types::value_type;
-    using pointer = typename Types::const_pointer;
-    using reference = typename Types::const_reference;
-    using difference_type = typename Types::difference_type;
-    using iterator_category = std::forward_iterator_tag;
-
-    using value_traits = typename Types::value_traits;
-    using value_traits_ptr = typename Types::value_traits_ptr;
-
-    using node_traits = typename Types::node_traits;
-    using node_ptr = typename Types::node_ptr;
-
-private:
-    explicit ActiveListConstIterator(node_ptr current_node, value_traits_ptr value_traits) noexcept
-        : current_node_(current_node)
-        , value_traits_(value_traits) {}
-
-public:
-    ActiveListConstIterator() noexcept = default;
-
-    ActiveListConstIterator(const NonConstIter &other) noexcept
-        : current_node_(other.current_node_)
-        , value_traits_(other.value_traits_) {}
-
-    ActiveListConstIterator &operator++() noexcept {
-        Increment();
-        return *this;
-    }
-
-    ActiveListConstIterator operator++(int) noexcept {
-        ActiveListConstIterator result(*this);
-        Increment();
-        return result;
-    }
-
-    inline reference operator*() const noexcept {
-        return *operator->();
-    }
-
-    inline pointer operator->() const noexcept {
-        return value_traits_->to_value_ptr(current_node_);
-    }
-
-    friend bool operator==(const ActiveListConstIterator &left, const ActiveListConstIterator &right) {
-        return left.current_node_ == right.current_node_;
-    }
-
-    friend bool operator!=(const ActiveListConstIterator &left, const ActiveListConstIterator &right) {
-        return !(left == right);
-    }
-
-private:
-    void Increment() {
-        current_node_ = node_traits::get_next(current_node_);
-    }
-
-private:
-    node_ptr current_node_{};
-    value_traits_ptr value_traits_{};
-};
-
 template<class ValueTraits>
 class ActiveList : private detail::EmptyBaseHolder<ValueTraits> {
     using ValueTraitsHolder = detail::EmptyBaseHolder<ValueTraits>;
@@ -283,8 +224,8 @@ public:
     using reference = value_type &;
     using const_reference = const value_type &;
 
-    using iterator = ActiveListIterator<Self>;
-    using const_iterator = ActiveListConstIterator<Self>;
+    using iterator = ActiveListIterator<Self, false>;
+    using const_iterator = ActiveListIterator<Self, true>;
 
     using node_traits = typename ValueTraits::node_traits;
     using node = typename node_traits::node;
@@ -367,6 +308,8 @@ private:
     std::atomic<node_ptr> head_{};
 };
 
+namespace detail {
+
 struct DefaultActiveListHookApplier {
     template<class ValueType>
     struct Apply {
@@ -394,6 +337,10 @@ struct ActiveListHookDefaults {
     using tag = detail::DefaultHookTag;
 };
 
+}// namespace detail
+
+namespace detail {
+
 template<class ValueType, class... Options>
 struct make_active_list {
     using pack_options = typename detail::GetPackOptions<ActiveListDefaults, Options...>::type;
@@ -413,11 +360,13 @@ struct make_active_list_base_hook {
     using type = ActiveListBaseHook<void_pointer, tag>;
 };
 
+}// namespace detail
+
 template<class ValueType, class... Options>
-using active_list = typename make_active_list<ValueType, Options...>::type;
+using active_list = typename detail::make_active_list<ValueType, Options...>::type;
 
 template<class... Options>
-using active_list_base_hook = typename make_active_list_base_hook<Options...>::type;
+using active_list_base_hook = typename detail::make_active_list_base_hook<Options...>::type;
 
 }// namespace lu
 

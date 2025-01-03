@@ -125,8 +125,8 @@ public:
     BucketTraitsImpl(BucketTraitsImpl &&other) noexcept
         : buckets_(other.buckets_)
         , size_(other.size_) {
-        other.buckets_ = BucketPtr{};
-        other.size_ = SizeType{};
+        other.buckets_ = bucket_ptr{};
+        other.size_ = size_type{};
     }
 
     BucketTraitsImpl &operator=(const BucketTraitsImpl &other) noexcept {
@@ -388,18 +388,19 @@ public:
     }
 };
 
-template<class Types>
+template<class Types, bool IsConst>
 class HashIterator {
     template<class, class, class, class, class, class, class>
     friend class IntrusiveHashtable;
+    friend class HashIterator<Types, true>;
 
-    template<class>
-    friend class HashConstIterator;
+    class DummyNonConstIter;
+    using NonConstIter = typename std::conditional_t<IsConst, HashIterator<Types, false>, DummyNonConstIter>;
 
 public:
     using value_type = typename Types::value_type;
-    using pointer = typename Types::pointer;
-    using reference = typename Types::reference;
+    using pointer = std::conditional_t<IsConst, typename Types::const_pointer, typename Types::pointer>;
+    using reference = std::conditional_t<IsConst, typename Types::const_reference, typename Types::reference>;
     using difference_type = typename Types::difference_type;
     using iterator_category = std::forward_iterator_tag;
 
@@ -416,6 +417,16 @@ private:
 
 public:
     HashIterator() noexcept = default;
+
+    HashIterator(const NonConstIter &other)
+        : current_node_(other.current_node_)
+        , value_traits_(other.value_traits_) {}
+
+    HashIterator &operator=(const HashIterator &other) {
+        current_node_ = other.current_node_;
+        value_traits_ = other.value_traits_;
+        return *this;
+    }
 
     HashIterator &operator++() noexcept {
         Increment();
@@ -454,88 +465,21 @@ private:
     value_traits_ptr value_traits_{};
 };
 
-template<class Types>
-class HashConstIterator {
-    template<class, class, class, class, class, class, class>
-    friend class IntrusiveHashtable;
-
-private:
-    using NonConstIter = HashIterator<Types>;
-
-public:
-    using value_type = typename Types::value_type;
-    using pointer = typename Types::const_pointer;
-    using reference = typename Types::const_reference;
-    using difference_type = typename Types::difference_type;
-    using iterator_category = std::forward_iterator_tag;
-
-    using value_traits = typename Types::value_traits;
-    using value_traits_ptr = typename std::pointer_traits<pointer>::template rebind<const value_traits>;
-
-    using node_traits = typename value_traits::node_traits;
-    using node_ptr = typename node_traits::node_ptr;
-
-private:
-    HashConstIterator(node_ptr current_node, value_traits_ptr value_traits) noexcept
-        : current_node_(current_node)
-        , value_traits_(value_traits) {}
-
-public:
-    HashConstIterator() noexcept = default;
-
-    HashConstIterator(const NonConstIter &other) noexcept
-        : current_node_(other.current_node_)
-        , value_traits_(other.value_traits_) {}
-
-    HashConstIterator &operator++() noexcept {
-        Increment();
-        return *this;
-    }
-
-    HashConstIterator operator++(int) noexcept {
-        HashConstIterator result(*this);
-        Increment();
-        return result;
-    }
-
-    inline reference operator*() const noexcept {
-        return *operator->();
-    }
-
-    inline pointer operator->() const noexcept {
-        return value_traits_->to_value_ptr(current_node_);
-    }
-
-    friend bool operator==(const HashConstIterator &left, const HashConstIterator &right) {
-        return left.current_node_ == right.current_node_ && left.value_traits_ == right.value_traits_;
-    }
-
-    friend bool operator!=(const HashConstIterator &left, const HashConstIterator &right) {
-        return !(left == right);
-    }
-
-private:
-    void Increment() {
-        current_node_ = node_traits::get_next(current_node_);
-    }
-
-private:
-    node_ptr current_node_{};
-    value_traits_ptr value_traits_{};
-};
-
-template<class Types, class Algo>
+template<class Types, class Algo, bool IsConst>
 class HashLocalIterator {
     template<class, class, class, class, class, class, class>
     friend class IntrusiveHashtable;
 
-    template<class, class>
-    friend class HashConstLocalIterator;
+    friend class HashLocalIterator<Types, Algo, true>;
+
+    class DummyNonConstIter;
+    using NonConstIter =
+            typename std::conditional_t<IsConst, HashLocalIterator<Types, Algo, false>, DummyNonConstIter>;
 
 public:
     using value_type = typename Types::value_type;
-    using pointer = typename Types::const_pointer;
-    using reference = typename Types::const_reference;
+    using pointer = std::conditional_t<IsConst, typename Types::const_pointer, typename Types::pointer>;
+    using reference = std::conditional_t<IsConst, typename Types::const_reference, typename Types::reference>;
     using difference_type = typename Types::difference_type;
     using iterator_category = std::forward_iterator_tag;
 
@@ -552,6 +496,16 @@ private:
 
 public:
     HashLocalIterator() noexcept = default;
+
+    HashLocalIterator(const NonConstIter &other)
+        : current_node_(other.current_node_)
+        , value_traits_(other.value_traits_) {}
+
+    HashLocalIterator &operator=(const NonConstIter &other) {
+        current_node_ = other.current_node_;
+        value_traits_ = other.value_traits_;
+        return *this;
+    }
 
     HashLocalIterator &operator++() noexcept {
         Increment();
@@ -577,79 +531,6 @@ public:
     }
 
     friend bool operator!=(const HashLocalIterator &left, const HashLocalIterator &right) {
-        return !(left == right);
-    }
-
-private:
-    void Increment() {
-        if (Algo::last_in_bucket(current_node_)) {
-            current_node_ = node_ptr{};
-        } else {
-            current_node_ = node_traits::get_next(current_node_);
-        }
-    }
-
-private:
-    node_ptr current_node_{};
-    value_traits_ptr value_traits_{};
-};
-
-template<class Types, class Algo>
-class HashConstLocalIterator {
-    template<class, class, class, class, class, class, class>
-    friend class IntrusiveHashtable;
-
-    using NonConstIter = HashLocalIterator<Types, Algo>;
-
-public:
-    using value_type = typename Types::value_type;
-    using pointer = typename Types::const_pointer;
-    using reference = typename Types::const_reference;
-    using difference_type = typename Types::difference_type;
-    using iterator_category = std::forward_iterator_tag;
-
-    using value_traits = typename Types::value_traits;
-    using value_traits_ptr = typename Types::const_value_traits_ptr;
-
-    using node_traits = typename value_traits::node_traits;
-    using node_ptr = typename node_traits::node_ptr;
-
-private:
-    HashConstLocalIterator(node_ptr node, value_traits_ptr value_traits) noexcept
-        : current_node_(node)
-        , value_traits_(value_traits) {}
-
-public:
-    HashConstLocalIterator() noexcept = default;
-
-    HashConstLocalIterator(const NonConstIter &other) noexcept
-        : current_node_(other.current_node_)
-        , value_traits_(other.value_traits_) {}
-
-    HashConstLocalIterator &operator++() noexcept {
-        Increment();
-        return *this;
-    }
-
-    HashConstLocalIterator operator++(int) noexcept {
-        HashConstLocalIterator result(*this);
-        Increment();
-        return result;
-    }
-
-    inline reference operator*() const noexcept {
-        return *operator->();
-    }
-
-    inline pointer operator->() const noexcept {
-        return value_traits_->to_value_ptr(current_node_);
-    }
-
-    friend bool operator==(const HashConstLocalIterator &left, const HashConstLocalIterator &right) {
-        return left.current_node_ == right.current_node_ && left.value_traits_ == right.value_traits_;
-    }
-
-    friend bool operator!=(const HashConstLocalIterator &left, const HashConstLocalIterator &right) {
         return !(left == right);
     }
 
@@ -720,11 +601,11 @@ public:
     using bucket_type = BucketValue<node_traits, true>;
     using bucket_ptr = typename bucket_type::pointer;
 
-    using iterator = HashIterator<Self>;
-    using const_iterator = HashConstIterator<Self>;
+    using iterator = HashIterator<Self, false>;
+    using const_iterator = HashIterator<Self, true>;
 
-    using local_iterator = HashLocalIterator<Self, Algo>;
-    using const_local_iterator = HashConstLocalIterator<Self, Algo>;
+    using local_iterator = HashLocalIterator<Self, Algo, false>;
+    using const_local_iterator = HashLocalIterator<Self, Algo, true>;
 
     using value_traits_ptr = typename std::pointer_traits<pointer>::template rebind<value_traits>;
     using const_value_traits_ptr = typename std::pointer_traits<value_traits_ptr>::template rebind<const value_traits>;
@@ -1284,6 +1165,8 @@ private:
     node_type nil_node_{};
 };
 
+namespace detail {
+
 struct DefaultHashtableHookApplier {
     template<class ValueType>
     struct Apply {
@@ -1388,6 +1271,7 @@ struct HashtableHookDefaults {
     static const bool is_auto_unlink = true;
 };
 
+}// namespace detail
 }// namespace lu
 
 #endif

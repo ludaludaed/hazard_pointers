@@ -20,6 +20,13 @@
 
 namespace lu {
 
+class hazard_pointer_domain;
+
+template<class, class>
+class hazard_pointer_obj_base;
+
+namespace detail {
+
 class HazardPointerTag {};
 
 using HazardPointerHook
@@ -27,9 +34,11 @@ using HazardPointerHook
 
 class HazardObject : public HazardPointerHook {
     friend class HazardThreadData;
-    friend class HazardPointerDomain;
+
+    friend class lu::hazard_pointer_domain;
+
     template<class, class>
-    friend class HazardPointerObjBase;
+    friend class lu::hazard_pointer_obj_base;
 
     using ReclaimFunc = void(HazardObject *value);
     using ReclaimFuncPtr = void (*)(HazardObject *value);
@@ -195,7 +204,7 @@ private:
 };
 
 class HazardThreadData : public lu::thread_local_list_base_hook {
-    friend class HazardPointerDomain;
+    friend class lu::hazard_pointer_domain;
 
 public:
     using records_resource = typename HazardRecords::resource;
@@ -256,9 +265,20 @@ private:
     std::atomic<std::size_t> num_of_reclaimed;
 };
 
-class HazardPointerDomain {
+}// namespace detail
+
+class hazard_pointer_domain {
+    template<class, class>
+    friend class hazard_pointer_obj_base;
+
+    friend class hazard_pointer;
+
+    using HazardThreadData = detail::HazardThreadData;
+    using HazardObject = detail::HazardObject;
+    using HazardRecord = detail::HazardRecord;
+
     struct Detacher {
-        explicit Detacher(HazardPointerDomain *domain)
+        explicit Detacher(hazard_pointer_domain *domain)
             : domain_(domain) {}
 
         void operator()(HazardThreadData *) const {
@@ -266,7 +286,7 @@ class HazardPointerDomain {
         }
 
     private:
-        HazardPointerDomain *domain_;
+        hazard_pointer_domain *domain_;
     };
 
     struct Creator {
@@ -315,12 +335,12 @@ class HazardPointerDomain {
     };
 
 public:
-    HazardPointerDomain(std::size_t num_of_records, std::size_t num_of_retires, std::size_t scan_threshold)
+    hazard_pointer_domain(std::size_t num_of_records, std::size_t num_of_retires, std::size_t scan_threshold)
         : list_(Detacher(this), Creator(num_of_records, num_of_retires, scan_threshold), Deleter()) {}
 
-    HazardPointerDomain(const HazardPointerDomain &) = delete;
+    hazard_pointer_domain(const hazard_pointer_domain &) = delete;
 
-    HazardPointerDomain(HazardPointerDomain &&) = delete;
+    hazard_pointer_domain(hazard_pointer_domain &&) = delete;
 
     void attach_thread() {
         list_.attach_thread();
@@ -328,23 +348,6 @@ public:
 
     void detach_thread() {
         list_.detach_thread();
-    }
-
-    void retire(HazardObject *retired) {
-        auto &thread_data = list_.get_thread_local();
-        if (thread_data.retire(*retired)) [[unlikely]] {
-            scan();
-        }
-    }
-
-    HazardRecord *acquire_record() noexcept {
-        auto &thread_data = list_.get_thread_local();
-        return thread_data.acquire_record();
-    }
-
-    void release_record(HazardRecord *record) noexcept {
-        auto &thread_data = list_.get_thread_local();
-        thread_data.release_record(record);
     }
 
     std::size_t num_of_retired() {
@@ -364,6 +367,23 @@ public:
     }
 
 private:
+    void retire(HazardObject *retired) {
+        auto &thread_data = list_.get_thread_local();
+        if (thread_data.retire(*retired)) [[unlikely]] {
+            scan();
+        }
+    }
+
+    HazardRecord *acquire_record() noexcept {
+        auto &thread_data = list_.get_thread_local();
+        return thread_data.acquire_record();
+    }
+
+    void release_record(HazardRecord *record) noexcept {
+        auto &thread_data = list_.get_thread_local();
+        thread_data.release_record(record);
+    }
+
     void scan() {
         auto &thread_data = list_.get_thread_local();
         auto &retires = thread_data.retires_;
@@ -407,33 +427,51 @@ private:
     lu::thread_local_list<HazardThreadData> list_;
 };
 
-inline HazardPointerDomain &get_default_domain();
+static constexpr std::size_t DEFAULT_NUM_OF_RECORDS = 8;
+static constexpr std::size_t DEFAULT_NUM_OF_RETIRES = 64;
+static constexpr std::size_t DEFAULT_SCAN_THRESHOLD = 64;
 
-class HazardPointer {
+inline hazard_pointer_domain &get_default_domain() {
+    static hazard_pointer_domain domain(DEFAULT_NUM_OF_RECORDS, DEFAULT_NUM_OF_RETIRES, DEFAULT_SCAN_THRESHOLD);
+    return domain;
+}
+
+inline void attach_thread(hazard_pointer_domain &domain = get_default_domain()) {
+    domain.attach_thread();
+}
+
+inline void detach_thread(hazard_pointer_domain &domain = get_default_domain()) {
+    domain.detach_thread();
+}
+
+class hazard_pointer {
+    using HazardObject = detail::HazardObject;
+    using HazardRecord = detail::HazardRecord;
+
 public:
-    HazardPointer() = default;
+    hazard_pointer() = default;
 
-    explicit HazardPointer(HazardPointerDomain *domain) noexcept
+    explicit hazard_pointer(hazard_pointer_domain *domain) noexcept
         : domain_(domain)
         , record_(domain_->acquire_record()) {}
 
-    HazardPointer(const HazardPointer &) = delete;
+    hazard_pointer(const hazard_pointer &) = delete;
 
-    HazardPointer(HazardPointer &&other) noexcept
+    hazard_pointer(hazard_pointer &&other) noexcept
         : domain_(other.domain_)
         , record_(other.record_) {
         other.record_ = {};
     }
 
-    HazardPointer &operator=(const HazardPointer &) = delete;
+    hazard_pointer &operator=(const hazard_pointer &) = delete;
 
-    HazardPointer &operator=(HazardPointer &&other) noexcept {
-        HazardPointer temp(std::move(other));
+    hazard_pointer &operator=(hazard_pointer &&other) noexcept {
+        hazard_pointer temp(std::move(other));
         swap(temp);
         return *this;
     }
 
-    ~HazardPointer() {
+    ~hazard_pointer() {
         if (record_) [[likely]] {
             domain_->release_record(record_);
         }
@@ -496,22 +534,26 @@ public:
         record_->reset();
     }
 
-    void swap(HazardPointer &other) noexcept {
+    void swap(hazard_pointer &other) noexcept {
         std::swap(domain_, other.domain_);
         std::swap(record_, other.record_);
     }
 
-    friend void swap(HazardPointer &left, HazardPointer &right) noexcept {
+    friend void swap(hazard_pointer &left, hazard_pointer &right) noexcept {
         left.swap(right);
     }
 
 private:
-    HazardPointerDomain *domain_{};
+    hazard_pointer_domain *domain_{};
     HazardRecord *record_{};
 };
 
+inline hazard_pointer make_hazard_pointer(hazard_pointer_domain &domain = get_default_domain()) {
+    return hazard_pointer(&domain);
+}
+
 template<class ValueType>
-class GuardedPointer {
+class guarded_ptr {
 public:
     using value_type = ValueType;
 
@@ -520,15 +562,15 @@ public:
     using const_reference = const ValueType &;
 
 public:
-    GuardedPointer() = default;
+    guarded_ptr() = default;
 
-    GuardedPointer(HazardPointer guard, pointer ptr)
+    guarded_ptr(hazard_pointer guard, pointer ptr)
         : guard_(std::move(guard))
         , ptr_(ptr) {}
 
-    GuardedPointer(const GuardedPointer &) = delete;
+    guarded_ptr(const guarded_ptr &) = delete;
 
-    GuardedPointer &operator=(const GuardedPointer &) = delete;
+    guarded_ptr &operator=(const guarded_ptr &) = delete;
 
     pointer operator->() const {
         return ptr_;
@@ -546,14 +588,16 @@ public:
         return ptr_;
     }
 
-    std::pair<HazardPointer, pointer> unpack() && {
+    std::pair<hazard_pointer, pointer> unpack() && {
         return {std::move(guard_), ptr_};
     }
 
 private:
-    HazardPointer guard_{};
+    hazard_pointer guard_{};
     pointer ptr_{};
 };
+
+namespace detail {
 
 template<class ValueType, class Deleter>
 class HazardPointerDeleter {
@@ -570,17 +614,19 @@ private:
     Deleter deleter_;
 };
 
-template<class ValueType, class Deleter>
-class HazardPointerObjBase : public HazardObject, private HazardPointerDeleter<ValueType, Deleter> {
+}// namespace detail
+
+template<class ValueType, class Deleter = std::default_delete<ValueType>>
+class hazard_pointer_obj_base : public detail::HazardObject, private detail::HazardPointerDeleter<ValueType, Deleter> {
 protected:
-    HazardPointerObjBase() noexcept = default;
+    hazard_pointer_obj_base() noexcept = default;
 
-    HazardPointerObjBase(const HazardPointerObjBase &) noexcept = default;
+    hazard_pointer_obj_base(const hazard_pointer_obj_base &) noexcept = default;
 
-    HazardPointerObjBase(HazardPointerObjBase &&) noexcept = default;
+    hazard_pointer_obj_base(hazard_pointer_obj_base &&) noexcept = default;
 
 public:
-    void retire(Deleter deleter = Deleter(), HazardPointerDomain &domain = get_default_domain()) noexcept {
+    void retire(Deleter deleter = Deleter(), hazard_pointer_domain &domain = get_default_domain()) noexcept {
         assert(!retired_.exchange(true, std::memory_order_relaxed) && "Double retire is not allowed");
         this->set_deleter(std::move(deleter));
         this->set_reclaimer(reclaim_func);
@@ -589,7 +635,7 @@ public:
 
 private:
     static void reclaim_func(HazardObject *obj) {
-        auto obj_base = static_cast<HazardPointerObjBase<ValueType, Deleter> *>(obj);
+        auto obj_base = static_cast<hazard_pointer_obj_base<ValueType, Deleter> *>(obj);
         auto value = static_cast<ValueType *>(obj);
         obj_base->do_delete(value);
     }
@@ -599,37 +645,6 @@ private:
     std::atomic<bool> retired_{false};
 #endif
 };
-
-static constexpr std::size_t DEFAULT_NUM_OF_RECORDS = 8;
-static constexpr std::size_t DEFAULT_NUM_OF_RETIRES = 64;
-static constexpr std::size_t DEFAULT_SCAN_THRESHOLD = 64;
-
-inline HazardPointerDomain &get_default_domain() {
-    static HazardPointerDomain domain(DEFAULT_NUM_OF_RECORDS, DEFAULT_NUM_OF_RETIRES, DEFAULT_SCAN_THRESHOLD);
-    return domain;
-}
-
-inline HazardPointer make_hazard_pointer(HazardPointerDomain &domain = get_default_domain()) {
-    return HazardPointer(&domain);
-}
-
-template<class ValueType, class Deleter = std::default_delete<ValueType>>
-using hazard_pointer_obj_base = HazardPointerObjBase<ValueType, Deleter>;
-
-using hazard_pointer_domain = HazardPointerDomain;
-
-using hazard_pointer = HazardPointer;
-
-template<class ValueType>
-using guarded_ptr = GuardedPointer<ValueType>;
-
-inline void attach_thread(HazardPointerDomain &domain = get_default_domain()) {
-    domain.attach_thread();
-}
-
-inline void detach_thread(HazardPointerDomain &domain = get_default_domain()) {
-    domain.detach_thread();
-}
 
 }// namespace lu
 
