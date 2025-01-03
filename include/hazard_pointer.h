@@ -43,11 +43,11 @@ class HazardObject : public HazardPointerHook {
     using ReclaimFunc = void(HazardObject *value);
     using ReclaimFuncPtr = void (*)(HazardObject *value);
 
+private:
     ~HazardObject() {
         assert(!this->is_linked());
     }
 
-private:
     void reclaim() {
         reclaim_func_(this);
     }
