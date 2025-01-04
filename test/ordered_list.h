@@ -10,6 +10,7 @@
 
 
 namespace lu {
+namespace detail {
 
 template<class ValueType>
 struct OrderedListNode : public lu::hazard_pointer_obj_base<OrderedListNode<ValueType>> {
@@ -440,12 +441,14 @@ struct SetKeySelect {
     }
 };
 
+}// namespace detail
+
 template<class ValueType, class KeyCompare = std::less<ValueType>, class BackOff = none_backoff>
-using ordered_list_set = OrderedList<ValueType, KeyCompare, SetKeySelect<ValueType>, BackOff>;
+using ordered_list_set = detail::OrderedList<ValueType, KeyCompare, detail::SetKeySelect<ValueType>, BackOff>;
 
 template<class KeyType, class ValueType, class KeyCompare = std::less<ValueType>, class BackOff = none_backoff>
-using ordered_list_map
-        = OrderedList<std::pair<const KeyType, ValueType>, KeyCompare, MapKeySelect<const KeyType, ValueType>, BackOff>;
+using ordered_list_map = detail::OrderedList<std::pair<const KeyType, ValueType>, KeyCompare,
+                                             detail::MapKeySelect<const KeyType, ValueType>, BackOff>;
 
 }// namespace lu
 

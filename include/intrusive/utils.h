@@ -1,7 +1,6 @@
 #ifndef __INTRUSIVE_UTILS_H__
 #define __INTRUSIVE_UTILS_H__
 
-#include <array>
 #include <memory>
 #include <type_traits>
 
@@ -36,25 +35,6 @@ struct get_void_ptr {
 template<class Ptr>
 using get_void_ptr_t = typename get_void_ptr<Ptr>::type;
 
-template<bool Value>
-struct get_bool_type;
-
-template<>
-struct get_bool_type<true> {
-    using type = std::true_type;
-};
-
-template<>
-struct get_bool_type<false> {
-    using type = std::false_type;
-};
-
-template<bool Value>
-using get_bool_t = typename get_bool_type<Value>::type;
-
-using yes_type = std::array<uint8_t, 2>;
-using no_type = std::array<uint8_t, 1>;
-
 template<class ValueType>
 ValueType *to_raw_pointer(ValueType *ptr) {
     return ptr;
@@ -77,66 +57,44 @@ struct pointer_cast_traits {
 
     template<class UPtr>
     static pointer static_cast_from(const UPtr &uptr) {
-        static const bool has_cast = has_static_cast_from<pointer, pointer (*)(UPtr)>::value
-                                     || has_static_cast_from<pointer, pointer (*)(const UPtr &)>::value;
-        return static_cast_from(uptr, get_bool_t<has_cast>());
+        constexpr bool has_cast = has_static_cast_from<pointer, pointer (*)(UPtr)>::value
+                                  || has_static_cast_from<pointer, pointer (*)(const UPtr &)>::value;
+        if constexpr (has_cast) {
+            return pointer::static_cast_from(uptr);
+        } else {
+            if (uptr) {
+                return pointer_traits::pointer_to(static_cast<element_type &>(*uptr));
+            }
+            return pointer{};
+        }
     }
 
     template<class UPtr>
     static pointer const_cast_from(const UPtr &uptr) {
-        static const bool has_cast = has_const_cast_from<pointer, pointer (*)(UPtr)>::value
-                                     || has_const_cast_from<pointer, pointer (*)(const UPtr &)>::value;
-        return const_cast_from(uptr, get_bool_t<has_cast>());
+        constexpr bool has_cast = has_const_cast_from<pointer, pointer (*)(UPtr)>::value
+                                  || has_const_cast_from<pointer, pointer (*)(const UPtr &)>::value;
+        if constexpr (has_cast) {
+            return pointer::const_cast_from(uptr);
+        } else {
+            if (uptr) {
+                return pointer_traits::pointer_to(const_cast<element_type &>(*uptr));
+            }
+            return pointer{};
+        }
     }
 
     template<class UPtr>
     static pointer dynamic_cast_from(const UPtr &uptr) {
-        static const bool has_cast = has_dynamic_cast_from<pointer, pointer (*)(UPtr)>::value
-                                     || has_dynamic_cast_from<pointer, pointer (*)(const UPtr &)>::value;
-        return dynamic_cast_from(uptr, get_bool_t<has_cast>());
-    }
-
-private:
-    // static_cast
-    template<class UPtr>
-    static pointer static_cast_from(const UPtr &uptr, get_bool_t<true>) {
-        return pointer::static_cast_from(uptr);
-    }
-
-    template<class UPtr>
-    static pointer static_cast_from(const UPtr &uptr, get_bool_t<false>) {
-        if (uptr) {
-            return pointer_traits::pointer_to(static_cast<element_type &>(*uptr));
+        constexpr bool has_cast = has_dynamic_cast_from<pointer, pointer (*)(UPtr)>::value
+                                  || has_dynamic_cast_from<pointer, pointer (*)(const UPtr &)>::value;
+        if constexpr (has_cast) {
+            return pointer::dynamic_cast_from(uptr);
+        } else {
+            if (uptr) {
+                return pointer_traits::pointer_to(dynamic_cast<element_type &>(*uptr));
+            }
+            return pointer{};
         }
-        return pointer{};
-    }
-
-    //const_cast
-    template<class UPtr>
-    static pointer const_cast_from(const UPtr &uptr, get_bool_t<true>) {
-        return pointer::const_cast_from(uptr);
-    }
-
-    template<class UPtr>
-    static pointer const_cast_from(const UPtr &uptr, get_bool_t<false>) {
-        if (uptr) {
-            return pointer_traits::pointer_to(const_cast<element_type &>(*uptr));
-        }
-        return pointer{};
-    }
-
-    //dynamic_cast
-    template<class UPtr>
-    static pointer dynamic_cast_from(const UPtr &uptr, get_bool_t<true>) {
-        return pointer::dynamic_cast_from(uptr);
-    }
-
-    template<class UPtr>
-    static pointer dynamic_cast_from(const UPtr &uptr, get_bool_t<false>) {
-        if (uptr) {
-            return pointer_traits::pointer_to(dynamic_cast<element_type &>(*uptr));
-        }
-        return pointer{};
     }
 };
 

@@ -8,6 +8,8 @@
 #include "back_off.h"
 #include "fixed_size_function.h"
 #include "intrusive/slist.h"
+#include "intrusive/utils.h"
+#include "marked_ptr.h"
 #include "ordered_list.h"
 #include "structures.h"
 

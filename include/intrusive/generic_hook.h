@@ -2,9 +2,8 @@
 #define __INTRUSIVE_GENERIC_HOOK__
 
 #include "node_holder.h"
-#include "utils.h"
 
-#include <type_traits>
+#include <memory>
 
 
 namespace lu {

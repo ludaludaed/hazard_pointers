@@ -343,7 +343,7 @@ protected:
              class = std::enable_if_t<std::is_convertible_v<_ValuePtr, ValuePtr>
                                       && std::is_convertible_v<_ControlBlockPtr, ControlBlockPtr>>>
     void ConstructFromWeak(const WeakRefCountPointer<_ValuePtr, _ControlBlockPtr> &other) {
-        if (other.control_block_ && other.control_block_->inc_ref_if_not_zero()) {
+        if (other.control_block_ && other.control_block_->IncRefIfNotZero()) {
             control_block_ = other.control_block_;
             value_ = other.value_;
         }
@@ -449,7 +449,7 @@ protected:
         if (other.control_block_) {
             value_ = other.value_;
             control_block_ = other.control_block_;
-            control_block_->inc_weak();
+            control_block_->IncWeak();
         }
     }
 
@@ -471,7 +471,7 @@ protected:
         if (other.control_block_) {
             value_ = other.value_;
             control_block_ = other.control_block_;
-            control_block_->inc_weak();
+            control_block_->IncWeak();
         }
     }
 
@@ -485,13 +485,13 @@ protected:
 
     void IncWeak() noexcept {
         if (control_block_) {
-            control_block_->inc_ref();
+            control_block_->IncWeak();
         }
     }
 
     void DecWeak() noexcept {
         if (control_block_) {
-            control_block_->dec_ref();
+            control_block_->DecWeak();
         }
     }
 

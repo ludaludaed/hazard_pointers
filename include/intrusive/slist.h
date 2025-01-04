@@ -5,9 +5,7 @@
 #include "empty_base_holder.h"
 #include "empty_base_tags.h"
 #include "generic_hook.h"
-#include "intrusive/utils.h"
 #include "size_traits.h"
-#include "utils.h"
 
 #include <algorithm>
 #include <cassert>
@@ -19,6 +17,7 @@
 
 
 namespace lu {
+namespace detail {
 
 template<class NodeTraits>
 class CircularSlistAlgo {
@@ -800,8 +799,6 @@ public:
 private:
     node nil_node_;
 };
-
-namespace detail {
 
 struct DefaultSlistHookApplier {
     template<class ValueType>

@@ -16,6 +16,7 @@
 
 
 namespace lu {
+namespace detail {
 
 template<class NodeTraits>
 struct ActiveListAlgo {
@@ -308,8 +309,6 @@ private:
     std::atomic<node_ptr> head_{};
 };
 
-namespace detail {
-
 struct DefaultActiveListHookApplier {
     template<class ValueType>
     struct Apply {
@@ -338,7 +337,9 @@ struct ActiveListHookDefaults {
 };
 
 }// namespace detail
+}// namespace lu
 
+namespace lu {
 namespace detail {
 
 template<class ValueType, class... Options>

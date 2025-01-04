@@ -7,7 +7,6 @@
 #include "generic_hook.h"
 #include "hash.h"
 #include "size_traits.h"
-#include "utils.h"
 
 #include <cassert>
 #include <cstddef>
@@ -18,6 +17,7 @@
 
 
 namespace lu {
+namespace detail {
 
 template<class NodeTraits, bool IsFakeNode>
 class BucketValue;
@@ -1164,8 +1164,6 @@ public:
 private:
     node_type nil_node_{};
 };
-
-namespace detail {
 
 struct DefaultHashtableHookApplier {
     template<class ValueType>

@@ -107,6 +107,21 @@ public:
         return !(left < right);
     }
 
+    template<class _ValueType>
+    static marked_ptr static_cast_from(const marked_ptr<_ValueType>& from) {
+        return marked_ptr(static_cast<ValueType *>(from.get()), from.get_bit());
+    }
+
+    template<class _ValueType>
+    static marked_ptr const_cast_from(const marked_ptr<_ValueType> &from) {
+        return marked_ptr(const_cast<ValueType *>(from.get()), from.get_bit());
+    }
+
+    template<class _ValueType>
+    static marked_ptr dynamic_cast_from(const marked_ptr<_ValueType> &from) {
+        return marked_ptr(dynamic_cast<ValueType *>(from.get()), from.get_bit());
+    }
+
 private:
     uintptr_t ptr_{};
 };

@@ -21,8 +21,8 @@ template<class ValueType, class... Options>
 struct make_unordered_set {
     using pack_options = typename GetPackOptions<HashtableDefaults, Options...>::type;
 
-    using value_traits = typename detail::GetValueTraits<ValueType, typename pack_options::proto_value_traits>::type;
-    using bucket_traits = typename detail::GetBucketTraits<value_traits, typename pack_options::size_type,
+    using value_traits = typename GetValueTraits<ValueType, typename pack_options::proto_value_traits>::type;
+    using bucket_traits = typename GetBucketTraits<value_traits, typename pack_options::size_type,
                                                            typename pack_options::proto_bucket_traits>::type;
 
     using key_of_value = typename GetKeyOfValue<typename pack_options::key_of_value, ValueType>::type;
@@ -40,8 +40,8 @@ template<class ValueType, class... Options>
 struct make_unordered_multiset {
     using pack_options = typename GetPackOptions<HashtableDefaults, Options...>::type;
 
-    using value_traits = typename detail::GetValueTraits<ValueType, typename pack_options::proto_value_traits>::type;
-    using bucket_traits = typename detail::GetBucketTraits<value_traits, typename pack_options::size_type,
+    using value_traits = typename GetValueTraits<ValueType, typename pack_options::proto_value_traits>::type;
+    using bucket_traits = typename GetBucketTraits<value_traits, typename pack_options::size_type,
                                                            typename pack_options::proto_bucket_traits>::type;
 
     using key_of_value = typename GetKeyOfValue<typename pack_options::key_of_value, ValueType>::type;
