@@ -1214,21 +1214,6 @@ struct DefaultEqualTo {
     }
 };
 
-template<class KeyOfValue, class ValueType>
-struct GetKeyOfValue {
-    using type = std::conditional_t<!std::is_void_v<KeyOfValue>, KeyOfValue, DefaultKeyOfValue<ValueType>>;
-};
-
-template<class KeyEqual, class ValueType>
-struct GetEqualTo {
-    using type = std::conditional_t<!std::is_void_v<KeyEqual>, KeyEqual, DefaultEqualTo<ValueType>>;
-};
-
-template<class Hash, class ValueType>
-struct GetHash {
-    using type = std::conditional_t<!std::is_void_v<Hash>, Hash, DefaultKeyHash<ValueType>>;
-};
-
 struct HashtableDefaults {
     using proto_value_traits = DefaultHashtableHookApplier;
     using size_type = std::size_t;

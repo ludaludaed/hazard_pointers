@@ -25,10 +25,11 @@ struct make_unordered_set {
     using bucket_traits = typename GetBucketTraits<value_traits, typename pack_options::size_type,
                                                    typename pack_options::proto_bucket_traits>::type;
 
-    using key_of_value = typename GetKeyOfValue<typename pack_options::key_of_value, ValueType>::type;
+    using key_of_value =
+            typename GetOptionOrDefault<typename pack_options::key_of_value, DefaultKeyOfValue<ValueType>>::type;
     using key_type = typename key_of_value::type;
-    using hash = typename GetHash<typename pack_options::hash, key_type>::type;
-    using equal = typename GetEqualTo<typename pack_options::equal, key_type>::type;
+    using hash = typename GetOptionOrDefault<typename pack_options::hash, DefaultKeyHash<key_type>>::type;
+    using equal = typename GetOptionOrDefault<typename pack_options::equal, DefaultEqualTo<key_type>>::type;
 
     using size_type = typename pack_options::size_type;
     using flags = HashtableFlags<pack_options::is_power_2_buckets, false>;
@@ -44,10 +45,11 @@ struct make_unordered_multiset {
     using bucket_traits = typename GetBucketTraits<value_traits, typename pack_options::size_type,
                                                    typename pack_options::proto_bucket_traits>::type;
 
-    using key_of_value = typename GetKeyOfValue<typename pack_options::key_of_value, ValueType>::type;
+    using key_of_value =
+            typename GetOptionOrDefault<typename pack_options::key_of_value, DefaultKeyOfValue<ValueType>>::type;
     using key_type = typename key_of_value::type;
-    using hash = typename GetHash<typename pack_options::hash, key_type>::type;
-    using equal = typename GetEqualTo<typename pack_options::equal, key_type>::type;
+    using hash = typename GetOptionOrDefault<typename pack_options::hash, DefaultKeyHash<key_type>>::type;
+    using equal = typename GetOptionOrDefault<typename pack_options::equal, DefaultEqualTo<key_type>>::type;
 
     using size_type = typename pack_options::size_type;
     using flags = HashtableFlags<pack_options::is_power_2_buckets, true>;
