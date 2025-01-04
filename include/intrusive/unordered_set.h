@@ -23,7 +23,7 @@ struct make_unordered_set {
 
     using value_traits = typename GetValueTraits<ValueType, typename pack_options::proto_value_traits>::type;
     using bucket_traits = typename GetBucketTraits<value_traits, typename pack_options::size_type,
-                                                           typename pack_options::proto_bucket_traits>::type;
+                                                   typename pack_options::proto_bucket_traits>::type;
 
     using key_of_value = typename GetKeyOfValue<typename pack_options::key_of_value, ValueType>::type;
     using key_type = typename key_of_value::type;
@@ -42,7 +42,7 @@ struct make_unordered_multiset {
 
     using value_traits = typename GetValueTraits<ValueType, typename pack_options::proto_value_traits>::type;
     using bucket_traits = typename GetBucketTraits<value_traits, typename pack_options::size_type,
-                                                           typename pack_options::proto_bucket_traits>::type;
+                                                   typename pack_options::proto_bucket_traits>::type;
 
     using key_of_value = typename GetKeyOfValue<typename pack_options::key_of_value, ValueType>::type;
     using key_type = typename key_of_value::type;

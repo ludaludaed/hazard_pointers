@@ -71,7 +71,7 @@ public:
     }
 
     static node_ptr get_end(const_node_ptr this_node) noexcept {
-        return detail::erase_const(this_node);
+        return erase_const(this_node);
     }
 
     static node_ptr get_prev(node_ptr head_node, node_ptr this_node) noexcept {
@@ -298,18 +298,18 @@ class SlistIterator {
     class DummyNonConstIter;
     using NonConstIter = typename std::conditional_t<IsConst, SlistIterator<Types, false>, DummyNonConstIter>;
 
+    using value_traits = typename Types::value_traits;
+    using value_traits_ptr = typename Types::value_traits_ptr;
+
+    using node_traits = typename value_traits::node_traits;
+    using node_ptr = typename node_traits::node_ptr;
+
 public:
     using value_type = typename Types::value_type;
     using pointer = std::conditional_t<IsConst, typename Types::const_pointer, typename Types::pointer>;
     using reference = std::conditional_t<IsConst, typename Types::const_reference, typename Types::reference>;
     using difference_type = typename Types::difference_type;
     using iterator_category = std::forward_iterator_tag;
-
-    using value_traits = typename Types::value_traits;
-    using value_traits_ptr = typename Types::const_value_traits_ptr;
-
-    using node_traits = typename value_traits::node_traits;
-    using node_ptr = typename node_traits::node_ptr;
 
 private:
     SlistIterator(node_ptr current_node, value_traits_ptr value_traits) noexcept
@@ -367,13 +367,13 @@ private:
 };
 
 template<class ValueTraits, class SizeType>
-class IntrusiveSlist : private detail::EmptyBaseHolder<ValueTraits, detail::ValueTraitsTag>,
-                       private detail::EmptyBaseHolder<detail::SizeTraits<SizeType, !ValueTraits::is_auto_unlink>> {
+class IntrusiveSlist : private EmptyBaseHolder<ValueTraits, ValueTraitsTag>,
+                       private EmptyBaseHolder<SizeTraits<SizeType, !ValueTraits::is_auto_unlink>> {
 private:
-    using ValueTraitsHolder = detail::EmptyBaseHolder<ValueTraits, detail::ValueTraitsTag>;
-    using SizeTraitsHolder = detail::EmptyBaseHolder<detail::SizeTraits<SizeType, !ValueTraits::is_auto_unlink>>;
+    using ValueTraitsHolder = EmptyBaseHolder<ValueTraits, ValueTraitsTag>;
+    using SizeTraitsHolder = EmptyBaseHolder<SizeTraits<SizeType, !ValueTraits::is_auto_unlink>>;
 
-    using SizeTraits = detail::SizeTraits<SizeType, !ValueTraits::is_auto_unlink>;
+    using SizeTraits = SizeTraits<SizeType, !ValueTraits::is_auto_unlink>;
     using Algo = CircularSlistAlgo<typename ValueTraits::node_traits>;
     using Self = IntrusiveSlist;
 
@@ -398,8 +398,7 @@ public:
     using iterator = SlistIterator<Self, false>;
     using const_iterator = SlistIterator<Self, true>;
 
-    using value_traits_ptr = typename std::pointer_traits<pointer>::template rebind<value_traits>;
-    using const_value_traits_ptr = typename std::pointer_traits<value_traits_ptr>::template rebind<const value_traits>;
+    using value_traits_ptr = const value_traits *;
 
 public:
     explicit IntrusiveSlist(const value_traits &value_traits = {})
@@ -438,8 +437,8 @@ private:
         Algo::init_head(GetNilPtr());
     }
 
-    inline const_value_traits_ptr GetValueTraitsPtr() const noexcept {
-        return std::pointer_traits<const_value_traits_ptr>::pointer_to(ValueTraitsHolder::get());
+    inline value_traits_ptr GetValueTraitsPtr() const noexcept {
+        return std::pointer_traits<value_traits_ptr>::pointer_to(ValueTraitsHolder::get());
     }
 
     node_ptr GetNilPtr() const noexcept {
@@ -803,7 +802,7 @@ private:
 struct DefaultSlistHookApplier {
     template<class ValueType>
     struct Apply {
-        using type = typename detail::HookToValueTraits<ValueType, typename ValueType::slist_default_hook_type>::type;
+        using type = typename HookToValueTraits<ValueType, typename ValueType::slist_default_hook_type>::type;
     };
 };
 
@@ -814,12 +813,12 @@ struct DefaultSlistHook {
 
 template<class VoidPointer, class Tag, bool IsAutoUnlink>
 class SlistBaseHook
-    : public detail::GenericHook<CircularSlistAlgo<SlistNodeTraits<VoidPointer>>, SlistNodeTraits<VoidPointer>, Tag,
-                                 IsAutoUnlink>,
-      public std::conditional_t<std::is_same_v<Tag, detail::DefaultHookTag>,
-                                DefaultSlistHook<detail::GenericHook<CircularSlistAlgo<SlistNodeTraits<VoidPointer>>,
-                                                                     SlistNodeTraits<VoidPointer>, Tag, IsAutoUnlink>>,
-                                detail::NotDefaultHook> {};
+    : public GenericHook<CircularSlistAlgo<SlistNodeTraits<VoidPointer>>, SlistNodeTraits<VoidPointer>, Tag,
+                         IsAutoUnlink>,
+      public std::conditional_t<std::is_same_v<Tag, DefaultHookTag>,
+                                DefaultSlistHook<GenericHook<CircularSlistAlgo<SlistNodeTraits<VoidPointer>>,
+                                                             SlistNodeTraits<VoidPointer>, Tag, IsAutoUnlink>>,
+                                NotDefaultHook> {};
 
 struct SlistDefaults {
     using proto_value_traits = DefaultSlistHookApplier;
@@ -828,7 +827,7 @@ struct SlistDefaults {
 
 struct SlistHookDefaults {
     using void_pointer = void *;
-    using tag = detail::DefaultHookTag;
+    using tag = DefaultHookTag;
     static const bool is_auto_unlink = true;
 };
 

@@ -96,7 +96,7 @@ struct ActiveListNodeTraits {
 };
 
 template<class VoidPointer, class Tag>
-class ActiveListHook : public detail::NodeHolder<ActiveListNode<VoidPointer>, Tag> {
+class ActiveListHook : public NodeHolder<ActiveListNode<VoidPointer>, Tag> {
     using NodeTraits = ActiveListNodeTraits<VoidPointer>;
     using Algo = ActiveListAlgo<NodeTraits>;
 
@@ -107,7 +107,7 @@ public:
     using node_ptr = typename node_traits::node_ptr;
     using const_node_ptr = typename node_traits::const_node_ptr;
 
-    using hook_tags = detail::HookTags<NodeTraits, Tag, false>;
+    using hook_tags = HookTags<NodeTraits, Tag, false>;
 
 public:
     bool try_acquire() {
@@ -140,18 +140,18 @@ class ActiveListIterator {
     class DummyNonConstIter;
     using NonConstIter = typename std::conditional_t<IsConst, ActiveListIterator<Types, false>, DummyNonConstIter>;
 
+    using value_traits = typename Types::value_traits;
+    using value_traits_ptr = typename Types::value_traits_ptr;
+
+    using node_traits = typename value_traits::node_traits;
+    using node_ptr = typename node_traits::node_ptr;
+
 public:
     using value_type = typename Types::value_type;
     using pointer = std::conditional_t<IsConst, typename Types::const_pointer, typename Types::pointer>;
     using reference = std::conditional_t<IsConst, typename Types::const_reference, typename Types::reference>;
     using difference_type = typename Types::difference_type;
     using iterator_category = std::forward_iterator_tag;
-
-    using value_traits = typename Types::value_traits;
-    using value_traits_ptr = typename Types::value_traits_ptr;
-
-    using node_traits = typename value_traits::node_traits;
-    using node_ptr = typename node_traits::node_ptr;
 
 private:
     ActiveListIterator(node_ptr current_node, value_traits_ptr value_traits) noexcept
@@ -209,8 +209,8 @@ private:
 };
 
 template<class ValueTraits>
-class ActiveList : private detail::EmptyBaseHolder<ValueTraits> {
-    using ValueTraitsHolder = detail::EmptyBaseHolder<ValueTraits>;
+class ActiveList : private EmptyBaseHolder<ValueTraits> {
+    using ValueTraitsHolder = EmptyBaseHolder<ValueTraits>;
 
     using Self = ActiveList<ValueTraits>;
     using Algo = ActiveListAlgo<typename ValueTraits::node_traits>;
@@ -312,7 +312,7 @@ private:
 struct DefaultActiveListHookApplier {
     template<class ValueType>
     struct Apply {
-        using type = typename detail::HookToValueTraits<ValueType, typename ValueType::active_list_default_hook>::type;
+        using type = typename HookToValueTraits<ValueType, typename ValueType::active_list_default_hook>::type;
     };
 };
 
@@ -324,8 +324,8 @@ struct ActiveListDefaultHook {
 template<class VoidPointer, class Tag>
 struct ActiveListBaseHook
     : public ActiveListHook<VoidPointer, Tag>,
-      public std::conditional_t<std::is_same_v<Tag, detail::DefaultHookTag>,
-                                ActiveListDefaultHook<ActiveListHook<VoidPointer, Tag>>, detail::NotDefaultHook> {};
+      public std::conditional_t<std::is_same_v<Tag, DefaultHookTag>,
+                                ActiveListDefaultHook<ActiveListHook<VoidPointer, Tag>>, NotDefaultHook> {};
 
 struct ActiveListDefaults {
     using proto_value_traits = DefaultActiveListHookApplier;
@@ -333,7 +333,7 @@ struct ActiveListDefaults {
 
 struct ActiveListHookDefaults {
     using void_pointer = void *;
-    using tag = detail::DefaultHookTag;
+    using tag = DefaultHookTag;
 };
 
 }// namespace detail
@@ -342,18 +342,9 @@ struct ActiveListHookDefaults {
 namespace lu {
 namespace detail {
 
-template<class ValueType, class... Options>
-struct make_active_list {
-    using pack_options = typename detail::GetPackOptions<ActiveListDefaults, Options...>::type;
-
-    using value_traits = typename detail::GetValueTraits<ValueType, typename pack_options::proto_value_traits>::type;
-
-    using type = ActiveList<value_traits>;
-};
-
 template<class... Options>
 struct make_active_list_base_hook {
-    using pack_options = typename detail::GetPackOptions<ActiveListHookDefaults, Options...>::type;
+    using pack_options = typename GetPackOptions<ActiveListHookDefaults, Options...>::type;
 
     using void_pointer = typename pack_options::void_pointer;
     using tag = typename pack_options::tag;
@@ -361,13 +352,22 @@ struct make_active_list_base_hook {
     using type = ActiveListBaseHook<void_pointer, tag>;
 };
 
-}// namespace detail
-
 template<class ValueType, class... Options>
-using active_list = typename detail::make_active_list<ValueType, Options...>::type;
+struct make_active_list {
+    using pack_options = typename GetPackOptions<ActiveListDefaults, Options...>::type;
+
+    using value_traits = typename GetValueTraits<ValueType, typename pack_options::proto_value_traits>::type;
+
+    using type = ActiveList<value_traits>;
+};
+
+}// namespace detail
 
 template<class... Options>
 using active_list_base_hook = typename detail::make_active_list_base_hook<Options...>::type;
+
+template<class ValueType, class... Options>
+using active_list = typename detail::make_active_list<ValueType, Options...>::type;
 
 }// namespace lu
 

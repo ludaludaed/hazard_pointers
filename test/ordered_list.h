@@ -24,7 +24,7 @@ public:
     std::atomic<lu::marked_ptr<OrderedListNode>> next{};
 };
 
-template<class ValueType, class KeyCompare, class KeySelect, class BackOff>
+template<class ValueType, class KeyCompare, class KeySelect, class Backoff>
 class OrderedList : private lu::detail::EmptyBaseHolder<KeyCompare>, private lu::detail::EmptyBaseHolder<KeySelect> {
 
     using KeyCompareHolder = lu::detail::EmptyBaseHolder<KeyCompare>;
@@ -54,6 +54,11 @@ class OrderedList : private lu::detail::EmptyBaseHolder<KeyCompare>, private lu:
         class DummyNonConstIter;
         using NonConstIter = std::conditional_t<IsConst, OrderedListIterator<Types, false>, DummyNonConstIter>;
 
+        using list_ptr = typename Types::list_ptr;
+        using node_ptr = typename Types::node_ptr;
+        using node_marked_ptr = typename Types::node_marked_ptr;
+        using position = typename Types::position;
+
     public:
         using value_type = typename Types::value_type;
         using difference_type = typename Types::difference_type;
@@ -61,10 +66,6 @@ class OrderedList : private lu::detail::EmptyBaseHolder<KeyCompare>, private lu:
         using reference = std::conditional_t<IsConst, typename Types::const_reference, typename Types::reference>;
         using iterator_category = std::forward_iterator_tag;
 
-        using list_ptr = typename Types::list_ptr;
-        using node_ptr = typename Types::node_ptr;
-        using node_marked_ptr = typename Types::node_marked_ptr;
-        using position = typename Types::position;
 
     private:
         OrderedListIterator(lu::hazard_pointer guard, node_ptr current, list_ptr list) noexcept
@@ -222,7 +223,7 @@ private:
     template<class _KeyCompare, class _KeySelect>
     static bool find(std::atomic<node_marked_ptr> *head, const key_type &key, position &pos, _KeyCompare &&comp,
                      _KeySelect &&key_select) {
-        BackOff back_off;
+        Backoff back_off;
 
     try_again:
         pos.prev_pointer = head;
@@ -291,7 +292,7 @@ private:
 
     bool insert_node(node_ptr new_node) {
         auto key_select = KeySelectHolder::get();
-        BackOff back_off;
+        Backoff back_off;
         position pos;
         while (true) {
             if (find(key_select(new_node->value), pos)) {
@@ -324,7 +325,7 @@ public:
     }
 
     bool erase(const key_type &value) {
-        BackOff back_off;
+        Backoff back_off;
         position pos;
         while (find(value, pos)) {
             if (unlink(pos)) {
@@ -336,7 +337,7 @@ public:
     }
 
     guarded_ptr extract(const key_type &value) {
-        BackOff back_off;
+        Backoff back_off;
         position pos;
         while (find(value, pos)) {
             if (unlink(pos)) {
@@ -441,14 +442,50 @@ struct SetKeySelect {
     }
 };
 
+struct OrderedListDefaults {
+    using compare = void;
+    using backoff = void;
+};
+
+}// namespace detail
+}// namespace lu
+
+namespace lu {
+namespace detail {
+
+template<class ValueType, class... Options>
+struct make_ordered_list_set {
+    using pack_options = typename GetPackOptions<OrderedListDefaults, Options...>::type;
+
+    using compare = std::conditional_t<!std::is_void_v<typename pack_options::compare>, typename pack_options::compare,
+                                       std::less<ValueType>>;
+    using backoff = std::conditional_t<!std::is_void_v<typename pack_options::backoff>, typename pack_options::backoff,
+                                       lu::none_backoff>;
+    using key_select = SetKeySelect<ValueType>;
+
+    using type = OrderedList<ValueType, compare, key_select, backoff>;
+};
+
+template<class KeyType, class ValueType, class... Options>
+struct make_ordered_list_map {
+    using pack_options = typename GetPackOptions<OrderedListDefaults, Options...>::type;
+
+    using compare = std::conditional_t<!std::is_void_v<typename pack_options::compare>, typename pack_options::compare,
+                                       std::less<ValueType>>;
+    using backoff = std::conditional_t<!std::is_void_v<typename pack_options::backoff>, typename pack_options::backoff,
+                                       lu::none_backoff>;
+    using key_select = MapKeySelect<const KeyType, ValueType>;
+
+    using type = OrderedList<std::pair<const KeyType, ValueType>, compare, key_select, backoff>;
+};
+
 }// namespace detail
 
-template<class ValueType, class KeyCompare = std::less<ValueType>, class BackOff = none_backoff>
-using ordered_list_set = detail::OrderedList<ValueType, KeyCompare, detail::SetKeySelect<ValueType>, BackOff>;
+template<class ValueType, class... Options>
+using ordered_list_set = typename detail::make_ordered_list_set<ValueType, Options...>::type;
 
-template<class KeyType, class ValueType, class KeyCompare = std::less<ValueType>, class BackOff = none_backoff>
-using ordered_list_map = detail::OrderedList<std::pair<const KeyType, ValueType>, KeyCompare,
-                                             detail::MapKeySelect<const KeyType, ValueType>, BackOff>;
+template<class KeyType, class ValueType, class... Options>
+using ordered_list_map = typename detail::make_ordered_list_map<KeyType, ValueType, Options...>::type;
 
 }// namespace lu
 

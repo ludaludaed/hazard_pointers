@@ -285,21 +285,9 @@ private:
     Config config_{};
 };
 
-struct Foo : lu::unordered_set_base_hook<> {
-    int a = 0;
-
-    friend std::size_t hash_value(const Foo &foo) {
-        return (std::size_t) foo.a;
-    }
-
-    friend bool operator==(const Foo &left, const Foo &right) {
-        return left.a == right.a;
-    }
-};
-
 int main() {
     for (int i = 0; i < 1000; ++i) {
         std::cout << "iteration: #" << i << std::endl;
-        abstractStressTest(SetFixture<lu::ordered_list_set<int>>({}));
+        abstractStressTest(SetFixture<lu::ordered_list_set<int, lu::backoff<lu::none_backoff>>>({}));
     }
 }

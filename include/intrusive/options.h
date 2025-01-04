@@ -70,6 +70,14 @@ struct equal {
     };
 };
 
+template<class Compare>
+struct compare {
+    template<class Base>
+    struct pack : public Base {
+        using compare = Compare;
+    };
+};
+
 template<bool IsAutoUnlink>
 struct is_auto_unlink {
     template<class Base>

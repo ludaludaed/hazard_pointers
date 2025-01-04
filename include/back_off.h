@@ -16,6 +16,14 @@ struct yield_backoff {
     }
 };
 
+template<class Backoff>
+struct backoff {
+    template<class Base>
+    struct pack : public Base {
+        using backoff = Backoff;
+    };
+};
+
 }// namespace lu
 
 #endif

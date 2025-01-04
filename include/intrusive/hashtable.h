@@ -31,8 +31,6 @@ public:
     using node_ptr = typename node_traits::node_ptr;
     using const_node_ptr = typename node_traits::node_ptr;
 
-    using pointer = typename std::pointer_traits<node_ptr>::template rebind<BucketValue>;
-
 public:
     BucketValue() = default;
 
@@ -74,8 +72,6 @@ public:
     using node = typename node_traits::node;
     using node_ptr = typename node_traits::node_ptr;
     using const_node_ptr = typename node_traits::node_ptr;
-
-    using pointer = typename std::pointer_traits<node_ptr>::template rebind<BucketValue>;
 
 public:
     BucketValue() = default;
@@ -397,18 +393,18 @@ class HashIterator {
     class DummyNonConstIter;
     using NonConstIter = typename std::conditional_t<IsConst, HashIterator<Types, false>, DummyNonConstIter>;
 
+    using value_traits = typename Types::value_traits;
+    using value_traits_ptr = typename Types::value_traits_ptr;
+
+    using node_traits = typename value_traits::node_traits;
+    using node_ptr = typename node_traits::node_ptr;
+
 public:
     using value_type = typename Types::value_type;
     using pointer = std::conditional_t<IsConst, typename Types::const_pointer, typename Types::pointer>;
     using reference = std::conditional_t<IsConst, typename Types::const_reference, typename Types::reference>;
     using difference_type = typename Types::difference_type;
     using iterator_category = std::forward_iterator_tag;
-
-    using value_traits = typename Types::value_traits;
-    using value_traits_ptr = typename std::pointer_traits<pointer>::template rebind<const value_traits>;
-
-    using node_traits = typename value_traits::node_traits;
-    using node_ptr = typename node_traits::node_ptr;
 
 private:
     HashIterator(node_ptr current_node, value_traits_ptr value_traits) noexcept
@@ -473,8 +469,13 @@ class HashLocalIterator {
     friend class HashLocalIterator<Types, Algo, true>;
 
     class DummyNonConstIter;
-    using NonConstIter =
-            typename std::conditional_t<IsConst, HashLocalIterator<Types, Algo, false>, DummyNonConstIter>;
+    using NonConstIter = typename std::conditional_t<IsConst, HashLocalIterator<Types, Algo, false>, DummyNonConstIter>;
+
+    using value_traits = typename Types::value_traits;
+    using value_traits_ptr = typename Types::value_traits_ptr;
+
+    using node_traits = typename value_traits::node_traits;
+    using node_ptr = typename node_traits::node_ptr;
 
 public:
     using value_type = typename Types::value_type;
@@ -482,12 +483,6 @@ public:
     using reference = std::conditional_t<IsConst, typename Types::const_reference, typename Types::reference>;
     using difference_type = typename Types::difference_type;
     using iterator_category = std::forward_iterator_tag;
-
-    using value_traits = typename Types::value_traits;
-    using value_traits_ptr = typename Types::const_value_traits_ptr;
-
-    using node_traits = typename value_traits::node_traits;
-    using node_ptr = typename node_traits::node_ptr;
 
 private:
     HashLocalIterator(node_ptr node, value_traits_ptr value_traits) noexcept
@@ -556,21 +551,21 @@ struct HashtableFlags {
 
 template<class ValueTraits, class BucketTraits, class KeyOfValue, class KeyHash, class KeyEqual, class SizeType,
          class Flags>
-class IntrusiveHashtable : private detail::EmptyBaseHolder<ValueTraits, detail::ValueTraitsTag>,
-                           private detail::EmptyBaseHolder<BucketTraits, detail::BucketTraitsTag>,
-                           private detail::EmptyBaseHolder<KeyOfValue, detail::keyOfValueTag>,
-                           private detail::EmptyBaseHolder<KeyHash, detail::KeyHashTag>,
-                           private detail::EmptyBaseHolder<KeyEqual, detail::KeyEqualTag>,
-                           private detail::EmptyBaseHolder<detail::SizeTraits<SizeType, !ValueTraits::is_auto_unlink>> {
+class IntrusiveHashtable : private EmptyBaseHolder<ValueTraits, ValueTraitsTag>,
+                           private EmptyBaseHolder<BucketTraits, BucketTraitsTag>,
+                           private EmptyBaseHolder<KeyOfValue, keyOfValueTag>,
+                           private EmptyBaseHolder<KeyHash, KeyHashTag>,
+                           private EmptyBaseHolder<KeyEqual, KeyEqualTag>,
+                           private EmptyBaseHolder<SizeTraits<SizeType, !ValueTraits::is_auto_unlink>> {
 private:
-    using ValueTraitsHolder = detail::EmptyBaseHolder<ValueTraits, detail::ValueTraitsTag>;
-    using BucketTraitsHolder = detail::EmptyBaseHolder<BucketTraits, detail::BucketTraitsTag>;
-    using KeyOfValueHolder = detail::EmptyBaseHolder<KeyOfValue, detail::keyOfValueTag>;
-    using KeyHashHolder = detail::EmptyBaseHolder<KeyHash, detail::KeyHashTag>;
-    using KeyEqualHolder = detail::EmptyBaseHolder<KeyEqual, detail::KeyEqualTag>;
-    using SizeTraitsHolder = detail::EmptyBaseHolder<detail::SizeTraits<SizeType, !ValueTraits::is_auto_unlink>>;
+    using ValueTraitsHolder = EmptyBaseHolder<ValueTraits, ValueTraitsTag>;
+    using BucketTraitsHolder = EmptyBaseHolder<BucketTraits, BucketTraitsTag>;
+    using KeyOfValueHolder = EmptyBaseHolder<KeyOfValue, keyOfValueTag>;
+    using KeyHashHolder = EmptyBaseHolder<KeyHash, KeyHashTag>;
+    using KeyEqualHolder = EmptyBaseHolder<KeyEqual, KeyEqualTag>;
+    using SizeTraitsHolder = EmptyBaseHolder<SizeTraits<SizeType, !ValueTraits::is_auto_unlink>>;
 
-    using SizeTraits = detail::SizeTraits<SizeType, !ValueTraits::is_auto_unlink>;
+    using SizeTraits = SizeTraits<SizeType, !ValueTraits::is_auto_unlink>;
     using Algo = HashtableAlgo<typename ValueTraits::node_traits>;
     using Self = IntrusiveHashtable;
 
@@ -590,7 +585,6 @@ public:
     using const_pointer = typename value_traits::const_pointer;
     using reference = typename value_traits::reference;
     using const_reference = typename value_traits::const_reference;
-
     using difference_type = typename std::pointer_traits<pointer>::difference_type;
     using size_type = SizeType;
 
@@ -599,7 +593,7 @@ public:
     using const_node_ptr = typename node_traits::const_node_ptr;
 
     using bucket_type = BucketValue<node_traits, true>;
-    using bucket_ptr = typename bucket_type::pointer;
+    using bucket_ptr = typename std::pointer_traits<node_ptr>::template rebind<bucket_type>;
 
     using iterator = HashIterator<Self, false>;
     using const_iterator = HashIterator<Self, true>;
@@ -607,8 +601,7 @@ public:
     using local_iterator = HashLocalIterator<Self, Algo, false>;
     using const_local_iterator = HashLocalIterator<Self, Algo, true>;
 
-    using value_traits_ptr = typename std::pointer_traits<pointer>::template rebind<value_traits>;
-    using const_value_traits_ptr = typename std::pointer_traits<value_traits_ptr>::template rebind<const value_traits>;
+    using value_traits_ptr = const value_traits *;
 
 public:
     explicit IntrusiveHashtable(const bucket_traits &buckets = {}, const hasher &key_hash = {},
@@ -655,8 +648,8 @@ private:
         Algo::init(GetNilPtr());
     }
 
-    inline const_value_traits_ptr GetValueTraitsPtr() const noexcept {
-        return std::pointer_traits<const_value_traits_ptr>::pointer_to(ValueTraitsHolder::get());
+    inline value_traits_ptr GetValueTraitsPtr() const noexcept {
+        return std::pointer_traits<value_traits_ptr>::pointer_to(ValueTraitsHolder::get());
     }
 
     inline node_ptr GetNilPtr() noexcept {
@@ -1165,11 +1158,25 @@ private:
     node_type nil_node_{};
 };
 
+template<class HookType>
+struct HashtableDefaultHook {
+    using hashtable_default_hook_type = HookType;
+};
+
+template<class VoidPointer, class Tag, bool StoreHash, bool IsAutoUnlink>
+class HashtableBaseHook
+    : public GenericHook<HashtableAlgo<HashtableNodeTraits<VoidPointer, StoreHash>>,
+                         HashtableNodeTraits<VoidPointer, StoreHash>, Tag, IsAutoUnlink>,
+      public std::conditional_t<
+              std::is_same_v<Tag, DefaultHookTag>,
+              HashtableDefaultHook<GenericHook<HashtableAlgo<HashtableNodeTraits<VoidPointer, StoreHash>>,
+                                               HashtableNodeTraits<VoidPointer, StoreHash>, Tag, IsAutoUnlink>>,
+              NotDefaultHook> {};
+
 struct DefaultHashtableHookApplier {
     template<class ValueType>
     struct Apply {
-        using type =
-                typename detail::HookToValueTraits<ValueType, typename ValueType::hashtable_default_hook_type>::type;
+        using type = typename HookToValueTraits<ValueType, typename ValueType::hashtable_default_hook_type>::type;
     };
 };
 
@@ -1182,21 +1189,6 @@ struct DefaultBucketTraitsApplier {
         using type = BucketTraitsImpl<bucket_pointer, SizeType>;
     };
 };
-
-template<class HookType>
-struct HashtableDefaultHook {
-    using hashtable_default_hook_type = HookType;
-};
-
-template<class VoidPointer, class Tag, bool StoreHash, bool IsAutoUnlink>
-class HashtableBaseHook
-    : public detail::GenericHook<HashtableAlgo<HashtableNodeTraits<VoidPointer, StoreHash>>,
-                                 HashtableNodeTraits<VoidPointer, StoreHash>, Tag, IsAutoUnlink>,
-      public std::conditional_t<
-              std::is_same_v<Tag, detail::DefaultHookTag>,
-              HashtableDefaultHook<detail::GenericHook<HashtableAlgo<HashtableNodeTraits<VoidPointer, StoreHash>>,
-                                                       HashtableNodeTraits<VoidPointer, StoreHash>, Tag, IsAutoUnlink>>,
-              detail::NotDefaultHook> {};
 
 template<class ValueType>
 struct DefaultKeyOfValue {
@@ -1211,7 +1203,7 @@ struct DefaultKeyOfValue {
 template<class ValueType>
 struct DefaultKeyHash {
     std::size_t operator()(const ValueType &value) const {
-        return detail::hash_dispatch(value);
+        return hash_dispatch(value);
     }
 };
 
@@ -1222,34 +1214,19 @@ struct DefaultEqualTo {
     }
 };
 
-template<class KeyOfValue, class>
+template<class KeyOfValue, class ValueType>
 struct GetKeyOfValue {
-    using type = KeyOfValue;
+    using type = std::conditional_t<!std::is_void_v<KeyOfValue>, KeyOfValue, DefaultKeyOfValue<ValueType>>;
 };
 
-template<class ValueType>
-struct GetKeyOfValue<void, ValueType> {
-    using type = DefaultKeyOfValue<ValueType>;
-};
-
-template<class KeyEqual, class>
+template<class KeyEqual, class ValueType>
 struct GetEqualTo {
-    using type = KeyEqual;
+    using type = std::conditional_t<!std::is_void_v<KeyEqual>, KeyEqual, DefaultEqualTo<ValueType>>;
 };
 
-template<class ValueType>
-struct GetEqualTo<void, ValueType> {
-    using type = DefaultEqualTo<ValueType>;
-};
-
-template<class Hash, class>
+template<class Hash, class ValueType>
 struct GetHash {
-    using type = Hash;
-};
-
-template<class ValueType>
-struct GetHash<void, ValueType> {
-    using type = DefaultKeyHash<ValueType>;
+    using type = std::conditional_t<!std::is_void_v<Hash>, Hash, DefaultKeyHash<ValueType>>;
 };
 
 struct HashtableDefaults {
@@ -1264,7 +1241,7 @@ struct HashtableDefaults {
 
 struct HashtableHookDefaults {
     using void_pointer = void *;
-    using tag = detail::DefaultHookTag;
+    using tag = DefaultHookTag;
     static const bool store_hash = true;
     static const bool is_auto_unlink = true;
 };
