@@ -7,6 +7,7 @@
 
 #include "back_off.h"
 #include "fixed_size_function.h"
+#include "intrusive/options.h"
 #include "intrusive/slist.h"
 #include "intrusive/utils.h"
 #include "marked_ptr.h"
@@ -285,9 +286,32 @@ private:
     Config config_{};
 };
 
+#include <intrusive/compressed_tuple.h>
+
+struct Empty {};
+
+struct Empty2 {};
+
+template<class T>
+struct is_not_empty {
+    static constexpr bool value = !std::is_empty_v<T>;
+};
+
 int main() {
-    for (int i = 0; i < 1000; ++i) {
-        std::cout << "iteration: #" << i << std::endl;
-        abstractStressTest(SetFixture<lu::ordered_list_set<int, lu::backoff<lu::none_backoff>>>({}));
-    }
+
+    using l = lu::typelist<Empty, int, double, Empty, Empty, Empty2, int64_t, Empty2, int32_t>;
+
+
+    static_assert(
+            std::is_same_v<typename lu::select<l, is_not_empty>::type, lu::typelist<int, double, int64_t, int32_t>>,
+            "Error");
+
+    std::cout << lu::get_compressed_index<l, 2>::value << std::endl;
+    std::cout << lu::size<lu::select<l, is_not_empty>::type>::value << std::endl;
+    std::cout << lu::size<l>::value << std::endl;
+
+    // for (int i = 0; i < 1000; ++i) {
+    //     std::cout << "iteration: #" << i << std::endl;
+    //     abstractStressTest(SetFixture<lu::ordered_list_set<int, lu::backoff<lu::none_backoff>>>({}));
+    // }
 }

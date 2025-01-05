@@ -16,7 +16,7 @@ struct BaseHookApplier {
 
 template<class ValueTraits>
 struct ValueTraitsApplier {
-    template<class... Dummy>
+    template<class...>
     struct Apply {
         using type = ValueTraits;
     };
@@ -24,7 +24,7 @@ struct ValueTraitsApplier {
 
 template<class BucketTraits>
 struct BucketTraitsApplier {
-    template<class... Dummy>
+    template<class...>
     struct Apply {
         using type = BucketTraits;
     };

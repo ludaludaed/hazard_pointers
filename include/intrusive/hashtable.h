@@ -697,7 +697,7 @@ private:
     }
 
     size_type GetSize() const noexcept {
-        if constexpr (SizeTraits::is_const_size) {
+        if constexpr (SizeTraits::is_tracking_size) {
             return SizeTraitsHolder::get().get_size();
         } else {
             return Algo::count(GetNilPtr()) - 1;

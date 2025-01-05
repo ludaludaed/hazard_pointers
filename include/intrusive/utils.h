@@ -27,14 +27,6 @@
 
 namespace lu {
 
-template<class Ptr>
-struct get_void_ptr {
-    using type = typename std::pointer_traits<Ptr>::template rebind<void>;
-};
-
-template<class Ptr>
-using get_void_ptr_t = typename get_void_ptr<Ptr>::type;
-
 template<class ValueType>
 ValueType *to_raw_pointer(ValueType *ptr) {
     return ptr;

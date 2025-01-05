@@ -9,7 +9,6 @@
 
 #include <atomic>
 #include <cassert>
-#include <type_traits>
 
 
 namespace lu {
@@ -22,8 +21,6 @@ struct DefaultDetacher {
 
 template<class Pointer>
 struct DefaultCreator {
-    static_assert(std::is_same_v<get_void_ptr_t<Pointer>, void *>, "The default creator can only work with void*");
-
     using value_type = typename std::pointer_traits<Pointer>::element_type;
 
     Pointer operator()() const {
@@ -33,8 +30,6 @@ struct DefaultCreator {
 
 template<class Pointer>
 struct DefaultDeleter {
-    static_assert(std::is_same_v<get_void_ptr_t<Pointer>, void *>, "The default deleter can only work with void*");
-
     using value_type = typename std::pointer_traits<Pointer>::element_type;
 
     void operator()(Pointer value) const {

@@ -458,7 +458,7 @@ private:
     }
 
     size_type GetSize() const noexcept {
-        if constexpr (SizeTraits::is_const_size) {
+        if constexpr (SizeTraits::is_tracking_size) {
             return SizeTraitsHolder::get().get_size();
         } else {
             return Algo::count(GetNilPtr()) - 1;
@@ -488,7 +488,7 @@ private:
     }
 
     void SpliceAfter(node_ptr where, IntrusiveSlist &other, node_ptr before_first, node_ptr before_last) noexcept {
-        if constexpr (SizeTraits::is_const_size) {
+        if constexpr (SizeTraits::is_tracking_size) {
             size_type distance(Algo::distance(node_traits::get_next(before_first), node_traits::get_next(before_last)));
 
             other.SizeTraits::get().decrease(distance);
@@ -516,7 +516,7 @@ private:
 
     template<class Comp>
     void Merge(IntrusiveSlist &other, Comp &&comp) noexcept {
-        if constexpr (SizeTraits::is_const_size) {
+        if constexpr (SizeTraits::is_tracking_size) {
             size_type new_size = GetSize() + other.GetSize();
             SetSize(new_size);
             other.SetSize(0);

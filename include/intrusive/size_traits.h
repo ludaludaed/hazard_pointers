@@ -4,14 +4,14 @@
 namespace lu {
 namespace detail {
 
-template<class SizeType, bool IsConstSize>
+template<class SizeType, bool TrackSize>
 class SizeTraits;
 
 template<class SizeType>
 class SizeTraits<SizeType, true> {
 public:
     using size_type = SizeType;
-    static constexpr bool is_const_size = true;
+    static constexpr bool is_tracking_size = true;
 
 public:
     inline void increase(size_type n) {
@@ -46,7 +46,7 @@ template<class SizeType>
 class SizeTraits<SizeType, false> {
 public:
     using size_type = SizeType;
-    static constexpr bool is_const_size = false;
+    static constexpr bool is_tracking_size = false;
 
 public:
     inline void increase(size_type) {}
