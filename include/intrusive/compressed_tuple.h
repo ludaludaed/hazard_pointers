@@ -73,19 +73,19 @@ struct aligment_compare<pack<I1, T1>, pack<I2, T2>> {
 };
 
 template<class T, template<std::size_t, class> class Pack>
-struct get_indexes;
+struct get_indices;
 
 template<template<std::size_t, class> class Pack>
-struct get_indexes<typelist<>, Pack> {
+struct get_indices<typelist<>, Pack> {
     using type = std::index_sequence<>;
 };
 
 template<std::size_t... Is, class... Ts, template<std::size_t, class> class Pack>
-struct get_indexes<typelist<Pack<Is, Ts>...>, Pack> {
+struct get_indices<typelist<Pack<Is, Ts>...>, Pack> {
     using type = std::index_sequence<Is...>;
 };
 template<class T, template<std::size_t, class> class Pack>
-using get_indexes_t = typename get_indexes<T, Pack>::type;
+using get_indices_t = typename get_indices<T, Pack>::type;
 
 template<class T, template<std::size_t, class> class Pack>
 struct get_types;
@@ -121,10 +121,10 @@ class compressed_tuple {
     using original_packs = pack_with_index_t<typelist<Ts...>, detail::pack>;
     using compressed_packs = sort_t<select_t<original_packs, detail::is_not_empty>, detail::aligment_compare>;
 
-    using indexes = detail::get_indexes_t<compressed_packs, detail::pack>;
+    using indices = detail::get_indices_t<compressed_packs, detail::pack>;
     using types = detail::get_types_t<compressed_packs, detail::pack>;
 
-    using tuple_base = detail::tuple_base<indexes, types>;
+    using tuple_base = detail::tuple_base<indices, types>;
 
     template<std::size_t I, class... _Ts>
     friend tuple_element_t<I, compressed_tuple<_Ts...>> &get(compressed_tuple<_Ts...> &);
@@ -163,7 +163,7 @@ public:
 
     template<class... _Ts>
     constexpr compressed_tuple(_Ts &&...ts)
-        : compressed_tuple(std::forward_as_tuple(std::forward<_Ts>(ts)...), indexes{}) {}
+        : compressed_tuple(std::forward_as_tuple(std::forward<_Ts>(ts)...), indices{}) {}
 
     void swap(compressed_tuple &other) {
         base_.swap(other.base_);
