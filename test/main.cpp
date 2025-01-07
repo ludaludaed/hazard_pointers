@@ -9,6 +9,7 @@
 #include "fixed_size_function.h"
 #include "intrusive/options.h"
 #include "intrusive/slist.h"
+#include "intrusive/typelist.h"
 #include "intrusive/utils.h"
 #include "marked_ptr.h"
 #include "ordered_list.h"
@@ -28,6 +29,7 @@
 #include <stdexcept>
 #include <string>
 #include <thread>
+#include <tuple>
 #include <type_traits>
 #include <unordered_map>
 #include <vector>
@@ -297,18 +299,64 @@ struct is_not_empty {
     static constexpr bool value = !std::is_empty_v<T>;
 };
 
+template<class T1, class T2>
+struct Compare {
+    static constexpr bool value = alignof(T1) > alignof(T2);
+};
+
+struct Observable {
+    Observable() {
+        std::cout << "Default" << std::endl;
+    }
+
+    Observable(const Observable &) {
+        std::cout << "Copy" << std::endl;
+    }
+
+    Observable(Observable &&) {
+        std::cout << "Move" << std::endl;
+    }
+
+    std::size_t s;
+};
+
+
 int main() {
 
-    using l = lu::typelist<Empty, int, double, Empty, Empty, Empty2, int64_t, Empty2, int32_t>;
+    using l = lu::typelist<Empty, int, double, Empty, Empty, Empty2, int64_t, Empty2, int32_t, double>;
 
 
-    static_assert(
-            std::is_same_v<typename lu::select<l, is_not_empty>::type, lu::typelist<int, double, int64_t, int32_t>>,
-            "Error");
+    static_assert(std::is_same_v<lu::select_t<l, is_not_empty>, lu::typelist<int, double, int64_t, int32_t, double>>,
+                  "Error");
 
-    std::cout << lu::get_compressed_index<l, 2>::value << std::endl;
-    std::cout << lu::size<lu::select<l, is_not_empty>::type>::value << std::endl;
-    std::cout << lu::size<l>::value << std::endl;
+    static_assert(std::is_same_v<lu::sort_t<l, Compare>,
+                                 lu::typelist<double, int64_t, double, int, int, Empty, Empty, Empty, Empty2, Empty2>>,
+                  "Error");
+
+    using ll = lu::typelist<int, double, int64_t>;
+    static_assert(std::is_same_v<lu::pack_with_index_t<ll, lu::detail::pack>,
+                                 lu::typelist<lu::detail::pack<0, int>, lu::detail::pack<1, double>,
+                                              lu::detail::pack<2, long long>>>,
+                  "!");
+
+    using tuple = lu::compressed_tuple<int, double &, Empty, long long, Empty2>;
+
+    lu::compressed_tuple<int, double, Empty> tp(1, 0.01, Empty{});
+    lu::compressed_tuple<int, double, Empty> tp1(2, 0.01, Empty{});
+    tp.swap(tp1);
+
+
+    std::tuple<Empty, int, Empty2, double, Empty> t;
+    lu::compressed_tuple<Empty, int, Empty2, double, Empty> ct;
+
+    using types = decltype(ct)::compressed_types;
+
+    std::cout << sizeof(t) << " " << sizeof(ct) << std::endl;
+
+    Observable oo{};
+    lu::compressed_tuple<Observable> o(oo);
+
+    auto tt = lu::make_compressed_tuple(std::move(oo));
 
     // for (int i = 0; i < 1000; ++i) {
     //     std::cout << "iteration: #" << i << std::endl;

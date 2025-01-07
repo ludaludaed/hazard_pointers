@@ -6,42 +6,51 @@
 
 namespace lu {
 
-template<class... Types>
+template<class... Ts>
 struct typelist {};
 
-template<class T, std::size_t Index>
+template<std::size_t I, class T>
 struct get_nth;
 
-template<class T, class... Types>
-struct get_nth<typelist<T, Types...>, 0> {
+template<class T, class... Ts>
+struct get_nth<0, typelist<T, Ts...>> {
     using type = T;
 };
 
-template<class T, class... Types, std::size_t Index>
-struct get_nth<typelist<T, Types...>, Index> {
-    using type = get_nth<typelist<Types...>, Index - 1>::type;
+template<std::size_t I, class T, class... Ts>
+struct get_nth<I, typelist<T, Ts...>> {
+    using type = get_nth<I - 1, typelist<Ts...>>::type;
+};
+
+template<std::size_t I, class T>
+using get_nth_t = typename get_nth<I, T>::type;
+
+template<class T>
+struct size_of;
+
+template<class... Ts>
+struct size_of<typelist<Ts...>> {
+    static constexpr std::size_t value = sizeof...(Ts);
 };
 
 template<class T>
-struct size;
-
-template<class... Types>
-struct size<typelist<Types...>> {
-    static constexpr std::size_t value = sizeof...(Types);
-};
+static constexpr std::size_t size_of_v = size_of<T>::value;
 
 template<class...>
 struct concat;
 
-template<class... Types>
-struct concat<typelist<Types...>> {
-    using type = typelist<Types...>;
+template<class... Ts>
+struct concat<typelist<Ts...>> {
+    using type = typelist<Ts...>;
 };
 
-template<class... Types1, class... Types2>
-struct concat<typelist<Types1...>, typelist<Types2...>> {
-    using type = typelist<Types1..., Types2...>;
+template<class... Ts1, class... Ts2, class... Ts3>
+struct concat<typelist<Ts1...>, typelist<Ts2...>, Ts3...> {
+    using type = typename concat<typelist<Ts1..., Ts2...>, Ts3...>::type;
 };
+
+template<class... Ts>
+using concat_t = typename concat<Ts...>::type;
 
 template<class T, template<class> class Selector>
 struct select;
@@ -51,11 +60,59 @@ struct select<typelist<>, Selector> {
     using type = typelist<>;
 };
 
-template<class T, class... Types, template<class> class Selector>
-struct select<typelist<T, Types...>, Selector> {
+template<class T, class... Ts, template<class> class Selector>
+struct select<typelist<T, Ts...>, Selector> {
     using selected = std::conditional_t<Selector<T>::value, typelist<T>, typelist<>>;
-    using type = concat<selected, typename select<typelist<Types...>, Selector>::type>::type;
+    using type = concat_t<selected, typename select<typelist<Ts...>, Selector>::type>;
 };
+
+template<class T, template<class> class Selector>
+using select_t = typename select<T, Selector>::type;
+
+template<class T, template<class, class> class Compare>
+struct sort;
+
+template<template<class, class> class Compare>
+struct sort<typelist<>, Compare> {
+    using type = typelist<>;
+};
+
+template<class T, class... Ts, template<class, class> class Compare>
+struct sort<typelist<T, Ts...>, Compare> {
+    template<class _T>
+    struct predicate {
+        static constexpr bool value = Compare<_T, T>::value;
+    };
+
+    template<class _T>
+    struct invert_predicate {
+        static constexpr bool value = !Compare<_T, T>::value;
+    };
+
+    using left = select_t<typelist<Ts...>, predicate>;
+    using right = select_t<typelist<Ts...>, invert_predicate>;
+
+    using type = concat_t<typename sort<left, Compare>::type, typelist<T>, typename sort<right, Compare>::type>;
+};
+
+template<class T, template<class, class> class Compare>
+using sort_t = typename sort<T, Compare>::type;
+
+template<std::size_t I, class T, template<std::size_t, class> class Pack>
+struct pack_with_index;
+
+template<std::size_t I, template<std::size_t, class> class Pack>
+struct pack_with_index<I, typelist<>, Pack> {
+    using type = typelist<>;
+};
+
+template<std::size_t I, class T, class... Ts, template<std::size_t, class> class Pack>
+struct pack_with_index<I, typelist<T, Ts...>, Pack> {
+    using type = concat_t<typelist<Pack<I, T>>, typename pack_with_index<I + 1, typelist<Ts...>, Pack>::type>;
+};
+
+template<class T, template<std::size_t, class> class Pack>
+using pack_with_index_t = typename pack_with_index<0, T, Pack>::type;
 
 }// namespace lu
 
