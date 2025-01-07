@@ -356,7 +356,7 @@ int main() {
     Observable oo{};
     lu::compressed_tuple<Observable> o(oo);
 
-    auto tt = lu::make_compressed_tuple(std::move(oo));
+    auto tt = lu::make_compressed_tuple(std::move(oo), oo);
 
     // for (int i = 0; i < 1000; ++i) {
     //     std::cout << "iteration: #" << i << std::endl;

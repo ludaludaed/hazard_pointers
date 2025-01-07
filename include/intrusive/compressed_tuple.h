@@ -178,8 +178,8 @@ private:
 };
 
 template<class... Ts>
-compressed_tuple<Ts...> make_compressed_tuple(Ts &&...args) {
-    return compressed_tuple<Ts...>(std::forward<Ts>(args)...);
+compressed_tuple<std::decay_t<Ts>...> make_compressed_tuple(Ts &&...args) {
+    return compressed_tuple<std::decay_t<Ts>...>(std::forward<Ts>(args)...);
 }
 
 }// namespace lu
