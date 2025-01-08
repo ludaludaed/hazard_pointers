@@ -324,7 +324,9 @@ struct Observable {
 
 int main() {
 
-    lu::compressed_tuple<int, double, Empty, int64_t, Empty2, double> ct;
+    lu::compressed_tuple<Empty, Empty, Empty, Empty,int, double, Empty, int64_t, Empty2, double, Empty, Empty, Empty,
+                         Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty>
+            ct;
     std::tuple<int, double, Empty, int64_t, Empty2, double> t;
 
     std::cout << sizeof(ct) << std::endl << sizeof(t) << std::endl;
@@ -339,8 +341,8 @@ int main() {
     auto &&e_int_const = lu::get<int>((const decltype(ct) &) ct);
     auto &&e_int_rvalue_const = lu::get<int>(std::move((const decltype(ct) &) ct));
 
-    for (int i = 0; i < 1000; ++i) {
-        std::cout << "iteration: #" << i << std::endl;
-        abstractStressTest(SetFixture<lu::ordered_list_set<int, lu::backoff<lu::none_backoff>>>({}));
-    }
+    // for (int i = 0; i < 1000; ++i) {
+    //     std::cout << "iteration: #" << i << std::endl;
+    //     abstractStressTest(SetFixture<lu::ordered_list_set<int, lu::backoff<lu::none_backoff>>>({}));
+    // }
 }

@@ -79,28 +79,16 @@ struct tuple_unit {
         std::swap(data, other.data);
     }
 
+    constexpr T &get() {
+        return data;
+    }
+
+    constexpr const T &get() const {
+        return data;
+    }
+
     T data;
 };
-
-template<std::size_t I, class T>
-constexpr T &get(tuple_unit<I, T> &unit) {
-    return unit.data;
-}
-
-template<std::size_t I, class T>
-constexpr T &&get(tuple_unit<I, T> &&unit) {
-    return std::move(unit.data);
-}
-
-template<std::size_t I, class T>
-constexpr const T &get(const tuple_unit<I, T> &unit) {
-    return unit.data;
-}
-
-template<std::size_t I, class T>
-constexpr const T &&get(const tuple_unit<I, T> &&unit) {
-    return std::move(unit.data);
-}
 
 template<class Is, class Ts>
 struct tuple_base;
@@ -225,7 +213,7 @@ constexpr tuple_element_t<I, compressed_tuple<Ts...>> &get(compressed_tuple<Ts..
         auto ptr = reinterpret_cast<tuple_element *>(&tuple.base_);
         return static_cast<tuple_element &>(*ptr);
     } else {
-        return detail::get(static_cast<tuple_unit &>(tuple.base_));
+        return static_cast<tuple_unit &>(tuple.base_).get();
     }
 }
 
@@ -237,7 +225,7 @@ constexpr tuple_element_t<I, compressed_tuple<Ts...>> &&get(compressed_tuple<Ts.
         auto ptr = reinterpret_cast<tuple_element *>(&tuple.base_);
         return static_cast<tuple_element &&>(*ptr);
     } else {
-        return detail::get(static_cast<tuple_unit &&>(tuple.base_));
+        return std::move(static_cast<tuple_unit &>(tuple.base_).get());
     }
 }
 
@@ -249,7 +237,7 @@ constexpr const tuple_element_t<I, compressed_tuple<Ts...>> &get(const compresse
         auto ptr = reinterpret_cast<const tuple_element *>(&tuple.base_);
         return static_cast<const tuple_element &>(*ptr);
     } else {
-        return detail::get(static_cast<const tuple_unit &>(tuple.base_));
+        return static_cast<const tuple_unit &>(tuple.base_).get();
     }
 }
 
@@ -261,7 +249,7 @@ constexpr const tuple_element_t<I, compressed_tuple<Ts...>> &&get(const compress
         auto ptr = reinterpret_cast<const tuple_element *>(&tuple.base_);
         return static_cast<const tuple_element &&>(*ptr);
     } else {
-        return detail::get(static_cast<const tuple_unit &&>(tuple.base_));
+        return std::move(static_cast<const tuple_unit &>(tuple.base_).get());
     }
 }
 
@@ -273,7 +261,7 @@ constexpr T &get(compressed_tuple<Ts...> &tuple) {
         auto ptr = reinterpret_cast<T *>(&tuple.base_);
         return static_cast<T &>(*ptr);
     } else {
-        return detail::get(static_cast<tuple_unit &>(tuple.base_));
+        return static_cast<tuple_unit &>(tuple.base_).get();
     }
 }
 
@@ -285,7 +273,7 @@ constexpr T &&get(compressed_tuple<Ts...> &&tuple) {
         auto ptr = reinterpret_cast<T *>(&tuple.base_);
         return static_cast<T &&>(*ptr);
     } else {
-        return detail::get(static_cast<tuple_unit &&>(tuple.base_));
+        return std::move(static_cast<tuple_unit &>(tuple.base_).get());
     }
 }
 
@@ -297,7 +285,7 @@ constexpr const T &get(const compressed_tuple<Ts...> &tuple) {
         auto ptr = reinterpret_cast<const T *>(&tuple.base_);
         return static_cast<const T &>(*ptr);
     } else {
-        return detail::get(static_cast<const tuple_unit &>(tuple.base_));
+        return static_cast<const tuple_unit &>(tuple.base_).get();
     }
 }
 
@@ -309,7 +297,7 @@ constexpr const T &&get(const compressed_tuple<Ts...> &&tuple) {
         auto ptr = reinterpret_cast<const T *>(&tuple.base_);
         return static_cast<const T &&>(*ptr);
     } else {
-        return detail::get(static_cast<const tuple_unit &&>(tuple.base_));
+        return std::move(static_cast<const tuple_unit &>(tuple.base_).get());
     }
 }
 

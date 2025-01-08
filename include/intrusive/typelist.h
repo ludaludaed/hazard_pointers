@@ -31,7 +31,8 @@ struct find_index;
 
 template<std::size_t I, class T>
 struct find_index<I, T, typelist<>> {
-    static_assert(false, "type not exist.");
+    static_assert(!(I == 0), "empty type list.");
+    static_assert(!(I != 0), "type not exist.");
 };
 
 template<std::size_t I, class T, class U, class... Us>
