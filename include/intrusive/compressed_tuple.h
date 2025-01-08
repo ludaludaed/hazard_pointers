@@ -199,7 +199,7 @@ private:
         : base_(std::forward<std::tuple_element_t<Indices, Args>>(std::get<Indices>(args))...) {}
 
 public:
-    compressed_tuple() = default;
+    constexpr compressed_tuple() = default;
 
     template<class... _Ts>
     constexpr compressed_tuple(_Ts &&...ts)
