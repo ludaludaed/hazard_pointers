@@ -5,7 +5,6 @@
 #include "empty_base_holder.h"
 #include "generic_hook.h"
 #include "hash.h"
-#include "compressed_tuple.h"
 #include "size_traits.h"
 
 #include <cassert>
@@ -603,20 +602,20 @@ public:
     using value_traits_ptr = const value_traits *;
 
 public:
-    explicit IntrusiveHashtable(const bucket_traits &buckets = {}, const hasher &key_hash = {},
-                                const key_equal &equal = {}, const value_traits &value_traits = {})
+    explicit IntrusiveHashtable(const bucket_traits &buckets = {}, const hasher &hash = {}, const key_equal &equal = {},
+                                const value_traits &value_traits = {})
         : BucketTraitsHolder(buckets)
-        , KeyHashHolder(key_hash)
+        , KeyHashHolder(hash)
         , KeyEqualHolder(equal)
         , ValueTraitsHolder(value_traits) {
         Construct();
     }
 
     template<class Iterator>
-    IntrusiveHashtable(Iterator begin, Iterator end, const bucket_traits &buckets = {}, const hasher &key_hash = {},
+    IntrusiveHashtable(Iterator begin, Iterator end, const bucket_traits &buckets = {}, const hasher &hash = {},
                        const key_equal &equal = {}, const value_traits &value_traits = {})
         : BucketTraitsHolder(buckets)
-        , KeyHashHolder(key_hash)
+        , KeyHashHolder(hash)
         , KeyEqualHolder(equal)
         , ValueTraitsHolder(value_traits) {
         Construct();

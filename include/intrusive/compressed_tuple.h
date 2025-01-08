@@ -90,18 +90,20 @@ struct tuple_unit {
     T data;
 };
 
-template<class Is, class Ts>
+template<class Is, class... Ts>
 struct tuple_base;
 
 template<>
-struct tuple_base<std::index_sequence<>, typelist<>> {
+struct tuple_base<std::index_sequence<>> {
     constexpr tuple_base() = default;
 
     constexpr void swap(tuple_base &other) {}
 };
 
 template<std::size_t... Is, class... Ts>
-struct tuple_base<std::index_sequence<Is...>, typelist<Ts...>> : tuple_unit<Is, Ts>... {
+struct tuple_base<std::index_sequence<Is...>, Ts...> : tuple_unit<Is, Ts>... {
+    static_assert(sizeof...(Is) == sizeof...(Ts), "the number of indexes must be equal to the number of types.");
+
     constexpr tuple_base() = default;
 
     template<class... _Ts>
@@ -112,6 +114,17 @@ struct tuple_base<std::index_sequence<Is...>, typelist<Ts...>> : tuple_unit<Is, 
         ((tuple_unit<Is, Ts>::swap(other), 0), ...);
     }
 };
+
+template<class Is, class Ts>
+struct make_tuple_base;
+
+template<std::size_t... Is, class... Ts>
+struct make_tuple_base<std::index_sequence<Is...>, typelist<Ts...>> {
+    using type = tuple_base<std::index_sequence<Is...>, Ts...>;
+};
+
+template<class Is, class Ts>
+using make_tuple_base_t = typename make_tuple_base<Is, Ts>::type;
 
 }// namespace detail
 
@@ -154,7 +167,7 @@ class compressed_tuple {
     using empty_indices = detail::get_indices_t<empty_packs, detail::pack>;
     using empty_types = detail::get_types_t<empty_packs, detail::pack>;
 
-    using tuple_base = detail::tuple_base<not_empty_indices, not_empty_types>;
+    using tuple_base = detail::make_tuple_base_t<not_empty_indices, not_empty_types>;
 
 private:
     template<std::size_t I, class... _Ts>
@@ -225,7 +238,7 @@ constexpr tuple_element_t<I, compressed_tuple<Ts...>> &&get(compressed_tuple<Ts.
         auto ptr = reinterpret_cast<tuple_element *>(&tuple.base_);
         return static_cast<tuple_element &&>(*ptr);
     } else {
-        return std::move(static_cast<tuple_unit &>(tuple.base_).get());
+        return static_cast<tuple_element &&>(static_cast<tuple_unit &>(tuple.base_).get());
     }
 }
 
@@ -249,7 +262,7 @@ constexpr const tuple_element_t<I, compressed_tuple<Ts...>> &&get(const compress
         auto ptr = reinterpret_cast<const tuple_element *>(&tuple.base_);
         return static_cast<const tuple_element &&>(*ptr);
     } else {
-        return std::move(static_cast<const tuple_unit &>(tuple.base_).get());
+        return static_cast<const tuple_element &&>(static_cast<const tuple_unit &>(tuple.base_).get());
     }
 }
 
@@ -273,7 +286,7 @@ constexpr T &&get(compressed_tuple<Ts...> &&tuple) {
         auto ptr = reinterpret_cast<T *>(&tuple.base_);
         return static_cast<T &&>(*ptr);
     } else {
-        return std::move(static_cast<tuple_unit &>(tuple.base_).get());
+        return static_cast<T &&>(static_cast<tuple_unit &>(tuple.base_).get());
     }
 }
 
@@ -297,7 +310,7 @@ constexpr const T &&get(const compressed_tuple<Ts...> &&tuple) {
         auto ptr = reinterpret_cast<const T *>(&tuple.base_);
         return static_cast<const T &&>(*ptr);
     } else {
-        return std::move(static_cast<const tuple_unit &>(tuple.base_).get());
+        return static_cast<const T &&>(static_cast<const tuple_unit &>(tuple.base_).get());
     }
 }
 

@@ -123,6 +123,7 @@ struct pack_with_index;
 
 template<std::size_t... Is, class... Ts, template<std::size_t, class> class Pack>
 struct pack_with_index<std::index_sequence<Is...>, typelist<Ts...>, Pack> {
+    static_assert(sizeof...(Is) == sizeof...(Ts), "the number of indexes must be equal to the number of types.");
     using type = typelist<Pack<Is, Ts>...>;
 };
 
