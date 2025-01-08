@@ -3,9 +3,9 @@
 
 #include "base_value_traits.h"
 #include "empty_base_holder.h"
-#include "empty_base_tags.h"
 #include "generic_hook.h"
 #include "hash.h"
+#include "compressed_tuple.h"
 #include "size_traits.h"
 
 #include <cassert>
@@ -551,18 +551,18 @@ struct HashtableFlags {
 
 template<class ValueTraits, class BucketTraits, class KeyOfValue, class KeyHash, class KeyEqual, class SizeType,
          class Flags>
-class IntrusiveHashtable : private EmptyBaseHolder<ValueTraits, ValueTraitsTag>,
-                           private EmptyBaseHolder<BucketTraits, BucketTraitsTag>,
-                           private EmptyBaseHolder<KeyOfValue, keyOfValueTag>,
-                           private EmptyBaseHolder<KeyHash, KeyHashTag>,
-                           private EmptyBaseHolder<KeyEqual, KeyEqualTag>,
+class IntrusiveHashtable : private EmptyBaseHolder<ValueTraits>,
+                           private EmptyBaseHolder<BucketTraits>,
+                           private EmptyBaseHolder<KeyOfValue>,
+                           private EmptyBaseHolder<KeyHash>,
+                           private EmptyBaseHolder<KeyEqual>,
                            private EmptyBaseHolder<SizeTraits<SizeType, !ValueTraits::is_auto_unlink>> {
 private:
-    using ValueTraitsHolder = EmptyBaseHolder<ValueTraits, ValueTraitsTag>;
-    using BucketTraitsHolder = EmptyBaseHolder<BucketTraits, BucketTraitsTag>;
-    using KeyOfValueHolder = EmptyBaseHolder<KeyOfValue, keyOfValueTag>;
-    using KeyHashHolder = EmptyBaseHolder<KeyHash, KeyHashTag>;
-    using KeyEqualHolder = EmptyBaseHolder<KeyEqual, KeyEqualTag>;
+    using ValueTraitsHolder = EmptyBaseHolder<ValueTraits>;
+    using BucketTraitsHolder = EmptyBaseHolder<BucketTraits>;
+    using KeyOfValueHolder = EmptyBaseHolder<KeyOfValue>;
+    using KeyHashHolder = EmptyBaseHolder<KeyHash>;
+    using KeyEqualHolder = EmptyBaseHolder<KeyEqual>;
     using SizeTraitsHolder = EmptyBaseHolder<SizeTraits<SizeType, !ValueTraits::is_auto_unlink>>;
 
     using SizeTraits = SizeTraits<SizeType, !ValueTraits::is_auto_unlink>;

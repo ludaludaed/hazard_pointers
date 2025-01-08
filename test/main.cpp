@@ -32,6 +32,7 @@
 #include <tuple>
 #include <type_traits>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 
@@ -323,43 +324,23 @@ struct Observable {
 
 int main() {
 
-    using l = lu::typelist<Empty, int, double, Empty, Empty, Empty2, int64_t, Empty2, int32_t, double>;
+    lu::compressed_tuple<int, double, Empty, int64_t, Empty2, double> ct;
+    std::tuple<int, double, Empty, int64_t, Empty2, double> t;
 
+    std::cout << sizeof(ct) << std::endl << sizeof(t) << std::endl;
 
-    static_assert(std::is_same_v<lu::select_t<l, is_not_empty>, lu::typelist<int, double, int64_t, int32_t, double>>,
-                  "Error");
+    auto &&e0 = lu::get<0>(ct);
+    auto &&e1 = lu::get<1>(std::move(ct));
+    auto &&e2 = lu::get<2>((const decltype(ct) &) ct);
+    auto &&e3 = lu::get<3>(std::move((const decltype(ct) &) ct));
 
-    static_assert(std::is_same_v<lu::sort_t<l, Compare>,
-                                 lu::typelist<double, int64_t, double, int, int, Empty, Empty, Empty, Empty2, Empty2>>,
-                  "Error");
+    auto &&e_int = lu::get<int>(ct);
+    auto &&e_int_rvalue = lu::get<int>(std::move(ct));
+    auto &&e_int_const = lu::get<int>((const decltype(ct) &) ct);
+    auto &&e_int_rvalue_const = lu::get<int>(std::move((const decltype(ct) &) ct));
 
-    using ll = lu::typelist<int, double, int64_t>;
-    static_assert(std::is_same_v<lu::pack_with_index_t<ll, lu::detail::pack>,
-                                 lu::typelist<lu::detail::pack<0, int>, lu::detail::pack<1, double>,
-                                              lu::detail::pack<2, long long>>>,
-                  "!");
-
-    using tuple = lu::compressed_tuple<int, double &, Empty, long long, Empty2>;
-
-    lu::compressed_tuple<int, double, Empty> tp(1, 0.01, Empty{});
-    lu::compressed_tuple<int, double, Empty> tp1(2, 0.01, Empty{});
-    tp.swap(tp1);
-
-
-    std::tuple<Empty, int, Empty2, double, Empty> t;
-    lu::compressed_tuple<Empty, int, Empty2, double, Empty> ct;
-
-    using types = decltype(ct)::compressed_types;
-
-    std::cout << sizeof(t) << " " << sizeof(ct) << std::endl;
-
-    Observable oo{};
-    lu::compressed_tuple<Observable> o(oo);
-
-    auto tt = lu::make_compressed_tuple(std::move(oo), oo);
-
-    // for (int i = 0; i < 1000; ++i) {
-    //     std::cout << "iteration: #" << i << std::endl;
-    //     abstractStressTest(SetFixture<lu::ordered_list_set<int, lu::backoff<lu::none_backoff>>>({}));
-    // }
+    for (int i = 0; i < 1000; ++i) {
+        std::cout << "iteration: #" << i << std::endl;
+        abstractStressTest(SetFixture<lu::ordered_list_set<int, lu::backoff<lu::none_backoff>>>({}));
+    }
 }

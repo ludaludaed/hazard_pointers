@@ -3,11 +3,12 @@
 
 #include <cuchar>
 #include <type_traits>
+#include <utility>
 
 namespace lu {
 
 template<class... Ts>
-struct typelist {};
+struct typelist;
 
 template<std::size_t I, class T>
 struct get_nth;
@@ -24,6 +25,24 @@ struct get_nth<I, typelist<T, Ts...>> {
 
 template<std::size_t I, class T>
 using get_nth_t = typename get_nth<I, T>::type;
+
+template<std::size_t I, class T, class U>
+struct find_index;
+
+template<std::size_t I, class T>
+struct find_index<I, T, typelist<>> {
+    static_assert(false, "type not exist.");
+};
+
+template<std::size_t I, class T, class U, class... Us>
+struct find_index<I, T, typelist<U, Us...>> {
+    static constexpr std::size_t value
+            = std::conditional_t<std::is_same_v<T, U>, std::integral_constant<std::size_t, I>,
+                                 find_index<I + 1, T, typelist<Us...>>>::value;
+};
+
+template<class T, class U>
+static constexpr std::size_t find_index_v = find_index<0, T, U>::value;
 
 template<class T>
 struct size_of;
@@ -98,21 +117,35 @@ struct sort<typelist<T, Ts...>, Compare> {
 template<class T, template<class, class> class Compare>
 using sort_t = typename sort<T, Compare>::type;
 
-template<std::size_t I, class T, template<std::size_t, class> class Pack>
+template<class I, class T, template<std::size_t, class> class Pack>
 struct pack_with_index;
 
-template<std::size_t I, template<std::size_t, class> class Pack>
-struct pack_with_index<I, typelist<>, Pack> {
-    using type = typelist<>;
+template<std::size_t... Is, class... Ts, template<std::size_t, class> class Pack>
+struct pack_with_index<std::index_sequence<Is...>, typelist<Ts...>, Pack> {
+    using type = typelist<Pack<Is, Ts>...>;
 };
 
-template<std::size_t I, class T, class... Ts, template<std::size_t, class> class Pack>
-struct pack_with_index<I, typelist<T, Ts...>, Pack> {
-    using type = concat_t<typelist<Pack<I, T>>, typename pack_with_index<I + 1, typelist<Ts...>, Pack>::type>;
+template<class I, class T, template<std::size_t, class> class Pack>
+using pack_with_index_t = typename pack_with_index<I, T, Pack>::type;
+
+template<class T, class U>
+struct num_of_type;
+
+template<class T>
+struct num_of_type<T, typelist<>> {
+    static constexpr std::size_t value = 0;
 };
 
-template<class T, template<std::size_t, class> class Pack>
-using pack_with_index_t = typename pack_with_index<0, T, Pack>::type;
+template<class T, class U, class... Us>
+struct num_of_type<T, typelist<U, Us...>> {
+    static constexpr std::size_t value
+            = std::conditional_t<std::is_same_v<T, U>, std::integral_constant<std::size_t, 1>,
+                                 std::integral_constant<std::size_t, 0>>::value
+              + num_of_type<T, typelist<Us...>>::value;
+};
+
+template<class T, class U>
+static constexpr std::size_t num_of_type_v = num_of_type<T, U>::value;
 
 }// namespace lu
 

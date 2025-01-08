@@ -3,7 +3,6 @@
 
 #include "base_value_traits.h"
 #include "empty_base_holder.h"
-#include "empty_base_tags.h"
 #include "generic_hook.h"
 #include "size_traits.h"
 
@@ -367,10 +366,10 @@ private:
 };
 
 template<class ValueTraits, class SizeType>
-class IntrusiveSlist : private EmptyBaseHolder<ValueTraits, ValueTraitsTag>,
+class IntrusiveSlist : private EmptyBaseHolder<ValueTraits>,
                        private EmptyBaseHolder<SizeTraits<SizeType, !ValueTraits::is_auto_unlink>> {
 private:
-    using ValueTraitsHolder = EmptyBaseHolder<ValueTraits, ValueTraitsTag>;
+    using ValueTraitsHolder = EmptyBaseHolder<ValueTraits>;
     using SizeTraitsHolder = EmptyBaseHolder<SizeTraits<SizeType, !ValueTraits::is_auto_unlink>>;
 
     using SizeTraits = SizeTraits<SizeType, !ValueTraits::is_auto_unlink>;
