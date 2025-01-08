@@ -211,8 +211,6 @@ private:
 template<class ValueTraits>
 class ActiveList : private EmptyBaseHolder<ValueTraits> {
     using ValueTraitsHolder = EmptyBaseHolder<ValueTraits>;
-
-    using Self = ActiveList<ValueTraits>;
     using Algo = ActiveListAlgo<typename ValueTraits::node_traits>;
 
 public:
@@ -225,8 +223,8 @@ public:
     using reference = value_type &;
     using const_reference = const value_type &;
 
-    using iterator = ActiveListIterator<Self, false>;
-    using const_iterator = ActiveListIterator<Self, true>;
+    using iterator = ActiveListIterator<ActiveList, false>;
+    using const_iterator = ActiveListIterator<ActiveList, true>;
 
     using node_traits = typename ValueTraits::node_traits;
     using node = typename node_traits::node;

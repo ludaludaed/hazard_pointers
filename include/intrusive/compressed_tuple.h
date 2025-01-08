@@ -75,7 +75,7 @@ struct tuple_unit {
     constexpr tuple_unit(_T &&value)
         : data(std::forward<_T>(value)) {}
 
-    void swap(tuple_unit &other) {
+    constexpr void swap(tuple_unit &other) {
         std::swap(data, other.data);
     }
 
@@ -120,7 +120,7 @@ struct tuple_base<std::index_sequence<Is...>, typelist<Ts...>> : tuple_unit<Is, 
     constexpr tuple_base(_Ts &&...args)
         : tuple_unit<Is, Ts>(std::forward<_Ts>(args))... {}
 
-    void swap(tuple_base &other) {
+    constexpr void swap(tuple_base &other) {
         ((tuple_unit<Is, Ts>::swap(other), 0), ...);
     }
 };
@@ -205,11 +205,11 @@ public:
     constexpr compressed_tuple(_Ts &&...ts)
         : compressed_tuple(std::forward_as_tuple(std::forward<_Ts>(ts)...), not_empty_indices{}) {}
 
-    void swap(compressed_tuple &other) {
+    constexpr void swap(compressed_tuple &other) {
         base_.swap(other.base_);
     }
 
-    friend void swap(compressed_tuple &left, compressed_tuple &right) {
+    friend constexpr void swap(compressed_tuple &left, compressed_tuple &right) {
         left.swap(right);
     }
 

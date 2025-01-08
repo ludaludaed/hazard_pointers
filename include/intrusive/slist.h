@@ -374,7 +374,6 @@ private:
 
     using SizeTraits = SizeTraits<SizeType, !ValueTraits::is_auto_unlink>;
     using Algo = CircularSlistAlgo<typename ValueTraits::node_traits>;
-    using Self = IntrusiveSlist;
 
 public:
     using value_traits = ValueTraits;
@@ -394,8 +393,8 @@ public:
     using node_ptr = typename node_traits::node_ptr;
     using const_node_ptr = typename node_traits::const_node_ptr;
 
-    using iterator = SlistIterator<Self, false>;
-    using const_iterator = SlistIterator<Self, true>;
+    using iterator = SlistIterator<IntrusiveSlist, false>;
+    using const_iterator = SlistIterator<IntrusiveSlist, true>;
 
     using value_traits_ptr = const value_traits *;
 
@@ -624,7 +623,7 @@ public:
         EraseAfter(GetNilPtr(), GetEnd());
     }
 
-    void swap(Self &other) noexcept {
+    void swap(IntrusiveSlist &other) noexcept {
         Algo::swap_nodes(GetNilPtr(), other.GetNilPtr());
         std::swap(ValueTraitsHolder::get(), other.ValueTraitsHolder::get());
         std::swap(SizeTraitsHolder::get(), other.SizeTraitsHolder::get());

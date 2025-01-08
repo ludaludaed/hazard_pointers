@@ -567,7 +567,6 @@ private:
 
     using SizeTraits = SizeTraits<SizeType, !ValueTraits::is_auto_unlink>;
     using Algo = HashtableAlgo<typename ValueTraits::node_traits>;
-    using Self = IntrusiveHashtable;
 
 public:
     using bucket_traits = BucketTraits;
@@ -595,11 +594,11 @@ public:
     using bucket_type = BucketValue<node_traits, true>;
     using bucket_ptr = typename std::pointer_traits<node_ptr>::template rebind<bucket_type>;
 
-    using iterator = HashIterator<Self, false>;
-    using const_iterator = HashIterator<Self, true>;
+    using iterator = HashIterator<IntrusiveHashtable, false>;
+    using const_iterator = HashIterator<IntrusiveHashtable, true>;
 
-    using local_iterator = HashLocalIterator<Self, Algo, false>;
-    using const_local_iterator = HashLocalIterator<Self, Algo, true>;
+    using local_iterator = HashLocalIterator<IntrusiveHashtable, Algo, false>;
+    using const_local_iterator = HashLocalIterator<IntrusiveHashtable, Algo, true>;
 
     using value_traits_ptr = const value_traits *;
 
