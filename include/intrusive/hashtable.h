@@ -574,7 +574,7 @@ public:
     using difference_type = typename std::pointer_traits<pointer>::difference_type;
     using size_type = SizeType;
 
-    using node_type = typename node_traits::node;
+    using node = typename node_traits::node;
     using node_ptr = typename node_traits::node_ptr;
     using const_node_ptr = typename node_traits::const_node_ptr;
 
@@ -589,12 +589,15 @@ public:
 
     using value_traits_ptr = const value_traits *;
 
+private:
     struct NilNodeHolder {
         friend void swap(NilNodeHolder &left, NilNodeHolder &right) {
-            Algo::swap_heads(left, right);
+            auto left_node = std::pointer_traits<node_ptr>::pointer_to(left.nil_node);
+            auto right_node = std::pointer_traits<node_ptr>::pointer_to(right.nil_node);
+            Algo::swap_heads(left_node, right_node);
         }
 
-        node_type nil_node;
+        node nil_node;
     };
 
 public:
