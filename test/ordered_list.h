@@ -2,7 +2,6 @@
 #define __ORDERED_LIST_H__
 
 #include "intrusive/compressed_tuple.h"
-#include <__atomic/atomic.h>
 #include <back_off.h>
 #include <hazard_pointer.h>
 #include <marked_ptr.h>
