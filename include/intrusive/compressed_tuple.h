@@ -25,7 +25,7 @@ struct is_empty {
 };
 
 template<class T1, class T2>
-struct aligment_compare {
+struct alignment_compare {
     static constexpr bool value = alignof(T1) > alignof(T2);
 };
 
@@ -43,8 +43,8 @@ struct is_empty<pack<I, T>> {
 };
 
 template<std::size_t I1, std::size_t I2, class T1, class T2>
-struct aligment_compare<pack<I1, T1>, pack<I2, T2>> {
-    static constexpr bool value = aligment_compare<T1, T2>::value;
+struct alignment_compare<pack<I1, T1>, pack<I2, T2>> {
+    static constexpr bool value = alignment_compare<T1, T2>::value;
 };
 
 template<class T, template<std::size_t, class> class Pack>
@@ -159,7 +159,7 @@ template<class... Ts>
 class compressed_tuple {
     using original_packs = pack_with_index_t<std::make_index_sequence<sizeof...(Ts)>, typelist<Ts...>, detail::pack>;
 
-    using not_empty_packs = sort_t<select_t<original_packs, detail::is_not_empty>, detail::aligment_compare>;
+    using not_empty_packs = sort_t<select_t<original_packs, detail::is_not_empty>, detail::alignment_compare>;
 
     using not_empty_indices = detail::get_indices_t<not_empty_packs, detail::pack>;
     using not_empty_types = detail::get_types_t<not_empty_packs, detail::pack>;
