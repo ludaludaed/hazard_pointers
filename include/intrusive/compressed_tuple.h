@@ -77,7 +77,8 @@ struct tuple_unit {
         : data(std::forward<_T>(value)) {}
 
     constexpr void swap(tuple_unit &other) {
-        std::swap(data, other.data);
+        using std::swap;
+        swap(data, other.data);
     }
 
     constexpr T &get() {
