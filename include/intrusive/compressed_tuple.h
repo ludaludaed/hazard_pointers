@@ -4,6 +4,7 @@
 #include "intrusive/typelist.h"
 #include "typelist.h"
 
+#include <bit>
 #include <tuple>
 #include <type_traits>
 #include <utility>
@@ -223,7 +224,7 @@ constexpr tuple_element_t<I, compressed_tuple<Ts...>> &get(compressed_tuple<Ts..
     using tuple_element = tuple_element_t<I, compressed_tuple<Ts...>>;
     using tuple_unit = detail::tuple_unit<I, tuple_element>;
     if constexpr (std::is_empty_v<tuple_element>) {
-        auto ptr = reinterpret_cast<tuple_element *>(&tuple.base_);
+        auto ptr = std::bit_cast<tuple_element *>(&tuple.base_);
         return static_cast<tuple_element &>(*ptr);
     } else {
         return static_cast<tuple_unit &>(tuple.base_).get();
@@ -235,7 +236,7 @@ constexpr tuple_element_t<I, compressed_tuple<Ts...>> &&get(compressed_tuple<Ts.
     using tuple_element = tuple_element_t<I, compressed_tuple<Ts...>>;
     using tuple_unit = detail::tuple_unit<I, tuple_element>;
     if constexpr (std::is_empty_v<tuple_element>) {
-        auto ptr = reinterpret_cast<tuple_element *>(&tuple.base_);
+        auto ptr = std::bit_cast<tuple_element *>(&tuple.base_);
         return static_cast<tuple_element &&>(*ptr);
     } else {
         return static_cast<tuple_element &&>(static_cast<tuple_unit &>(tuple.base_).get());
@@ -247,7 +248,7 @@ constexpr const tuple_element_t<I, compressed_tuple<Ts...>> &get(const compresse
     using tuple_element = tuple_element_t<I, compressed_tuple<Ts...>>;
     using tuple_unit = detail::tuple_unit<I, tuple_element>;
     if constexpr (std::is_empty_v<tuple_element>) {
-        auto ptr = reinterpret_cast<const tuple_element *>(&tuple.base_);
+        auto ptr = std::bit_cast<const tuple_element *>(&tuple.base_);
         return static_cast<const tuple_element &>(*ptr);
     } else {
         return static_cast<const tuple_unit &>(tuple.base_).get();
@@ -259,7 +260,7 @@ constexpr const tuple_element_t<I, compressed_tuple<Ts...>> &&get(const compress
     using tuple_element = tuple_element_t<I, compressed_tuple<Ts...>>;
     using tuple_unit = detail::tuple_unit<I, tuple_element>;
     if constexpr (std::is_empty_v<tuple_element>) {
-        auto ptr = reinterpret_cast<const tuple_element *>(&tuple.base_);
+        auto ptr = std::bit_cast<const tuple_element *>(&tuple.base_);
         return static_cast<const tuple_element &&>(*ptr);
     } else {
         return static_cast<const tuple_element &&>(static_cast<const tuple_unit &>(tuple.base_).get());
@@ -268,50 +269,26 @@ constexpr const tuple_element_t<I, compressed_tuple<Ts...>> &&get(const compress
 
 template<class T, class... Ts>
 constexpr T &get(compressed_tuple<Ts...> &tuple) {
-    using tuple_unit = detail::tuple_unit<tuple_index_v<T, compressed_tuple<Ts...>>, T>;
     static_assert(lu::num_of_type_v<T, typelist<Ts...>> == 1, "type of T not unique.");
-    if constexpr (std::is_empty_v<T>) {
-        auto ptr = reinterpret_cast<T *>(&tuple.base_);
-        return static_cast<T &>(*ptr);
-    } else {
-        return static_cast<tuple_unit &>(tuple.base_).get();
-    }
+    return get<tuple_index_v<T, compressed_tuple<Ts...>>>(tuple);
 }
 
 template<class T, class... Ts>
 constexpr T &&get(compressed_tuple<Ts...> &&tuple) {
-    using tuple_unit = detail::tuple_unit<tuple_index_v<T, compressed_tuple<Ts...>>, T>;
     static_assert(lu::num_of_type_v<T, typelist<Ts...>> == 1, "type of T not unique.");
-    if constexpr (std::is_empty_v<T>) {
-        auto ptr = reinterpret_cast<T *>(&tuple.base_);
-        return static_cast<T &&>(*ptr);
-    } else {
-        return static_cast<T &&>(static_cast<tuple_unit &>(tuple.base_).get());
-    }
+    return get<tuple_index_v<T, compressed_tuple<Ts...>>>(std::move(tuple));
 }
 
 template<class T, class... Ts>
 constexpr const T &get(const compressed_tuple<Ts...> &tuple) {
-    using tuple_unit = detail::tuple_unit<tuple_index_v<T, compressed_tuple<Ts...>>, T>;
     static_assert(lu::num_of_type_v<T, typelist<Ts...>> == 1, "type of T not unique.");
-    if constexpr (std::is_empty_v<T>) {
-        auto ptr = reinterpret_cast<const T *>(&tuple.base_);
-        return static_cast<const T &>(*ptr);
-    } else {
-        return static_cast<const tuple_unit &>(tuple.base_).get();
-    }
+    return get<tuple_index_v<T, compressed_tuple<Ts...>>>(tuple);
 }
 
 template<class T, class... Ts>
 constexpr const T &&get(const compressed_tuple<Ts...> &&tuple) {
-    using tuple_unit = detail::tuple_unit<tuple_index_v<T, compressed_tuple<Ts...>>, T>;
     static_assert(lu::num_of_type_v<T, typelist<Ts...>> == 1, "type of T not unique.");
-    if constexpr (std::is_empty_v<T>) {
-        auto ptr = reinterpret_cast<const T *>(&tuple.base_);
-        return static_cast<const T &&>(*ptr);
-    } else {
-        return static_cast<const T &&>(static_cast<const tuple_unit &>(tuple.base_).get());
-    }
+    return get<tuple_index_v<T, compressed_tuple<Ts...>>>(std::move(tuple));
 }
 
 template<class... Ts>
