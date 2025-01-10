@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <array>
+#include <concepts>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
@@ -307,44 +308,74 @@ struct Compare {
 
 struct Observable {
     Observable() {
-        std::cout << "Default" << std::endl;
+        std::cout << "Default ctor" << std::endl;
     }
 
     Observable(const Observable &) {
-        std::cout << "Copy" << std::endl;
+        std::cout << "Copy ctor" << std::endl;
     }
 
     Observable(Observable &&) {
-        std::cout << "Move" << std::endl;
+        std::cout << "Move ctor" << std::endl;
+    }
+
+    ~Observable() {
+        std::cout << "Destructor" << std::endl;
     }
 
     std::size_t s;
 };
 
+struct EmptyObservable {
+    EmptyObservable() {
+        std::cout << "Default ctor" << std::endl;
+    }
+
+    EmptyObservable(const Observable &) {
+        std::cout << "Copy ctor" << std::endl;
+    }
+
+    EmptyObservable(int) {
+        std::cout << "Copy ctor" << std::endl;
+    }
+
+    EmptyObservable(Observable &&) {
+        std::cout << "Move ctor" << std::endl;
+    }
+
+    ~EmptyObservable() {
+        std::cout << "Destructor" << std::endl;
+    }
+};
+
 
 int main() {
 
-    lu::compressed_tuple<Empty, Empty, int, double, Empty, int64_t, Empty2, double, Empty, Empty, Empty, Empty, Empty,
-                         Empty, Empty, Empty, Empty, Empty, Empty, Empty>
-            ct;
-    std::tuple<Empty, Empty, int, double, Empty, int64_t, Empty2, double, Empty, Empty, Empty, Empty, Empty, Empty,
-               Empty, Empty, Empty, Empty, Empty, Empty>
-            t;
+    // lu::compressed_tuple<Empty, Empty, int, double, Empty, int64_t, Empty2, double, Empty, Empty, Empty, Empty, Empty,
+    //                      Empty, Empty, Empty, Empty, Empty, Empty, Empty>
+    //         ct;
+    // std::tuple<Empty, Empty, int, double, Empty, int64_t, Empty2, double, Empty, Empty, Empty, Empty, Empty, Empty,
+    //            Empty, Empty, Empty, Empty, Empty, Empty>
+    //         t;
 
-    std::cout << sizeof(ct) << std::endl << sizeof(t) << std::endl;
+    // std::cout << sizeof(ct) << std::endl << sizeof(t) << std::endl;
 
-    auto &&e0 = lu::get<0>(ct);
-    auto &&e1 = lu::get<1>(std::move(ct));
-    auto &&e2 = lu::get<2>((const decltype(ct) &) ct);
-    auto &&e3 = lu::get<3>(std::move((const decltype(ct) &) ct));
+    // auto &&e0 = lu::get<0>(ct);
+    // auto &&e1 = lu::get<1>(std::move(ct));
+    // auto &&e2 = lu::get<2>((const decltype(ct) &) ct);
+    // auto &&e3 = lu::get<3>(std::move((const decltype(ct) &) ct));
 
-    auto &&e_int = lu::get<int>(ct);
-    auto &&e_int_rvalue = lu::get<int>(std::move(ct));
-    auto &&e_int_const = lu::get<int>((const decltype(ct) &) ct);
-    auto &&e_int_rvalue_const = lu::get<int>(std::move((const decltype(ct) &) ct));
+    // auto &&e_int = lu::get<int>(ct);
+    // auto &&e_int_rvalue = lu::get<int>(std::move(ct));
+    // auto &&e_int_const = lu::get<int>((const decltype(ct) &) ct);
+    // auto &&e_int_rvalue_const = lu::get<int>(std::move((const decltype(ct) &) ct));
 
-    for (int i = 0; i < 1000; ++i) {
-        std::cout << "iteration: #" << i << std::endl;
-        abstractStressTest(SetFixture<lu::ordered_list_set<int, lu::backoff<lu::none_backoff>>>({}));
-    }
+    lu::compressed_tuple<EmptyObservable> ct;
+
+    lu::compressed_tuple<EmptyObservable> oct(ct);
+
+    // for (int i = 0; i < 1000; ++i) {
+    //     std::cout << "iteration: #" << i << std::endl;
+    //     abstractStressTest(SetFixture<lu::ordered_list_set<int, lu::backoff<lu::none_backoff>>>({}));
+    // }
 }

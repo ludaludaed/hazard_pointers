@@ -5,6 +5,7 @@
 #include "typelist.h"
 
 #include <bit>
+#include <memory>
 #include <tuple>
 #include <type_traits>
 #include <utility>
@@ -113,7 +114,7 @@ struct tuple_base<std::index_sequence<Is...>, Ts...> : tuple_unit<Is, Ts>... {
         : tuple_unit<Is, Ts>(std::forward<_Ts>(args))... {}
 
     constexpr void swap(tuple_base &other) {
-        ((tuple_unit<Is, Ts>::swap(other), 0), ...);
+        (tuple_unit<Is, Ts>::swap(other), ...);
     }
 };
 
@@ -199,14 +200,61 @@ private:
 private:
     template<class Args, std::size_t... Indices>
     constexpr compressed_tuple(Args args, std::index_sequence<Indices...>)
-        : base_(std::forward<std::tuple_element_t<Indices, Args>>(std::get<Indices>(args))...) {}
+        : base_(std::forward<std::tuple_element_t<Indices, Args>>(std::get<Indices>(args))...) {
+        (::new (std::bit_cast<get_nth_t<Indices, typelist<Ts...>> *>(&base_)) get_nth_t<Indices, typelist<Ts...>>(
+                 std::forward<std::tuple_element_t<Indices, Args>>(std::get<Indices>(args))),
+         ...);
+    }
 
-public:
-    constexpr compressed_tuple() = default;
+    template<std::size_t... Indices>
+    constexpr void construct_empty_elements(std::index_sequence<Indices...>) {
+        (::new (std::bit_cast<get_nth_t<Indices, typelist<Ts...>> *>(&base_)) get_nth_t<Indices, typelist<Ts...>>(),
+         ...);
+    }
+
+    template<std::size_t... Indices>
+    constexpr void construct_empty_elements(const compressed_tuple &other, std::index_sequence<Indices...>) {
+        (::new (std::bit_cast<get_nth_t<Indices, typelist<Ts...>> *>(&base_)) get_nth_t<Indices, typelist<Ts...>>(
+                 *std::bit_cast<const get_nth_t<Indices, typelist<Ts...>> *>(&other.base_)),
+         ...);
+    }
+
+    template<std::size_t... Indices>
+    constexpr void construct_empty_elements(compressed_tuple &&other, std::index_sequence<Indices...>) {
+        (::new (std::bit_cast<get_nth_t<Indices, Ts> *>(&base_))
+                 get_nth_t<Indices, Ts>(std::move(*std::bit_cast<get_nth_t<Indices, Ts> *>(&other.base_))),
+         ...);
+    }
 
     template<class... _Ts>
+    constexpr void destruct_empty_elements(typelist<_Ts...>) {
+        (std::destroy_at(std::bit_cast<_Ts *>(&base_)), ...);
+    }
+
+public:
+    constexpr compressed_tuple() {
+        construct_empty_elements(empty_indices());
+    }
+
+    template<class... _Ts,
+             class = std::enable_if_t<std::conjunction_v<std::bool_constant<sizeof...(Ts) == sizeof...(_Ts)>,
+                                                         std::is_constructible<Ts, _Ts>...>>>
     constexpr compressed_tuple(_Ts &&...ts)
-        : compressed_tuple(std::forward_as_tuple(std::forward<_Ts>(ts)...), not_empty_indices{}) {}
+        : compressed_tuple(std::forward_as_tuple(std::forward<_Ts>(ts)...), not_empty_indices()) {}
+
+    constexpr compressed_tuple(const compressed_tuple &other)
+        : base_(other.base_) {
+        construct_empty_elements(other, empty_indices());
+    }
+
+    constexpr compressed_tuple(compressed_tuple &&other)
+        : base_(std::move(other.base_)) {
+        construct_empty_elements(std::move(other), empty_indices());
+    }
+
+    constexpr ~compressed_tuple() {
+        destruct_empty_elements(empty_types());
+    }
 
     constexpr void swap(compressed_tuple &other) {
         base_.swap(other.base_);
@@ -217,7 +265,7 @@ public:
     }
 
 private:
-    tuple_base base_;
+    tuple_base base_{};
 };
 
 template<std::size_t I, class... Ts>

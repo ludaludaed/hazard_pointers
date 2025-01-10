@@ -8,7 +8,7 @@
 namespace lu {
 
 template<class... Ts>
-struct typelist;
+struct typelist {};
 
 template<std::size_t I, class T>
 struct get_nth;
