@@ -4,49 +4,21 @@
 #include "intrusive/typelist.h"
 #include "typelist.h"
 
-#include <bit>
-#include <memory>
 #include <tuple>
 #include <type_traits>
 #include <utility>
 
+#if defined(_MSC_VER) && _MSC_VER >= 1900
+#define EMPTY_BASES __declspec(empty_bases)
+#else
+#define EMPTY_BASES
+#endif
 
 namespace lu {
-
 namespace detail {
-
-template<class T>
-struct is_not_empty {
-    static constexpr bool value = !std::is_empty_v<T>;
-};
-
-template<class T>
-struct is_empty {
-    static constexpr bool value = std::is_empty_v<T>;
-};
-
-template<class T1, class T2>
-struct alignment_compare {
-    static constexpr bool value = alignof(T1) > alignof(T2);
-};
 
 template<std::size_t I, class T>
 struct pack;
-
-template<std::size_t I, class T>
-struct is_not_empty<pack<I, T>> {
-    static constexpr bool value = is_not_empty<T>::value;
-};
-
-template<std::size_t I, class T>
-struct is_empty<pack<I, T>> {
-    static constexpr bool value = is_empty<T>::value;
-};
-
-template<std::size_t I1, std::size_t I2, class T1, class T2>
-struct alignment_compare<pack<I1, T1>, pack<I2, T2>> {
-    static constexpr bool value = alignment_compare<T1, T2>::value;
-};
 
 template<class T, template<std::size_t, class> class Pack>
 struct get_indices;
@@ -69,28 +41,56 @@ struct get_types<typelist<Pack<Is, Ts>...>, Pack> {
 template<class T, template<std::size_t, class> class Pack>
 using get_types_t = typename get_types<T, Pack>::type;
 
+template<std::size_t I, class T, bool = !std::is_empty_v<T> || std::is_final_v<T>>
+class EMPTY_BASES tuple_unit;
+
 template<std::size_t I, class T>
-struct tuple_unit {
+class tuple_unit<I, T, true> {
+public:
     constexpr tuple_unit() = default;
 
     template<class _T>
     constexpr tuple_unit(_T &&value)
-        : data(std::forward<_T>(value)) {}
+        : data_(std::forward<_T>(value)) {}
 
     constexpr void swap(tuple_unit &other) {
         using std::swap;
-        swap(data, other.data);
+        swap(data_, other.data_);
     }
 
     constexpr T &get() {
-        return data;
+        return data_;
     }
 
     constexpr const T &get() const {
-        return data;
+        return data_;
     }
 
-    T data;
+private:
+    T data_;
+};
+
+template<std::size_t I, class T>
+class tuple_unit<I, T, false> : private T {
+public:
+    constexpr tuple_unit() = default;
+
+    template<class _T>
+    constexpr tuple_unit(_T &&value)
+        : T(std::forward<_T>(value)) {}
+
+    constexpr void swap(tuple_unit &other) {
+        using std::swap;
+        swap(get(), other.get());
+    }
+
+    constexpr T &get() {
+        return static_cast<T &>(*this);
+    }
+
+    constexpr const T &get() const {
+        return static_cast<const T &>(*this);
+    }
 };
 
 template<class Is, class... Ts>
@@ -104,7 +104,7 @@ struct tuple_base<std::index_sequence<>> {
 };
 
 template<std::size_t... Is, class... Ts>
-struct tuple_base<std::index_sequence<Is...>, Ts...> : tuple_unit<Is, Ts>... {
+struct EMPTY_BASES tuple_base<std::index_sequence<Is...>, Ts...> : tuple_unit<Is, Ts>... {
     static_assert(sizeof...(Is) == sizeof...(Ts), "the number of indexes must be equal to the number of types.");
 
     constexpr tuple_base() = default;
@@ -160,17 +160,20 @@ template<class... Ts>
 class compressed_tuple {
     using original_packs = pack_with_index_t<std::make_index_sequence<sizeof...(Ts)>, typelist<Ts...>, detail::pack>;
 
-    using not_empty_packs = sort_t<select_t<original_packs, detail::is_not_empty>, detail::alignment_compare>;
+    template<class T1, class T2>
+    struct compare;
 
-    using not_empty_indices = detail::get_indices_t<not_empty_packs, detail::pack>;
-    using not_empty_types = detail::get_types_t<not_empty_packs, detail::pack>;
+    template<class T1, std::size_t I1, class T2, std::size_t I2>
+    struct compare<detail::pack<I1, T1>, detail::pack<I2, T2>> {
+        static constexpr bool value = alignof(T1) > alignof(T2);
+    };
 
-    using empty_packs = select_t<original_packs, detail::is_empty>;
+    using compressed_packs = sort_t<original_packs, compare>;
 
-    using empty_indices = detail::get_indices_t<empty_packs, detail::pack>;
-    using empty_types = detail::get_types_t<empty_packs, detail::pack>;
+    using compressed_indices = detail::get_indices_t<compressed_packs, detail::pack>;
+    using compressed_types = detail::get_types_t<compressed_packs, detail::pack>;
 
-    using tuple_base = detail::make_tuple_base_t<not_empty_indices, not_empty_types>;
+    using tuple_base = detail::make_tuple_base_t<compressed_indices, compressed_types>;
 
 private:
     template<std::size_t I, class... _Ts>
@@ -200,56 +203,16 @@ private:
 private:
     template<class Args, std::size_t... Indices>
     constexpr compressed_tuple(Args args, std::index_sequence<Indices...>)
-        : base_(std::forward<std::tuple_element_t<Indices, Args>>(std::get<Indices>(args))...) {
-        (::new (std::bit_cast<get_nth_t<Indices, typelist<Ts...>> *>(&base_)) get_nth_t<Indices, typelist<Ts...>>(
-                 std::forward<std::tuple_element_t<Indices, Args>>(std::get<Indices>(args))),
-         ...);
-    }
-
-    template<class... _Ts>
-    constexpr void construct_empty_elements(typelist<_Ts...>) {
-        (::new (std::bit_cast<_Ts *>(&base_)) _Ts(), ...);
-    }
-
-    template<class... _Ts>
-    constexpr void construct_empty_elements(const compressed_tuple &other, typelist<_Ts...>) {
-        (::new (std::bit_cast<_Ts *>(&base_)) _Ts(*std::bit_cast<const _Ts *>(&other.base_)), ...);
-    }
-
-    template<class... _Ts>
-    constexpr void construct_empty_elements(compressed_tuple &&other, typelist<_Ts...>) {
-        (::new (std::bit_cast<_Ts *>(&base_)) _Ts(std::move(*std::bit_cast<_Ts *>(&other.base_))), ...);
-    }
-
-    template<class... _Ts>
-    constexpr void destruct_empty_elements(typelist<_Ts...>) {
-        (std::destroy_at(std::bit_cast<_Ts *>(&base_)), ...);
-    }
+        : base_(std::forward<std::tuple_element_t<Indices, Args>>(std::get<Indices>(args))...) {}
 
 public:
-    constexpr compressed_tuple() {
-        construct_empty_elements(empty_types());
-    }
+    constexpr compressed_tuple() = default;
 
     template<class... _Ts,
              class = std::enable_if_t<std::conjunction_v<std::bool_constant<sizeof...(Ts) == sizeof...(_Ts)>,
                                                          std::is_constructible<Ts, _Ts>...>>>
     constexpr compressed_tuple(_Ts &&...ts)
-        : compressed_tuple(std::forward_as_tuple(std::forward<_Ts>(ts)...), not_empty_indices()) {}
-
-    constexpr compressed_tuple(const compressed_tuple &other)
-        : base_(other.base_) {
-        construct_empty_elements(other, empty_types());
-    }
-
-    constexpr compressed_tuple(compressed_tuple &&other)
-        : base_(std::move(other.base_)) {
-        construct_empty_elements(std::move(other), empty_types());
-    }
-
-    constexpr ~compressed_tuple() {
-        destruct_empty_elements(empty_types());
-    }
+        : compressed_tuple(std::forward_as_tuple(std::forward<_Ts>(ts)...), compressed_indices()) {}
 
     constexpr void swap(compressed_tuple &other) {
         base_.swap(other.base_);
@@ -260,55 +223,39 @@ public:
     }
 
 private:
-    tuple_base base_{};
+    tuple_base base_;
 };
 
 template<std::size_t I, class... Ts>
 constexpr tuple_element_t<I, compressed_tuple<Ts...>> &get(compressed_tuple<Ts...> &tuple) {
     using tuple_element = tuple_element_t<I, compressed_tuple<Ts...>>;
     using tuple_unit = detail::tuple_unit<I, tuple_element>;
-    if constexpr (std::is_empty_v<tuple_element>) {
-        auto ptr = std::bit_cast<tuple_element *>(&tuple.base_);
-        return static_cast<tuple_element &>(*ptr);
-    } else {
-        return static_cast<tuple_unit &>(tuple.base_).get();
-    }
+
+    return static_cast<tuple_unit &>(tuple.base_).get();
 }
 
 template<std::size_t I, class... Ts>
 constexpr tuple_element_t<I, compressed_tuple<Ts...>> &&get(compressed_tuple<Ts...> &&tuple) {
     using tuple_element = tuple_element_t<I, compressed_tuple<Ts...>>;
     using tuple_unit = detail::tuple_unit<I, tuple_element>;
-    if constexpr (std::is_empty_v<tuple_element>) {
-        auto ptr = std::bit_cast<tuple_element *>(&tuple.base_);
-        return static_cast<tuple_element &&>(*ptr);
-    } else {
-        return static_cast<tuple_element &&>(static_cast<tuple_unit &>(tuple.base_).get());
-    }
+
+    return static_cast<tuple_element &&>(static_cast<tuple_unit &>(tuple.base_).get());
 }
 
 template<std::size_t I, class... Ts>
 constexpr const tuple_element_t<I, compressed_tuple<Ts...>> &get(const compressed_tuple<Ts...> &tuple) {
     using tuple_element = tuple_element_t<I, compressed_tuple<Ts...>>;
     using tuple_unit = detail::tuple_unit<I, tuple_element>;
-    if constexpr (std::is_empty_v<tuple_element>) {
-        auto ptr = std::bit_cast<const tuple_element *>(&tuple.base_);
-        return static_cast<const tuple_element &>(*ptr);
-    } else {
-        return static_cast<const tuple_unit &>(tuple.base_).get();
-    }
+
+    return static_cast<const tuple_unit &>(tuple.base_).get();
 }
 
 template<std::size_t I, class... Ts>
 constexpr const tuple_element_t<I, compressed_tuple<Ts...>> &&get(const compressed_tuple<Ts...> &&tuple) {
     using tuple_element = tuple_element_t<I, compressed_tuple<Ts...>>;
     using tuple_unit = detail::tuple_unit<I, tuple_element>;
-    if constexpr (std::is_empty_v<tuple_element>) {
-        auto ptr = std::bit_cast<const tuple_element *>(&tuple.base_);
-        return static_cast<const tuple_element &&>(*ptr);
-    } else {
-        return static_cast<const tuple_element &&>(static_cast<const tuple_unit &>(tuple.base_).get());
-    }
+
+    return static_cast<const tuple_element &&>(static_cast<const tuple_unit &>(tuple.base_).get());
 }
 
 template<class T, class... Ts>

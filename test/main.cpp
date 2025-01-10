@@ -292,84 +292,36 @@ private:
 
 #include <intrusive/compressed_tuple.h>
 
+template<std::size_t I>
 struct Empty {};
-
-struct Empty2 {};
-
-template<class T>
-struct is_not_empty {
-    static constexpr bool value = !std::is_empty_v<T>;
-};
-
-template<class T1, class T2>
-struct Compare {
-    static constexpr bool value = alignof(T1) > alignof(T2);
-};
-
-struct Observable {
-    Observable() {
-        std::cout << "Default ctor" << std::endl;
-    }
-
-    Observable(const Observable &) {
-        std::cout << "Copy ctor" << std::endl;
-    }
-
-    Observable(Observable &&) {
-        std::cout << "Move ctor" << std::endl;
-    }
-
-    ~Observable() {
-        std::cout << "Destructor" << std::endl;
-    }
-
-    std::size_t s;
-};
-
-struct EmptyObservable {
-    EmptyObservable() {
-        std::cout << "Default ctor" << std::endl;
-    }
-
-    EmptyObservable(const EmptyObservable &) {
-        std::cout << "Copy ctor" << std::endl;
-    }
-
-    EmptyObservable(EmptyObservable &&) {
-        std::cout << "Move ctor" << std::endl;
-    }
-
-    ~EmptyObservable() {
-        std::cout << "Destructor" << std::endl;
-    }
-};
-
 
 int main() {
 
-    // lu::compressed_tuple<Empty, Empty, int, double, Empty, int64_t, Empty2, double, Empty, Empty, Empty, Empty, Empty,
-    //                      Empty, Empty, Empty, Empty, Empty, Empty, Empty>
-    //         ct;
-    // std::tuple<Empty, Empty, int, double, Empty, int64_t, Empty2, double, Empty, Empty, Empty, Empty, Empty, Empty,
-    //            Empty, Empty, Empty, Empty, Empty, Empty>
-    //         t;
+    lu::compressed_tuple<Empty<0>, Empty<1>, char, int, Empty<2>, long long, Empty<3>, Empty<4>, Empty<5>, Empty<6>,
+                         Empty<7>, Empty<8>, Empty<9>, Empty<10>, Empty<11>, std::array<long long, 2>>
+            ct;
+    std::tuple<Empty<0>, Empty<1>, char, int, Empty<2>, long long, Empty<3>, Empty<4>, Empty<5>, Empty<6>, Empty<7>,
+               Empty<8>, Empty<9>, Empty<10>, Empty<11>, std::array<long long, 2>>
+            t;
 
-    // std::cout << sizeof(ct) << std::endl << sizeof(t) << std::endl;
+    struct res {
+        std::array<long long, 2> a;
+        long long b;
+        int c;
+        char d;
+    };
 
-    // auto &&e0 = lu::get<0>(ct);
-    // auto &&e1 = lu::get<1>(std::move(ct));
-    // auto &&e2 = lu::get<2>((const decltype(ct) &) ct);
-    // auto &&e3 = lu::get<3>(std::move((const decltype(ct) &) ct));
+    std::cout << sizeof(ct) << std::endl << sizeof(t) << std::endl << sizeof(res) << std::endl;
 
-    // auto &&e_int = lu::get<int>(ct);
-    // auto &&e_int_rvalue = lu::get<int>(std::move(ct));
-    // auto &&e_int_const = lu::get<int>((const decltype(ct) &) ct);
-    // auto &&e_int_rvalue_const = lu::get<int>(std::move((const decltype(ct) &) ct));
+    auto &&e0 = lu::get<0>(ct);
+    auto &&e1 = lu::get<1>(std::move(ct));
+    auto &&e2 = lu::get<2>((const decltype(ct) &) ct);
+    auto &&e3 = lu::get<3>(std::move((const decltype(ct) &) ct));
 
-    lu::compressed_tuple<EmptyObservable> ct;
-
-    lu::compressed_tuple<EmptyObservable> oct(ct);
-    lu::compressed_tuple<EmptyObservable> mct(std::move(oct));
+    auto &&e_int = lu::get<int>(ct);
+    auto &&e_int_rvalue = lu::get<int>(std::move(ct));
+    auto &&e_int_const = lu::get<int>((const decltype(ct) &) ct);
+    auto &&e_int_rvalue_const = lu::get<int>(std::move((const decltype(ct) &) ct));
 
     // for (int i = 0; i < 1000; ++i) {
     //     std::cout << "iteration: #" << i << std::endl;
