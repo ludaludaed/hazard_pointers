@@ -331,15 +331,11 @@ struct EmptyObservable {
         std::cout << "Default ctor" << std::endl;
     }
 
-    EmptyObservable(const Observable &) {
+    EmptyObservable(const EmptyObservable &) {
         std::cout << "Copy ctor" << std::endl;
     }
 
-    EmptyObservable(int) {
-        std::cout << "Copy ctor" << std::endl;
-    }
-
-    EmptyObservable(Observable &&) {
+    EmptyObservable(EmptyObservable &&) {
         std::cout << "Move ctor" << std::endl;
     }
 
@@ -373,6 +369,7 @@ int main() {
     lu::compressed_tuple<EmptyObservable> ct;
 
     lu::compressed_tuple<EmptyObservable> oct(ct);
+    lu::compressed_tuple<EmptyObservable> mct(std::move(oct));
 
     // for (int i = 0; i < 1000; ++i) {
     //     std::cout << "iteration: #" << i << std::endl;

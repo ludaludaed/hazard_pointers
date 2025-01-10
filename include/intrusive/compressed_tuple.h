@@ -206,24 +206,19 @@ private:
          ...);
     }
 
-    template<std::size_t... Indices>
-    constexpr void construct_empty_elements(std::index_sequence<Indices...>) {
-        (::new (std::bit_cast<get_nth_t<Indices, typelist<Ts...>> *>(&base_)) get_nth_t<Indices, typelist<Ts...>>(),
-         ...);
+    template<class... _Ts>
+    constexpr void construct_empty_elements(typelist<_Ts...>) {
+        (::new (std::bit_cast<_Ts *>(&base_)) _Ts(), ...);
     }
 
-    template<std::size_t... Indices>
-    constexpr void construct_empty_elements(const compressed_tuple &other, std::index_sequence<Indices...>) {
-        (::new (std::bit_cast<get_nth_t<Indices, typelist<Ts...>> *>(&base_)) get_nth_t<Indices, typelist<Ts...>>(
-                 *std::bit_cast<const get_nth_t<Indices, typelist<Ts...>> *>(&other.base_)),
-         ...);
+    template<class... _Ts>
+    constexpr void construct_empty_elements(const compressed_tuple &other, typelist<_Ts...>) {
+        (::new (std::bit_cast<_Ts *>(&base_)) _Ts(*std::bit_cast<const _Ts *>(&other.base_)), ...);
     }
 
-    template<std::size_t... Indices>
-    constexpr void construct_empty_elements(compressed_tuple &&other, std::index_sequence<Indices...>) {
-        (::new (std::bit_cast<get_nth_t<Indices, Ts> *>(&base_))
-                 get_nth_t<Indices, Ts>(std::move(*std::bit_cast<get_nth_t<Indices, Ts> *>(&other.base_))),
-         ...);
+    template<class... _Ts>
+    constexpr void construct_empty_elements(compressed_tuple &&other, typelist<_Ts...>) {
+        (::new (std::bit_cast<_Ts *>(&base_)) _Ts(std::move(*std::bit_cast<_Ts *>(&other.base_))), ...);
     }
 
     template<class... _Ts>
@@ -233,7 +228,7 @@ private:
 
 public:
     constexpr compressed_tuple() {
-        construct_empty_elements(empty_indices());
+        construct_empty_elements(empty_types());
     }
 
     template<class... _Ts,
@@ -244,12 +239,12 @@ public:
 
     constexpr compressed_tuple(const compressed_tuple &other)
         : base_(other.base_) {
-        construct_empty_elements(other, empty_indices());
+        construct_empty_elements(other, empty_types());
     }
 
     constexpr compressed_tuple(compressed_tuple &&other)
         : base_(std::move(other.base_)) {
-        construct_empty_elements(std::move(other), empty_indices());
+        construct_empty_elements(std::move(other), empty_types());
     }
 
     constexpr ~compressed_tuple() {
