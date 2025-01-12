@@ -26,6 +26,17 @@ struct get_nth<I, typelist<T, Ts...>> {
 template<std::size_t I, class T>
 using get_nth_t = typename get_nth<I, T>::type;
 
+template<class T>
+struct get_first;
+
+template<class T, class... Ts>
+struct get_first<typelist<T, Ts...>> {
+    using type = T;
+};
+
+template<class T>
+using get_first_t = typename get_first<T>::type;
+
 template<std::size_t I, class T, class U>
 struct find_index;
 

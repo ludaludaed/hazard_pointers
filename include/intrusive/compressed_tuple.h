@@ -49,13 +49,15 @@ class tuple_unit<I, T, true> {
 public:
     constexpr tuple_unit() = default;
 
-    template<class _T>
+    template<class _T, class = std::enable_if_t<std::conjunction_v<
+                               std::bool_constant<!std::is_same_v<std::remove_cvref_t<_T>, tuple_unit>>,
+                               std::is_constructible<T, _T>>>>
     constexpr tuple_unit(_T &&value)
         : data_(std::forward<_T>(value)) {}
 
     constexpr void swap(tuple_unit &other) {
         using std::swap;
-        swap(data_, other.data_);
+        swap(get(), other.get());
     }
 
     constexpr T &get() {
@@ -75,7 +77,9 @@ class tuple_unit<I, T, false> : private T {
 public:
     constexpr tuple_unit() = default;
 
-    template<class _T>
+    template<class _T, class = std::enable_if_t<std::conjunction_v<
+                               std::bool_constant<!std::is_same_v<std::remove_cvref_t<_T>, tuple_unit>>,
+                               std::is_constructible<T, _T>>>>
     constexpr tuple_unit(_T &&value)
         : T(std::forward<_T>(value)) {}
 
@@ -175,6 +179,16 @@ class compressed_tuple {
 
     using tuple_base = detail::make_tuple_base_t<compressed_indices, compressed_types>;
 
+    template<class... _Ts>
+    struct is_this_tuple {
+        static constexpr bool value = false;
+    };
+
+    template<class _T>
+    struct is_this_tuple<_T> {
+        static constexpr bool value = std::is_same_v<std::remove_cvref_t<_T>, compressed_tuple>;
+    };
+
 private:
     template<std::size_t I, class... _Ts>
     friend constexpr tuple_element_t<I, compressed_tuple<_Ts...>> &get(compressed_tuple<_Ts...> &);
@@ -210,8 +224,8 @@ public:
 
     template<class... _Ts,
              class = std::enable_if_t<std::conjunction_v<std::bool_constant<sizeof...(Ts) == sizeof...(_Ts)>,
-                                                         std::is_constructible<Ts, _Ts>...>>>
-    constexpr compressed_tuple(_Ts &&...ts)
+                                                         std::negation<is_this_tuple<_Ts...>>>>>
+    constexpr explicit(std::negation_v<std::conjunction<std::is_convertible<_Ts, Ts>...>>) compressed_tuple(_Ts &&...ts)
         : compressed_tuple(std::forward_as_tuple(std::forward<_Ts>(ts)...), compressed_indices()) {}
 
     constexpr void swap(compressed_tuple &other) {
@@ -230,7 +244,6 @@ template<std::size_t I, class... Ts>
 constexpr tuple_element_t<I, compressed_tuple<Ts...>> &get(compressed_tuple<Ts...> &tuple) {
     using tuple_element = tuple_element_t<I, compressed_tuple<Ts...>>;
     using tuple_unit = detail::tuple_unit<I, tuple_element>;
-
     return static_cast<tuple_unit &>(tuple.base_).get();
 }
 
@@ -238,15 +251,13 @@ template<std::size_t I, class... Ts>
 constexpr tuple_element_t<I, compressed_tuple<Ts...>> &&get(compressed_tuple<Ts...> &&tuple) {
     using tuple_element = tuple_element_t<I, compressed_tuple<Ts...>>;
     using tuple_unit = detail::tuple_unit<I, tuple_element>;
-
-    return static_cast<tuple_element &&>(static_cast<tuple_unit &>(tuple.base_).get());
+    return std::move(static_cast<tuple_unit &>(tuple.base_).get());
 }
 
 template<std::size_t I, class... Ts>
 constexpr const tuple_element_t<I, compressed_tuple<Ts...>> &get(const compressed_tuple<Ts...> &tuple) {
     using tuple_element = tuple_element_t<I, compressed_tuple<Ts...>>;
     using tuple_unit = detail::tuple_unit<I, tuple_element>;
-
     return static_cast<const tuple_unit &>(tuple.base_).get();
 }
 
@@ -255,7 +266,7 @@ constexpr const tuple_element_t<I, compressed_tuple<Ts...>> &&get(const compress
     using tuple_element = tuple_element_t<I, compressed_tuple<Ts...>>;
     using tuple_unit = detail::tuple_unit<I, tuple_element>;
 
-    return static_cast<const tuple_element &&>(static_cast<const tuple_unit &>(tuple.base_).get());
+    return std::move(static_cast<const tuple_unit &>(tuple.base_).get());
 }
 
 template<class T, class... Ts>
