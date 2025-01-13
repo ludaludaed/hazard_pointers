@@ -2,8 +2,8 @@
 #define __INTRUSIVE_SLIST_H__
 
 #include "base_value_traits.h"
-#include "empty_base_holder.h"
 #include "generic_hook.h"
+#include "compressed_tuple.h"
 #include "size_traits.h"
 
 #include <algorithm>
@@ -366,12 +366,7 @@ private:
 };
 
 template<class ValueTraits, class SizeType>
-class IntrusiveSlist : private EmptyBaseHolder<ValueTraits>,
-                       private EmptyBaseHolder<SizeTraits<SizeType, !ValueTraits::is_auto_unlink>> {
-private:
-    using ValueTraitsHolder = EmptyBaseHolder<ValueTraits>;
-    using SizeTraitsHolder = EmptyBaseHolder<SizeTraits<SizeType, !ValueTraits::is_auto_unlink>>;
-
+class IntrusiveSlist {
     using SizeTraits = SizeTraits<SizeType, !ValueTraits::is_auto_unlink>;
     using Algo = CircularSlistAlgo<typename ValueTraits::node_traits>;
 
@@ -398,15 +393,26 @@ public:
 
     using value_traits_ptr = const value_traits *;
 
+private:
+    struct NilNodeHolder {
+        friend void swap(NilNodeHolder &left, NilNodeHolder &right) {
+            auto left_node = std::pointer_traits<node_ptr>::pointer_to(left.nil_node);
+            auto right_node = std::pointer_traits<node_ptr>::pointer_to(right.nil_node);
+            Algo::swap_nodes(left_node, right_node);
+        }
+
+        node nil_node;
+    };
+
 public:
     explicit IntrusiveSlist(const value_traits &value_traits = {})
-        : ValueTraitsHolder(value_traits) {
+        : data_(NilNodeHolder{}, value_traits, SizeTraits{}) {
         Construct();
     }
 
     template<class Iterator>
     IntrusiveSlist(Iterator begin, Iterator end, const value_traits &value_traits = {})
-        : ValueTraitsHolder(value_traits) {
+        : data_(NilNodeHolder{}, value_traits, SizeTraits{}) {
         Construct();
         insert_after(before_begin(), begin, end);
     }
@@ -436,11 +442,11 @@ private:
     }
 
     inline value_traits_ptr GetValueTraitsPtr() const noexcept {
-        return std::pointer_traits<value_traits_ptr>::pointer_to(ValueTraitsHolder::get());
+        return std::pointer_traits<value_traits_ptr>::pointer_to(lu::get<ValueTraits>(data_));
     }
 
     node_ptr GetNilPtr() const noexcept {
-        return Algo::get_end(std::pointer_traits<const_node_ptr>::pointer_to(nil_node_));
+        return Algo::get_end(std::pointer_traits<const_node_ptr>::pointer_to(lu::get<NilNodeHolder>(data_).nil_node));
     }
 
     node_ptr GetEnd() const noexcept {
@@ -457,31 +463,31 @@ private:
 
     size_type GetSize() const noexcept {
         if constexpr (SizeTraits::is_tracking_size) {
-            return SizeTraitsHolder::get().get_size();
+            return lu::get<SizeTraits>(data_).get_size();
         } else {
             return Algo::count(GetNilPtr()) - 1;
         }
     }
 
     void SetSize(size_type new_size) noexcept {
-        return SizeTraitsHolder::get().set_size(new_size);
+        return lu::get<SizeTraits>(data_).set_size(new_size);
     }
 
     node_ptr InsertAfter(node_ptr prev, node_ptr new_node) noexcept {
         Algo::link_after(prev, new_node);
-        SizeTraitsHolder::get().increment();
+        lu::get<SizeTraits>(data_).increment();
         return new_node;
     }
 
     node_ptr EraseAfter(node_ptr prev) noexcept {
         Algo::unlink_after(prev);
-        SizeTraitsHolder::get().decrement();
+        lu::get<SizeTraits>(data_).decrement();
         return node_traits::get_next(prev);
     }
 
     node_ptr EraseAfter(node_ptr before_first, node_ptr last) noexcept {
         size_t count = Algo::unlink_after(before_first, last);
-        SizeTraitsHolder::get().decrease(count);
+        lu::get<SizeTraits>(data_).decrease(count);
         return last;
     }
 
@@ -489,8 +495,8 @@ private:
         if constexpr (SizeTraits::is_tracking_size) {
             size_type distance(Algo::distance(node_traits::get_next(before_first), node_traits::get_next(before_last)));
 
-            other.SizeTraits::get().decrease(distance);
-            SizeTraits::get().increase(distance);
+            lu::get<SizeTraits>(other.data_).decrease(distance);
+            lu::get<SizeTraits>(data_).increase(distance);
         }
         Algo::transfer_after(where, before_first, before_last);
     }
@@ -505,7 +511,7 @@ private:
 
     template<class Comp>
     void Sort(Comp &&comp) {
-        const value_traits &_value_traits = ValueTraitsHolder::get();
+        const value_traits &_value_traits = lu::get<ValueTraits>(data_);
         auto node_comp = [&_value_traits, &comp](node_ptr left, node_ptr right) {
             return comp(*_value_traits.to_value_ptr(left), *_value_traits.to_value_ptr(right));
         };
@@ -519,7 +525,7 @@ private:
             SetSize(new_size);
             other.SetSize(0);
         }
-        const value_traits &_value_traits = ValueTraitsHolder::get();
+        const value_traits &_value_traits = lu::get<ValueTraits>(data_);
         auto node_comp = [&_value_traits, &comp](node_ptr left, node_ptr right) {
             return comp(*_value_traits.to_value_ptr(left), *_value_traits.to_value_ptr(right));
         };
@@ -572,17 +578,17 @@ public:
     }
 
     reference front() noexcept {
-        const value_traits &_value_traits = ValueTraitsHolder::get();
+        const value_traits &_value_traits = lu::get<ValueTraits>(data_);
         return *_value_traits.to_value_ptr(GetFirst());
     }
 
     const_reference front() const noexcept {
-        const value_traits &_value_traits = ValueTraitsHolder::get();
+        const value_traits &_value_traits = lu::get<ValueTraits>(data_);
         return *_value_traits.to_value_ptr(GetFirst());
     }
 
     void push_front(reference value) noexcept {
-        const value_traits &_value_traits = ValueTraitsHolder::get();
+        const value_traits &_value_traits = lu::get<ValueTraits>(data_);
         InsertAfter(GetNilPtr(), _value_traits.to_node_ptr(value));
     }
 
@@ -591,7 +597,7 @@ public:
     }
 
     iterator insert_after(const_iterator before, reference value) noexcept {
-        const value_traits &_value_traits = ValueTraitsHolder::get();
+        const value_traits &_value_traits = lu::get<ValueTraits>(data_);
         node_ptr position = before.current_node_;
         node_ptr new_node = _value_traits.to_node_ptr(value);
         InsertAfter(position, new_node);
@@ -624,9 +630,7 @@ public:
     }
 
     void swap(IntrusiveSlist &other) noexcept {
-        Algo::swap_nodes(GetNilPtr(), other.GetNilPtr());
-        std::swap(ValueTraitsHolder::get(), other.ValueTraitsHolder::get());
-        std::swap(SizeTraitsHolder::get(), other.SizeTraitsHolder::get());
+        data_.swap(other.data_);
     }
 
     void splice_after(const_iterator position, IntrusiveSlist &other) noexcept {
@@ -794,7 +798,7 @@ public:
     }
 
 private:
-    node nil_node_;
+    lu::compressed_tuple<NilNodeHolder, ValueTraits, SizeTraits> data_;
 };
 
 struct DefaultSlistHookApplier {
