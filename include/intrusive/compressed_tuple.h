@@ -49,9 +49,9 @@ class tuple_unit<I, T, true> {
 public:
     constexpr tuple_unit() = default;
 
-    template<class _T, class = std::enable_if_t<std::conjunction_v<
-                               std::bool_constant<!std::is_same_v<std::remove_cvref_t<_T>, tuple_unit>>,
-                               std::is_constructible<T, _T>>>>
+    template<class _T,
+             class = std::enable_if_t<std::conjunction_v<
+                     std::negation<std::is_same<std::remove_cvref_t<_T>, tuple_unit>>, std::is_constructible<T, _T>>>>
     constexpr tuple_unit(_T &&value)
         : data_(std::forward<_T>(value)) {}
 
@@ -77,9 +77,9 @@ class tuple_unit<I, T, false> : private T {
 public:
     constexpr tuple_unit() = default;
 
-    template<class _T, class = std::enable_if_t<std::conjunction_v<
-                               std::bool_constant<!std::is_same_v<std::remove_cvref_t<_T>, tuple_unit>>,
-                               std::is_constructible<T, _T>>>>
+    template<class _T,
+             class = std::enable_if_t<std::conjunction_v<
+                     std::negation<std::is_same<std::remove_cvref_t<_T>, tuple_unit>>, std::is_constructible<T, _T>>>>
     constexpr tuple_unit(_T &&value)
         : T(std::forward<_T>(value)) {}
 
