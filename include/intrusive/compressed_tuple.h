@@ -51,7 +51,7 @@ public:
 
     template<class _T,
              class = std::enable_if_t<std::conjunction_v<
-                     std::negation<std::is_same<std::remove_cvref_t<_T>, tuple_unit>>, std::is_constructible<T, _T>>>>
+                     std::is_constructible<T, _T>, std::negation<std::is_same<std::remove_cvref_t<_T>, tuple_unit>>>>>
     constexpr tuple_unit(_T &&value)
         : data_(std::forward<_T>(value)) {}
 
@@ -79,7 +79,7 @@ public:
 
     template<class _T,
              class = std::enable_if_t<std::conjunction_v<
-                     std::negation<std::is_same<std::remove_cvref_t<_T>, tuple_unit>>, std::is_constructible<T, _T>>>>
+                     std::is_constructible<T, _T>, std::negation<std::is_same<std::remove_cvref_t<_T>, tuple_unit>>>>>
     constexpr tuple_unit(_T &&value)
         : T(std::forward<_T>(value)) {}
 
@@ -222,9 +222,9 @@ private:
 public:
     constexpr compressed_tuple() = default;
 
-    template<class... _Ts,
-             class = std::enable_if_t<std::conjunction_v<std::bool_constant<sizeof...(Ts) == sizeof...(_Ts)>,
-                                                         std::negation<is_this_tuple<_Ts...>>>>>
+    template<class... _Ts, class = std::enable_if_t<std::conjunction_v<
+                                   std::bool_constant<sizeof...(Ts) == sizeof...(_Ts)>,
+                                   std::is_constructible<Ts, _Ts>..., std::negation<is_this_tuple<_Ts...>>>>>
     constexpr explicit(std::negation_v<std::conjunction<std::is_convertible<_Ts, Ts>...>>) compressed_tuple(_Ts &&...ts)
         : compressed_tuple(std::forward_as_tuple(std::forward<_Ts>(ts)...), compressed_indices()) {}
 
