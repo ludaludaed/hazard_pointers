@@ -265,7 +265,6 @@ template<std::size_t I, class... Ts>
 constexpr const tuple_element_t<I, compressed_tuple<Ts...>> &&get(const compressed_tuple<Ts...> &&tuple) {
     using tuple_element = tuple_element_t<I, compressed_tuple<Ts...>>;
     using tuple_unit = detail::tuple_unit<I, tuple_element>;
-
     return std::move(static_cast<const tuple_unit &>(tuple.base_).get());
 }
 
