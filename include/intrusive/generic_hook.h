@@ -64,10 +64,6 @@ public:
         return !NodeAlgo::unique(as_node_ptr());
     }
 
-    bool unique() const noexcept {
-        return NodeAlgo::unique(as_node_ptr());
-    }
-
     void unlink() noexcept {
         node_ptr this_ptr = as_node_ptr();
         if (!NodeAlgo::unique(this_ptr)) {

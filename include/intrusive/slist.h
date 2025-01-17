@@ -36,10 +36,6 @@ public:
         node_traits::set_next(this_node, node_ptr{});
     }
 
-    static bool is_empty(const_node_ptr this_node) noexcept {
-        return this_node == node_traits::get_next(this_node);
-    }
-
     static bool is_linked(const_node_ptr this_node) {
         return !unique(this_node);
     }
