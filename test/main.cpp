@@ -323,8 +323,8 @@ int main() {
     auto &&e_int_const = lu::get<int>((const decltype(ct) &) ct);
     auto &&e_int_rvalue_const = lu::get<int>(std::move((const decltype(ct) &) ct));
 
-    // for (int i = 0; i < 1000; ++i) {
-    //     std::cout << "iteration: #" << i << std::endl;
-    //     abstractStressTest(SetFixture<lu::ordered_list_set<int, lu::backoff<lu::none_backoff>>>({}));
-    // }
+    for (int i = 0; i < 1000; ++i) {
+        std::cout << "iteration: #" << i << std::endl;
+        abstractStressTest(SetFixture<lu::ordered_list_set<int, lu::backoff<lu::none_backoff>>>({}));
+    }
 }

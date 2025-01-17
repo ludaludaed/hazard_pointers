@@ -560,7 +560,7 @@ private:
     using KeyEqualHolder = EmptyBaseHolder<KeyEqual>;
     using SizeTraitsHolder = EmptyBaseHolder<SizeTraits<SizeType, !ValueTraits::is_auto_unlink>>;
 
-    using SizeTraits = SizeTraits<SizeType, !ValueTraits::is_auto_unlink>;
+    using size_traits = SizeTraits<SizeType, !ValueTraits::is_auto_unlink>;
     using Algo = HashtableAlgo<typename ValueTraits::node_traits>;
 
 public:
@@ -582,7 +582,7 @@ public:
     using difference_type = typename std::pointer_traits<pointer>::difference_type;
     using size_type = SizeType;
 
-    using node_type = typename node_traits::node;
+    using node = typename node_traits::node;
     using node_ptr = typename node_traits::node_ptr;
     using const_node_ptr = typename node_traits::const_node_ptr;
 
@@ -691,7 +691,7 @@ private:
     }
 
     size_type GetSize() const noexcept {
-        if constexpr (SizeTraits::is_tracking_size) {
+        if constexpr (size_traits::is_tracking_size) {
             return SizeTraitsHolder::get().get_size();
         } else {
             return Algo::count(GetNilPtr()) - 1;
@@ -1149,7 +1149,7 @@ public:
     }
 
 private:
-    node_type nil_node_{};
+    node nil_node_{};
 };
 
 template<class HookType>
