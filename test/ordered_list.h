@@ -424,7 +424,7 @@ template<class KeyType, class ValueType>
 struct MapKeySelect {
     using type = KeyType;
 
-    const KeyType &operator()(const std::pair<KeyType, ValueType> &value) {
+    const KeyType &operator()(const std::pair<KeyType, ValueType> &value) const {
         return value.first;
     }
 };
@@ -433,8 +433,8 @@ template<class KeyType>
 struct SetKeySelect {
     using type = KeyType;
 
-    template<class T, class = std::enable_if_t<std::is_same_v<std::decay_t<T>, KeyType>>>
-    T &&operator()(T &&value) {
+    template<class T, class = std::enable_if_t<std::is_same_v<std::remove_cvref_t<T>, KeyType>>>
+    T &&operator()(T &&value) const {
         return std::forward<T>(value);
     }
 };
