@@ -155,18 +155,20 @@ private:
 };
 
 template<class NodeTraits>
-class HashtableAlgo {
-public:
-    using node = typename NodeTraits::node;
-    using node_ptr = typename NodeTraits::node_ptr;
-    using const_node_ptr = typename NodeTraits::const_node_ptr;
-
+struct HashtableAlgo {
     using node_traits = NodeTraits;
 
-public:
+    using node = typename node_traits::node;
+    using node_ptr = typename node_traits::node_ptr;
+    using const_node_ptr = typename node_traits::const_node_ptr;
+
     static void init(node_ptr this_node) noexcept {
         node_traits::set_next(this_node, node_ptr{});
         node_traits::set_prev(this_node, node_ptr{});
+    }
+
+    static bool inited(const_node_ptr this_node) noexcept {
+        return !node_traits::get_prev(this_node) && !node_traits::get_next(this_node);
     }
 
     static bool unique(const_node_ptr this_node) noexcept {
@@ -176,7 +178,7 @@ public:
     }
 
     static bool is_linked(const_node_ptr this_node) {
-        return !unique(this_node);
+        return !inited(this_node);
     }
 
     static node_ptr get_end(const_node_ptr) noexcept {
@@ -214,7 +216,7 @@ public:
     }
 
     static void unlink(node_ptr this_node) noexcept {
-        if (unique(this_node)) {
+        if (inited(this_node)) {
             return;
         }
 
@@ -260,7 +262,7 @@ public:
     static void link(node_ptr head, node_ptr bucket, node_ptr new_node) noexcept {
         node_ptr first_node = node_traits::get_next(bucket);
         if (!first_node) {
-            if (!unique(head)) {
+            if (!inited(head)) {
                 node_ptr prev_head_next = node_traits::get_next(head);
                 node_ptr prev_head_bucket = node_traits::get_prev(prev_head_next);
 
@@ -1117,7 +1119,7 @@ public:
     }
 
     bool empty() const noexcept {
-        return Algo::unique(GetNilPtr());
+        return Algo::inited(GetNilPtr());
     }
 
 public:

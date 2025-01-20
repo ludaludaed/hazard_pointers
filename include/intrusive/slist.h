@@ -19,15 +19,13 @@ namespace lu {
 namespace detail {
 
 template<class NodeTraits>
-class CircularSlistAlgo {
-public:
-    using node = typename NodeTraits::node;
-    using node_ptr = typename NodeTraits::node_ptr;
-    using const_node_ptr = typename NodeTraits::const_node_ptr;
-
+struct CircularSlistAlgo {
     using node_traits = NodeTraits;
 
-public:
+    using node = typename node_traits::node;
+    using node_ptr = typename node_traits::node_ptr;
+    using const_node_ptr = typename node_traits::const_node_ptr;
+
     static void init_head(node_ptr this_node) noexcept {
         node_traits::set_next(this_node, this_node);
     }
@@ -36,7 +34,11 @@ public:
         node_traits::set_next(this_node, node_ptr{});
     }
 
-    static bool is_linked(const_node_ptr this_node) {
+    static bool inited(const_node_ptr this_node) noexcept {
+        return !node_traits::get_next(this_node);
+    }
+
+    static bool is_linked(const_node_ptr this_node) noexcept {
         return !unique(this_node);
     }
 

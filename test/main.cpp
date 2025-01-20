@@ -323,6 +323,12 @@ int main() {
     auto &&e_int_const = lu::get<int>((const decltype(ct) &) ct);
     auto &&e_int_rvalue_const = lu::get<int>(std::move((const decltype(ct) &) ct));
 
+    lu::compressed_tuple<int, char, double> tp(0, 'a', 0.001);
+
+    std::cout << lu::get<int>(tp) << " " << lu::get<0>(tp) << std::endl;
+    std::cout << lu::get<char>(tp) << " " << lu::get<1>(tp) << std::endl;
+    std::cout << lu::get<double>(tp) << " " << lu::get<2>(tp) << std::endl;
+
     for (int i = 0; i < 1000; ++i) {
         std::cout << "iteration: #" << i << std::endl;
         abstractStressTest(SetFixture<lu::ordered_list_set<int, lu::backoff<lu::none_backoff>>>({}));

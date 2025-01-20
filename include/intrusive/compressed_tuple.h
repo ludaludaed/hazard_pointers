@@ -4,7 +4,6 @@
 #include "intrusive/typelist.h"
 #include "typelist.h"
 
-#include <tuple>
 #include <type_traits>
 #include <utility>
 
@@ -113,9 +112,10 @@ struct EMPTY_BASES tuple_base<std::index_sequence<Is...>, Ts...> : tuple_unit<Is
 
     constexpr tuple_base() = default;
 
-    template<class... _Ts>
-    constexpr tuple_base(_Ts &&...args)
-        : tuple_unit<Is, Ts>(std::forward<_Ts>(args))... {}
+    template<std::size_t... _Is, class... _Ts, class... _Us,
+             class = std::enable_if_t<std::conjunction_v<std::is_base_of<tuple_unit<_Is, _Ts>, tuple_base>...>>>
+    constexpr tuple_base(std::index_sequence<_Is...>, typelist<_Ts...>, _Us &&...args)
+        : tuple_unit<_Is, _Ts>(std::forward<_Us>(args))... {}
 
     constexpr void swap(tuple_base &other) {
         (tuple_unit<Is, Ts>::swap(other), ...);
@@ -162,7 +162,9 @@ static constexpr std::size_t tuple_index_v = tuple_index<T, U>::value;
 
 template<class... Ts>
 class compressed_tuple {
-    using original_packs = pack_with_index_t<std::make_index_sequence<sizeof...(Ts)>, typelist<Ts...>, detail::pack>;
+    using original_indices = std::make_index_sequence<sizeof...(Ts)>;
+    using original_types = typelist<Ts...>;
+    using original_packs = pack_with_index_t<original_indices, original_types, detail::pack>;
 
     template<class T1, class T2>
     struct compare;
@@ -214,19 +216,15 @@ private:
     template<class T, class... _Ts>
     friend constexpr const T &&get(const compressed_tuple<_Ts...> &&);
 
-private:
-    template<class Args, std::size_t... Indices>
-    constexpr compressed_tuple(Args args, std::index_sequence<Indices...>)
-        : base_(std::forward<std::tuple_element_t<Indices, Args>>(std::get<Indices>(args))...) {}
-
 public:
     constexpr compressed_tuple() = default;
 
-    template<class... _Ts, class = std::enable_if_t<std::conjunction_v<
-                                   std::bool_constant<sizeof...(Ts) == sizeof...(_Ts)>,
-                                   std::is_constructible<Ts, _Ts>..., std::negation<is_this_tuple<_Ts...>>>>>
-    constexpr explicit(std::negation_v<std::conjunction<std::is_convertible<_Ts, Ts>...>>) compressed_tuple(_Ts &&...ts)
-        : compressed_tuple(std::forward_as_tuple(std::forward<_Ts>(ts)...), compressed_indices()) {}
+    template<class... _Us, class = std::enable_if_t<std::conjunction_v<
+                                   std::bool_constant<sizeof...(Ts) == sizeof...(_Us)>,
+                                   std::is_constructible<Ts, _Us>..., std::negation<is_this_tuple<_Us...>>>>>
+    constexpr explicit(std::negation_v<std::conjunction<std::is_convertible<_Us, Ts>...>>)
+            compressed_tuple(_Us &&...args)
+        : base_(original_indices(), original_types(), std::forward<_Us>(args)...) {}
 
     constexpr void swap(compressed_tuple &other) {
         base_.swap(other.base_);

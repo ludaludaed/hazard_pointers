@@ -61,12 +61,12 @@ public:
     }
 
     bool is_linked() const {
-        return !NodeAlgo::unique(as_node_ptr());
+        return !NodeAlgo::inited(as_node_ptr());
     }
 
     void unlink() noexcept {
         node_ptr this_ptr = as_node_ptr();
-        if (!NodeAlgo::unique(this_ptr)) {
+        if (!NodeAlgo::inited(this_ptr)) {
             NodeAlgo::unlink(this_ptr);
             NodeAlgo::init(this_ptr);
         }
