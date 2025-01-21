@@ -292,10 +292,35 @@ private:
 
 #include <intrusive/compressed_tuple.h>
 
+struct T : lu::unordered_set_base_hook<lu::is_auto_unlink<true>> {
+    friend std::size_t hash_value(const T &t) {
+        return t.i;
+    }
+
+    friend bool operator==(const T &l, const T &r) {
+        return l.i == r.i;
+    }
+
+    std::size_t i{};
+};
+
 template<std::size_t I>
 struct Empty {};
 
 int main() {
+    std::vector<T> values(10);
+    std::vector<typename lu::unordered_set<T>::bucket_type> b(10);
+    lu::unordered_set<T> set(typename lu::unordered_set<T>::bucket_traits(b.data(), b.size()));
+
+    std::cout << set.size() << std::endl;
+    for (int i = 0; i < values.size(); ++i) {
+        values[i].i = i;
+        set.insert(values[i]);
+        std::cout << i << " " << set.size() << std::endl;
+    }
+
+    std::cout << std::endl;
+
 
     lu::compressed_tuple<Empty<0>, Empty<1>, char, int, Empty<2>, long long, Empty<3>, Empty<4>, Empty<5>, Empty<6>,
                          Empty<7>, Empty<8>, Empty<9>, Empty<10>, Empty<11>, std::array<long long, 2>>

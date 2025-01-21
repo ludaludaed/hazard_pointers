@@ -171,36 +171,15 @@ struct HashtableAlgo {
         return !node_traits::get_prev(this_node) && !node_traits::get_next(this_node);
     }
 
-    static bool unique(const_node_ptr this_node) noexcept {
-        node_ptr next = node_traits::get_next(this_node);
-        node_ptr prev = node_traits::get_prev(this_node);
-        return !next && !prev;
-    }
-
     static bool is_linked(const_node_ptr this_node) {
         return !inited(this_node);
     }
 
-    static node_ptr get_end(const_node_ptr) noexcept {
-        return node_ptr{};
-    }
-
-    static std::size_t count(const_node_ptr this_node) {
-        std::size_t result = 1;
-        const_node_ptr current = node_traits::get_next(this_node);
-        while (current && current != this_node) {
-            ++result;
-            current = node_traits::get_next(current);
-        }
-        return result;
-    }
-
     static std::size_t distance(const_node_ptr first, const_node_ptr last) {
         std::size_t result = 0;
-        const_node_ptr current = first;
-        while (current != last) {
+        while (first != last) {
             ++result;
-            current = node_traits::get_next(current);
+            first = node_traits::get_next(first);
         }
         return result;
     }
@@ -661,7 +640,7 @@ private:
     }
 
     node_ptr GetEnd() const noexcept {
-        return Algo::get_end(GetNilPtr());
+        return node_ptr{};
     }
 
     inline decltype(auto) GetKey(const_node_ptr node) const {
@@ -696,7 +675,7 @@ private:
         if constexpr (size_traits::is_tracking_size) {
             return SizeTraitsHolder::get().get_size();
         } else {
-            return Algo::count(GetNilPtr()) - 1;
+            return Algo::distance(GetFirst(), GetEnd());
         }
     }
 

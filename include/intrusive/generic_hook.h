@@ -61,12 +61,13 @@ public:
     }
 
     bool is_linked() const {
-        return !NodeAlgo::inited(as_node_ptr());
+        return NodeAlgo::is_linked(as_node_ptr());
     }
 
     void unlink() noexcept {
+        static_assert(is_auto_unlink, "for unlinking the hook, there must be an auto unlink.");
         node_ptr this_ptr = as_node_ptr();
-        if (!NodeAlgo::inited(this_ptr)) {
+        if (NodeAlgo::is_linked(this_ptr)) {
             NodeAlgo::unlink(this_ptr);
             NodeAlgo::init(this_ptr);
         }

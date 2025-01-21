@@ -39,7 +39,7 @@ struct CircularSlistAlgo {
     }
 
     static bool is_linked(const_node_ptr this_node) noexcept {
-        return !unique(this_node);
+        return !inited(this_node);
     }
 
     static bool unique(const_node_ptr this_node) noexcept {
@@ -159,7 +159,7 @@ struct CircularSlistAlgo {
         return head_node;
     }
 
-    static inline void transfer_after(node_ptr where, node_ptr before_first, node_ptr before_last) noexcept {
+    static void transfer_after(node_ptr where, node_ptr before_first, node_ptr before_last) noexcept {
         if (where != before_first && where != before_last && before_first != before_last) {
             node_ptr first = node_traits::get_next(before_last);
             node_ptr start = node_traits::get_next(before_first);
@@ -172,7 +172,7 @@ struct CircularSlistAlgo {
     }
 
     template<class Compare>
-    static inline void merge(node_ptr left_head, node_ptr right_head, Compare &&comp) noexcept {
+    static void merge(node_ptr left_head, node_ptr right_head, Compare &&comp) noexcept {
         node_ptr left_prev = left_head;
         node_ptr left_current = node_traits::get_next(left_head);
 
@@ -189,7 +189,7 @@ struct CircularSlistAlgo {
     }
 
     template<class Compare>
-    static inline void sort(node_ptr head, Compare &&comp) noexcept {
+    static void sort(node_ptr head, Compare &&comp) noexcept {
         std::size_t size = count(head) - 1;
 
         node_traits::set_next(get_last(head), node_ptr{});
@@ -203,7 +203,7 @@ struct CircularSlistAlgo {
 
 private:
     template<class Compare>
-    static inline node_ptr linear_merge(node_ptr left_first, node_ptr right_first, Compare &&comp) noexcept {
+    static node_ptr linear_merge(node_ptr left_first, node_ptr right_first, Compare &&comp) noexcept {
         if (!left_first) {
             return right_first;
         }
@@ -239,7 +239,7 @@ private:
     }
 
     template<class Compare>
-    static inline node_ptr sort(node_ptr begin_node, std::size_t size, Compare &&comp) noexcept {
+    static node_ptr sort(node_ptr begin_node, std::size_t size, Compare &&comp) noexcept {
         if (size == 0) {
             return node_ptr{};
         } else if (size == 1) {
