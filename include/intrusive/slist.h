@@ -270,13 +270,11 @@ class SlistNode {
 };
 
 template<class VoidPointer>
-class SlistNodeTraits {
-public:
+struct SlistNodeTraits {
     using node = SlistNode<VoidPointer>;
     using node_ptr = typename node::pointer;
     using const_node_ptr = typename node::const_pointer;
 
-public:
     static void set_next(node_ptr this_node, node_ptr next) {
         this_node->next = next;
     }

@@ -18,7 +18,7 @@
 namespace lu {
 namespace detail {
 
-template<class NodeTraits, bool IsFakeNode>
+template<class NodeTraits, bool IsFakeNode = true>
 class BucketValue;
 
 template<class NodeTraits>
@@ -137,8 +137,9 @@ public:
     }
 
     void swap(BucketTraitsImpl &other) noexcept {
-        std::swap(buckets_, other.buckets_);
-        std::swap(size_, other.size_);
+        using std::swap;
+        swap(buckets_, other.buckets_);
+        swap(size_, other.size_);
     }
 
     bucket_ptr data() const noexcept {
@@ -326,15 +327,12 @@ class HashtableNode<VoidPointer, false> {
 };
 
 template<class VoidPointer, bool StoreHash>
-class HashtableNodeTraits {
-public:
+struct HashtableNodeTraits {
     using node = HashtableNode<VoidPointer, StoreHash>;
     using node_ptr = typename node::pointer;
     using const_node_ptr = typename node::const_pointer;
-
     static constexpr bool store_hash = StoreHash;
 
-public:
     static void set_next(node_ptr this_node, node_ptr next) {
         this_node->next = next;
     }
@@ -567,7 +565,7 @@ public:
     using node_ptr = typename node_traits::node_ptr;
     using const_node_ptr = typename node_traits::const_node_ptr;
 
-    using bucket_type = BucketValue<node_traits, true>;
+    using bucket_type = BucketValue<node_traits>;
     using bucket_ptr = typename std::pointer_traits<node_ptr>::template rebind<bucket_type>;
 
     using iterator = HashIterator<IntrusiveHashtable, false>;
@@ -1158,7 +1156,7 @@ struct DefaultHashtableHookApplier {
 struct DefaultBucketTraitsApplier {
     template<class ValueTraits, class SizeType>
     struct Apply {
-        using bucket_type = BucketValue<typename ValueTraits::node_traits, true>;
+        using bucket_type = BucketValue<typename ValueTraits::node_traits>;
         using bucket_pointer =
                 typename std::pointer_traits<typename ValueTraits::pointer>::template rebind<bucket_type>;
         using type = BucketTraitsImpl<bucket_pointer, SizeType>;
