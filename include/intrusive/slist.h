@@ -47,16 +47,6 @@ struct CircularSlistAlgo {
         return (!next) || (next == this_node);
     }
 
-    static std::size_t count(const_node_ptr this_node) noexcept {
-        std::size_t result = 1;
-        const_node_ptr current = node_traits::get_next(this_node);
-        while (current && current != this_node) {
-            ++result;
-            current = node_traits::get_next(current);
-        }
-        return result;
-    }
-
     static std::size_t distance(const_node_ptr first, const_node_ptr last) {
         std::size_t result = 0;
         const_node_ptr current = first;
@@ -455,7 +445,7 @@ private:
         if constexpr (size_traits::is_tracking_size) {
             return SizeTraitsHolder::get().get_size();
         } else {
-            return Algo::count(GetNilPtr()) - 1;
+            return Algo::distance(GetFirst(), GetEnd());
         }
     }
 

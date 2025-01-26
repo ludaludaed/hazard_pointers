@@ -292,7 +292,7 @@ private:
 
 #include <intrusive/compressed_tuple.h>
 
-struct T : lu::unordered_set_base_hook<lu::is_auto_unlink<true>> {
+struct T : lu::unordered_set_base_hook<lu::is_auto_unlink<false>> {
     friend std::size_t hash_value(const T &t) {
         return t.i;
     }
@@ -302,6 +302,10 @@ struct T : lu::unordered_set_base_hook<lu::is_auto_unlink<true>> {
     }
 
     std::size_t i{};
+};
+
+struct U : lu::forward_list_base_hook<lu::is_auto_unlink<false>> {
+    std::size_t i;
 };
 
 template<std::size_t I>
@@ -318,9 +322,17 @@ int main() {
         set.insert(values[i]);
         std::cout << i << " " << set.size() << std::endl;
     }
-
     std::cout << std::endl;
 
+    std::vector<U> list_values(10);
+    lu::forward_list<U> list;
+    std::cout << list.size() << std::endl;
+    for (int i = 0; i < list_values.size(); ++i) {
+        list_values[i].i = i;
+        list.push_front(list_values[i]);
+        std::cout << i << " " << list.size() << std::endl;
+    }
+    std::cout << std::endl;
 
     lu::compressed_tuple<Empty<0>, Empty<1>, char, int, Empty<2>, long long, Empty<3>, Empty<4>, Empty<5>, Empty<6>,
                          Empty<7>, Empty<8>, Empty<9>, Empty<10>, Empty<11>, std::array<long long, 2>>

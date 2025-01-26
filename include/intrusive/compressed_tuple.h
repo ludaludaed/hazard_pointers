@@ -26,6 +26,7 @@ template<std::size_t... Is, class... Ts, template<std::size_t, class> class Pack
 struct get_indices<typelist<Pack<Is, Ts>...>, Pack> {
     using type = std::index_sequence<Is...>;
 };
+
 template<class T, template<std::size_t, class> class Pack>
 using get_indices_t = typename get_indices<T, Pack>::type;
 
