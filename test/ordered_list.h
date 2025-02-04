@@ -159,7 +159,7 @@ class OrderedList : private lu::detail::EmptyBaseHolder<KeyCompare>, private lu:
         void increment() noexcept {
             auto next_guard = lu::make_hazard_pointer();
             auto next = next_guard.protect(current_->next, [](node_marked_ptr ptr) { return ptr.get(); });
-            if (next.get_bit()) {
+            if (next.is_marked()) {
                 position new_pos;
                 list_->find(list_->select_key(current_->value), new_pos);
                 guard_ = std::move(new_pos.cur_guard);
@@ -239,12 +239,12 @@ private:
 
             pos.next = pos.next_guard.protect(pos.cur->next, [](node_marked_ptr ptr) { return ptr.get(); });
 
-            if (pos.prev_pointer->load().all() != pos.cur) {
+            if (pos.prev_pointer->load().raw() != pos.cur) {
                 back_off();
                 goto try_again;
             }
 
-            if (pos.next.get_bit()) {
+            if (pos.next.is_marked()) {
                 node_marked_ptr not_marked_cur(pos.cur, 0);
                 if (pos.prev_pointer->compare_exchange_weak(not_marked_cur, node_marked_ptr(pos.next, 0))) {
                     pos.cur->retire();
