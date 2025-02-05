@@ -529,7 +529,7 @@ public:
         std::atomic_thread_fence(std::memory_order_seq_cst);
     }
 
-    void reset_protection(nullptr_t = nullptr) noexcept {
+    void reset_protection(std::nullptr_t = nullptr) noexcept {
         assert(!empty() && "hazard_ptr must be initialized");
         record_->reset();
     }

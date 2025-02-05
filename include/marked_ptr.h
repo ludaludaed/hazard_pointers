@@ -15,7 +15,7 @@ public:
     using element_type = ValueType;
 
 public:
-    marked_ptr() = default;
+    marked_ptr() noexcept = default;
 
     marked_ptr(std::nullptr_t) noexcept {}
 

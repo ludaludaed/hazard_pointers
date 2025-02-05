@@ -44,6 +44,8 @@ private:
 public:
     marked_shared_ptr() noexcept = default;
 
+    marked_shared_ptr(std::nullptr_t) noexcept {}
+
     template<class _ValueType, class Deleter = std::default_delete<_ValueType>,
              class Allocator = std::allocator<_ValueType>,
              class = std::enable_if_t<std::is_convertible_v<_ValueType *, ValueType *>>>

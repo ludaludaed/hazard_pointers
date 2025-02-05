@@ -10,6 +10,7 @@
 
 #include <atomic>
 #include <cassert>
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <type_traits>
@@ -559,6 +560,8 @@ private:
 public:
     shared_ptr() noexcept = default;
 
+    shared_ptr(std::nullptr_t) noexcept {}
+
     template<class _ValueType, class Deleter = std::default_delete<_ValueType>,
              class Allocator = std::allocator<_ValueType>,
              class = std::enable_if_t<std::is_convertible_v<_ValueType *, ValueType *>>>
@@ -672,6 +675,8 @@ private:
 
 public:
     weak_ptr() noexcept = default;
+
+    weak_ptr(std::nullptr_t) noexcept {}
 
     template<class _ValuePtr, class _ControlBlockPtr,
              class = std::enable_if_t<std::is_convertible_v<_ValuePtr, element_ptr>
