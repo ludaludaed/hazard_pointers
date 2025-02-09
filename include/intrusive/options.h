@@ -1,7 +1,7 @@
 #ifndef __INTRUSIVE_OPTIONS_H__
 #define __INTRUSIVE_OPTIONS_H__
 
-#include "appliers.h"
+#include "base_value_traits.h"
 
 
 namespace lu {
@@ -10,7 +10,13 @@ template<class HookType>
 struct base_hook {
     template<class Base>
     struct pack : public Base {
-        using proto_value_traits = detail::BaseHookApplier<HookType>;
+
+        struct proto_value_traits {
+            template<class ValueType>
+            struct Apply {
+                using type = typename detail::HookToValueTraits<ValueType, HookType>::type;
+            };
+        };
     };
 };
 
@@ -18,7 +24,13 @@ template<class ValueTraits>
 struct value_traits {
     template<class Base>
     struct pack : public Base {
-        using proto_value_traits = detail::ValueTraitsApplier<ValueTraits>;
+
+        struct proto_value_traits {
+            template<class>
+            struct Apply {
+                using type = ValueTraits;
+            };
+        };
     };
 };
 
@@ -26,7 +38,13 @@ template<class BucketTraits>
 struct bucket_traits {
     template<class Base>
     struct pack : public Base {
-        using proto_bucket_traits = detail::BucketTraitsApplier<BucketTraits>;
+
+        struct proto_bucket_traits {
+            template<class, class>
+            struct Apply {
+                using type = BucketTraits;
+            };
+        };
     };
 };
 

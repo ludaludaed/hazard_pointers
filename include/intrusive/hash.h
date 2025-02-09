@@ -17,10 +17,12 @@ namespace lu {
 namespace detail {
 
 template<class ValueType>
-inline std::size_t hash_dispatch(const ValueType &value) {
-    using lu_adl::hash_value;
-    return hash_value(value);
-}
+struct hash {
+    std::size_t operator()(const ValueType &value) const {
+        using lu_adl::hash_value;
+        return hash_value(value);
+    }
+};
 
 }// namespace detail
 }// namespace lu

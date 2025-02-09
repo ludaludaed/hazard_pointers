@@ -4,7 +4,6 @@
 #include "intrusive/base_value_traits.h"
 #include "intrusive/empty_base_holder.h"
 #include "intrusive/generic_hook.h"
-#include "intrusive/get_traits.h"
 #include "intrusive/node_holder.h"
 #include "intrusive/pack_options.h"
 
@@ -307,13 +306,6 @@ private:
     std::atomic<node_ptr> head_{};
 };
 
-struct DefaultActiveListHookApplier {
-    template<class ValueType>
-    struct Apply {
-        using type = typename HookToValueTraits<ValueType, typename ValueType::active_list_default_hook>::type;
-    };
-};
-
 template<class HookType>
 struct ActiveListDefaultHook {
     using active_list_default_hook = HookType;
@@ -324,6 +316,13 @@ struct ActiveListBaseHook
     : public ActiveListHook<VoidPointer, Tag>,
       public std::conditional_t<std::is_same_v<Tag, DefaultHookTag>,
                                 ActiveListDefaultHook<ActiveListHook<VoidPointer, Tag>>, NotDefaultHook> {};
+
+struct DefaultActiveListHookApplier {
+    template<class ValueType>
+    struct Apply {
+        using type = typename HookToValueTraits<ValueType, typename ValueType::active_list_default_hook>::type;
+    };
+};
 
 struct ActiveListDefaults {
     using proto_value_traits = DefaultActiveListHookApplier;
@@ -353,8 +352,7 @@ struct make_active_list_base_hook {
 template<class ValueType, class... Options>
 struct make_active_list {
     using pack_options = typename GetPackOptions<ActiveListDefaults, Options...>::type;
-
-    using value_traits = typename GetValueTraits<ValueType, typename pack_options::proto_value_traits>::type;
+    using value_traits = typename pack_options::proto_value_traits::template Apply<ValueType>::type;
 
     using type = ActiveList<value_traits>;
 };

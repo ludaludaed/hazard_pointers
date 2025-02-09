@@ -114,6 +114,9 @@ struct pointer_cast_traits<T *> {
 
 namespace detail {
 
+template<class Option, class DefaultOption>
+using get_or_default = std::conditional_t<!std::is_void_v<Option>, Option, DefaultOption>;
+
 template<class ConstPtr>
 struct erase_const_types {
     using const_element_type = typename std::pointer_traits<ConstPtr>::element_type;

@@ -4,7 +4,6 @@
 #include "base_value_traits.h"
 #include "empty_base_holder.h"
 #include "generic_hook.h"
-#include "hash.h"
 #include "size_traits.h"
 
 #include <cassert>
@@ -1170,20 +1169,6 @@ struct DefaultKeyOfValue {
     template<class T, class = std::enable_if_t<std::is_same_v<std::decay_t<T>, type>>>
     T &&operator()(T &&value) const {
         return std::forward<T>(value);
-    }
-};
-
-template<class ValueType>
-struct DefaultKeyHash {
-    std::size_t operator()(const ValueType &value) const {
-        return hash_dispatch(value);
-    }
-};
-
-template<class ValueType>
-struct DefaultEqualTo {
-    bool operator()(const ValueType &left, const ValueType &right) const {
-        return left == right;
     }
 };
 

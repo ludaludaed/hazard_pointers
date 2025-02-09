@@ -6,24 +6,16 @@
 #include <shared_ptr.h>
 
 #include "back_off.h"
-#include "fixed_size_function.h"
 #include "intrusive/options.h"
-#include "intrusive/slist.h"
-#include "intrusive/typelist.h"
-#include "intrusive/utils.h"
-#include "marked_ptr.h"
 #include "ordered_list.h"
-#include "structures.h"
 
 #include <algorithm>
 #include <array>
-#include <concepts>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
 #include <functional>
 #include <iostream>
-#include <memory>
 #include <ostream>
 #include <random>
 #include <span>
@@ -31,8 +23,6 @@
 #include <string>
 #include <thread>
 #include <tuple>
-#include <type_traits>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 

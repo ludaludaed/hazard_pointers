@@ -39,12 +39,12 @@ public:
 public:
     fixed_size_function() noexcept = default;
 
+    fixed_size_function(std::nullptr_t) noexcept {}
+
     template<class Functor, class = std::enable_if_t<sizeof(Functor) <= BufferLen>>
     fixed_size_function(Functor &&func) {
         Construct(std::forward<Functor>(func));
     }
-
-    fixed_size_function(std::nullptr_t) noexcept {}
 
     fixed_size_function(const fixed_size_function &other) {
         Copy(other);

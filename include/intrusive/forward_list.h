@@ -1,7 +1,6 @@
 #ifndef __INTRUSIVE_FORWARD_LIST_H__
 #define __INTRUSIVE_FORWARD_LIST_H__
 
-#include "get_traits.h"
 #include "pack_options.h"
 #include "slist.h"
 
@@ -21,7 +20,7 @@ template<class ValueType, class... Options>
 struct make_forward_list {
     using pack_options = typename GetPackOptions<SlistDefaults, Options...>::type;
 
-    using value_traits = typename GetValueTraits<ValueType, typename pack_options::proto_value_traits>::type;
+    using value_traits = typename pack_options::proto_value_traits::template Apply<ValueType>::type;
     using size_type = typename pack_options::size_type;
 
     using type = IntrusiveSlist<value_traits, size_type>;
