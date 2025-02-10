@@ -565,7 +565,7 @@ public:
     using const_node_ptr = typename node_traits::const_node_ptr;
 
     using bucket_type = BucketValue<node_traits>;
-    using bucket_ptr = typename std::pointer_traits<node_ptr>::template rebind<bucket_type>;
+    using bucket_ptr = typename bucket_traits::bucket_ptr;
 
     using iterator = HashIterator<IntrusiveHashtable, false>;
     using const_iterator = HashIterator<IntrusiveHashtable, true>;
@@ -700,10 +700,7 @@ private:
         const key_equal &_key_equal = KeyEqualHolder::get();
 
         size_type bucket_index = GetBucketIdx(hash);
-        bucket_ptr bucket = GetBucket(bucket_index);
-
-        node_ptr bucket_begin = bucket->get_bucket_begin();
-        node_ptr current = bucket_begin;
+        node_ptr current = GetBucketBegin(bucket_index);
 
         while (current) {
             if (hash == GetHash(current) && _key_equal(GetKey(current), key)) {
@@ -733,10 +730,7 @@ private:
         std::size_t hash = _key_hash(key);
 
         size_type bucket_index = GetBucketIdx(hash);
-        bucket_ptr bucket = GetBucket(bucket_index);
-
-        node_ptr bucket_begin = bucket->get_bucket_begin();
-        node_ptr current = bucket_begin;
+        node_ptr current = GetBucketBegin(bucket_index);
 
         while (current) {
             node_ptr begin = current;
@@ -834,10 +828,7 @@ private:
         std::size_t hash = _key_hash(key);
 
         size_type bucket_index = GetBucketIdx(hash);
-        bucket_ptr bucket = GetBucket(bucket_index);
-
-        node_ptr bucket_begin = bucket->get_bucket_begin();
-        node_ptr current = bucket_begin;
+        node_ptr current = GetBucketBegin(bucket_index);
 
         while (current) {
             node_ptr next = node_traits::get_next(current);
