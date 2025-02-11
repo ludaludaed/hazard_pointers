@@ -66,6 +66,11 @@ struct HookToValueTraits {
     using type = BaseValueTraits<ValueType, typename tags::node_traits, typename tags::tag, tags::is_auto_unlink>;
 };
 
+template<class HookType>
+struct HookToValueTraits<void, HookType> {
+    using type = typename HookType::hook_tags;
+};
+
 }// namespace detail
 }// namespace lu
 

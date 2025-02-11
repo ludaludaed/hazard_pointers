@@ -564,8 +564,8 @@ public:
     using node_ptr = typename node_traits::node_ptr;
     using const_node_ptr = typename node_traits::const_node_ptr;
 
-    using bucket_type = BucketValue<node_traits>;
     using bucket_ptr = typename bucket_traits::bucket_ptr;
+    using bucket_type = typename std::pointer_traits<bucket_ptr>::element_type;
 
     using iterator = HashIterator<IntrusiveHashtable, false>;
     using const_iterator = HashIterator<IntrusiveHashtable, true>;

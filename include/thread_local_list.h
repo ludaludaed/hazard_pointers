@@ -7,6 +7,7 @@
 #include "intrusive/unordered_set.h"
 #include "utils.h"
 
+#include <array>
 #include <atomic>
 #include <cassert>
 

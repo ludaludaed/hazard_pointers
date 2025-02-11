@@ -56,6 +56,15 @@ struct make_unordered_multiset {
     using type = IntrusiveHashtable<value_traits, bucket_traits, key_of_value, hash, equal, size_type, flags>;
 };
 
+template<class... Options>
+struct make_unordered_bucket_type {
+    struct empty {};
+    using pack_options = typename GetPackOptions<empty, Options...>::type;
+    using value_traits = typename pack_options::proto_value_traits::template Apply<void>::type;
+    using node_traits = typename value_traits::node_traits;
+    using type = BucketValue<node_traits>;
+};
+
 }// namespace detail
 
 template<class... Options>
@@ -66,6 +75,9 @@ using unordered_set = typename detail::make_unordered_set<ValueType, Options...>
 
 template<class ValueType, class... Options>
 using unordered_multiset = typename detail::make_unordered_multiset<ValueType, Options...>::type;
+
+template<class... Options>
+using unordered_bucket_type = typename detail::make_unordered_bucket_type<Options...>::type;
 
 }// namespace lu
 
