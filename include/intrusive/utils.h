@@ -5,9 +5,9 @@
 #include <type_traits>
 
 
-#define HAS_MEMBER_FUNC(name, func)                                                                                    \
+#define HAS_MEMBER_FUNC(NAME, FUNC)                                                                                    \
     template<class Type, class Signature>                                                                              \
-    class name {                                                                                                       \
+    class NAME {                                                                                                       \
         using yes = int;                                                                                               \
         using no = char;                                                                                               \
                                                                                                                        \
@@ -18,11 +18,34 @@
         static no test(...);                                                                                           \
                                                                                                                        \
         template<class T>                                                                                              \
-        static yes test(check_type<Signature, &T::func> *);                                                            \
+        static yes test(check_type<Signature, &T::FUNC> *);                                                            \
                                                                                                                        \
     public:                                                                                                            \
         static const bool value = sizeof(test<Type>(0)) == sizeof(yes);                                                \
-    };
+    };                                                                                                                 \
+                                                                                                                       \
+    template<class Type, class Signature>                                                                              \
+    static constexpr bool NAME##_v = NAME<Type, Signature>::value;
+
+
+#define HAS_TYPE_ALIAS_MEMBER(NAME, USING)                                                                             \
+    template<class Type>                                                                                               \
+    class NAME {                                                                                                       \
+        using yes = int;                                                                                               \
+        using no = char;                                                                                               \
+                                                                                                                       \
+        template<class>                                                                                                \
+        static no test(...);                                                                                           \
+                                                                                                                       \
+        template<class T>                                                                                              \
+        static yes test(typename T::USING *);                                                                          \
+                                                                                                                       \
+    public:                                                                                                            \
+        static const bool value = sizeof(test<Type>(0)) == sizeof(yes);                                                \
+    };                                                                                                                 \
+                                                                                                                       \
+    template<class Type>                                                                                               \
+    static constexpr bool NAME##_v = NAME<Type>::value;
 
 
 namespace lu {
