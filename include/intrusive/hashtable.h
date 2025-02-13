@@ -681,7 +681,7 @@ private:
         return _bucket_traits.data() + bucket_index;
     }
 
-    size_type GetBucketIdx(size_type hash) const noexcept {
+    size_type GetBucketIdx(std::size_t hash) const noexcept {
         const bucket_traits &_bucket_traits = BucketTraitsHolder::get();
         if constexpr (Flags::is_power_2_buckets) {
             return hash & (_bucket_traits.size() - 1);
@@ -847,7 +847,7 @@ private:
 
     size_type Count(const key_type &key) const {
         std::pair<node_ptr, node_ptr> range = EqualRange(key);
-        return size_type(Algo::distance(range.first, range.second));
+        return Algo::distance(range.first, range.second);
     }
 
 public:
@@ -1143,16 +1143,6 @@ struct DefaultHashtableHookApplier {
     };
 };
 
-struct DefaultBucketTraitsApplier {
-    template<class ValueTraits, class SizeType>
-    struct Apply {
-        using bucket_type = BucketValue<typename ValueTraits::node_traits>;
-        using bucket_pointer =
-                typename std::pointer_traits<typename ValueTraits::pointer>::template rebind<bucket_type>;
-        using type = BucketTraitsImpl<bucket_pointer, SizeType>;
-    };
-};
-
 template<class ValueType>
 struct DefaultKeyOfValue {
     using type = ValueType;
@@ -1163,13 +1153,15 @@ struct DefaultKeyOfValue {
     }
 };
 
+struct DefaultBucketTraits;
+
 struct HashtableDefaults {
     using proto_value_traits = DefaultHashtableHookApplier;
     using size_type = std::size_t;
     using key_of_value = void;
     using equal = void;
     using hash = void;
-    using proto_bucket_traits = DefaultBucketTraitsApplier;
+    using proto_bucket_traits = DefaultBucketTraits;
     static const bool is_power_2_buckets = false;
 };
 
@@ -1178,6 +1170,18 @@ struct HashtableHookDefaults {
     using tag = DefaultHookTag;
     static const bool store_hash = true;
     static const bool is_auto_unlink = true;
+};
+
+template<class ProtoBucketTraits, class, class>
+struct GetBucketTraits {
+    using type = ProtoBucketTraits;
+};
+
+template<class ValueTraits, class SizeType>
+struct GetBucketTraits<DefaultBucketTraits, ValueTraits, SizeType> {
+    using bucket_type = BucketValue<typename ValueTraits::node_traits>;
+    using bucket_pointer = typename std::pointer_traits<typename ValueTraits::pointer>::template rebind<bucket_type>;
+    using type = BucketTraitsImpl<bucket_pointer, SizeType>;
 };
 
 }// namespace detail

@@ -1,10 +1,10 @@
 #ifndef __INTRUSIVE_UNORDERED_SET_H__
 #define __INTRUSIVE_UNORDERED_SET_H__
 
+#include "get_traits.h"
 #include "hash.h"
 #include "hashtable.h"
 #include "pack_options.h"
-#include "utils.h"
 
 #include <functional>
 
@@ -24,16 +24,17 @@ template<class ValueType, class... Options>
 struct make_unordered_set {
     using pack_options = typename GetPackOptions<HashtableDefaults, Options...>::type;
 
-    using key_of_value = get_or_default<typename pack_options::key_of_value, DefaultKeyOfValue<ValueType>>;
+    using key_of_value = GetOrDefault<typename pack_options::key_of_value, DefaultKeyOfValue<ValueType>>;
     using key_type = typename key_of_value::type;
-    using hash = get_or_default<typename pack_options::hash, detail::hash<key_type>>;
-    using equal = get_or_default<typename pack_options::equal, std::equal_to<key_type>>;
+    using hash = GetOrDefault<typename pack_options::hash, detail::hash<key_type>>;
+    using equal = GetOrDefault<typename pack_options::equal, std::equal_to<key_type>>;
 
     using size_type = typename pack_options::size_type;
     using flags = HashtableFlags<pack_options::is_power_2_buckets, false>;
 
     using value_traits = typename pack_options::proto_value_traits::template Apply<ValueType>::type;
-    using bucket_traits = typename pack_options::proto_bucket_traits::template Apply<value_traits, size_type>::type;
+    using bucket_traits =
+            typename GetBucketTraits<typename pack_options::proto_bucket_traits, value_traits, size_type>::type;
 
     using type = IntrusiveHashtable<value_traits, bucket_traits, key_of_value, hash, equal, size_type, flags>;
 };
@@ -42,16 +43,17 @@ template<class ValueType, class... Options>
 struct make_unordered_multiset {
     using pack_options = typename GetPackOptions<HashtableDefaults, Options...>::type;
 
-    using key_of_value = get_or_default<typename pack_options::key_of_value, DefaultKeyOfValue<ValueType>>;
+    using key_of_value = GetOrDefault<typename pack_options::key_of_value, DefaultKeyOfValue<ValueType>>;
     using key_type = typename key_of_value::type;
-    using hash = get_or_default<typename pack_options::hash, detail::hash<key_type>>;
-    using equal = get_or_default<typename pack_options::equal, std::equal_to<key_type>>;
+    using hash = GetOrDefault<typename pack_options::hash, detail::hash<key_type>>;
+    using equal = GetOrDefault<typename pack_options::equal, std::equal_to<key_type>>;
 
     using size_type = typename pack_options::size_type;
     using flags = HashtableFlags<pack_options::is_power_2_buckets, true>;
 
     using value_traits = typename pack_options::proto_value_traits::template Apply<ValueType>::type;
-    using bucket_traits = typename pack_options::proto_bucket_traits::template Apply<value_traits, size_type>::type;
+    using bucket_traits =
+            typename GetBucketTraits<typename pack_options::proto_bucket_traits, value_traits, size_type>::type;
 
     using type = IntrusiveHashtable<value_traits, bucket_traits, key_of_value, hash, equal, size_type, flags>;
 };

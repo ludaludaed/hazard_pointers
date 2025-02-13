@@ -38,13 +38,7 @@ template<class BucketTraits>
 struct bucket_traits {
     template<class Base>
     struct pack : public Base {
-
-        struct proto_bucket_traits {
-            template<class, class>
-            struct Apply {
-                using type = BucketTraits;
-            };
-        };
+        using proto_bucket_traits = BucketTraits; 
     };
 };
 

@@ -458,8 +458,8 @@ template<class ValueType, class... Options>
 struct make_ordered_list_set {
     using pack_options = typename GetPackOptions<OrderedListDefaults, Options...>::type;
 
-    using compare = get_or_default<typename pack_options::compare, std::less<const ValueType>>;
-    using backoff = get_or_default<typename pack_options::backoff, lu::none_backoff>;
+    using compare = GetOrDefault<typename pack_options::compare, std::less<const ValueType>>;
+    using backoff = GetOrDefault<typename pack_options::backoff, lu::none_backoff>;
     using key_select = SetKeySelect<ValueType>;
 
     using type = OrderedList<ValueType, compare, key_select, backoff>;
@@ -469,8 +469,8 @@ template<class KeyType, class ValueType, class... Options>
 struct make_ordered_list_map {
     using pack_options = typename GetPackOptions<OrderedListDefaults, Options...>::type;
 
-    using compare = get_or_default<typename pack_options::compare, std::less<const KeyType>>;
-    using backoff = get_or_default<typename pack_options::backoff, lu::none_backoff>;
+    using compare = GetOrDefault<typename pack_options::compare, std::less<const KeyType>>;
+    using backoff = GetOrDefault<typename pack_options::backoff, lu::none_backoff>;
     using key_select = MapKeySelect<const KeyType, ValueType>;
 
     using type = OrderedList<std::pair<const KeyType, ValueType>, compare, key_select, backoff>;

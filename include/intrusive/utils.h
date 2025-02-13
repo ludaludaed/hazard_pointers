@@ -5,7 +5,7 @@
 #include <type_traits>
 
 
-#define HAS_MEMBER_FUNC(NAME, FUNC)                                                                                    \
+#define HAS_METHOD(NAME, FUNC)                                                                                         \
     template<class Type, class Signature>                                                                              \
     class NAME {                                                                                                       \
         using yes = int;                                                                                               \
@@ -28,7 +28,7 @@
     static constexpr bool NAME##_v = NAME<Type, Signature>::value;
 
 
-#define HAS_TYPE_ALIAS_MEMBER(NAME, USING)                                                                             \
+#define HAS_DEFINE(NAME, USING)                                                                                        \
     template<class Type>                                                                                               \
     class NAME {                                                                                                       \
         using yes = int;                                                                                               \
@@ -60,9 +60,9 @@ typename std::pointer_traits<Pointer>::element_type *to_raw_pointer(const Pointe
     return to_raw_pointer(ptr.operator->());
 }
 
-HAS_MEMBER_FUNC(has_static_cast_from, static_cast_from)
-HAS_MEMBER_FUNC(has_const_cast_from, const_cast_from)
-HAS_MEMBER_FUNC(has_dynamic_cast_from, dynamic_cast_from)
+HAS_METHOD(has_static_cast_from, static_cast_from)
+HAS_METHOD(has_const_cast_from, const_cast_from)
+HAS_METHOD(has_dynamic_cast_from, dynamic_cast_from)
 
 template<class TPtr>
 struct pointer_cast_traits {
@@ -136,9 +136,6 @@ struct pointer_cast_traits<T *> {
 };
 
 namespace detail {
-
-template<class Option, class DefaultOption>
-using get_or_default = std::conditional_t<!std::is_void_v<Option>, Option, DefaultOption>;
 
 template<class ConstPtr>
 struct erase_const_types {
