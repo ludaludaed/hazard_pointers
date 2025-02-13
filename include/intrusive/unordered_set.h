@@ -32,7 +32,7 @@ struct make_unordered_set {
     using size_type = typename pack_options::size_type;
     using flags = HashtableFlags<pack_options::is_power_2_buckets, false>;
 
-    using value_traits = typename pack_options::proto_value_traits::template Apply<ValueType>::type;
+    using value_traits = typename GetValueTraits<ValueType, typename pack_options::proto_value_traits>::type;
     using bucket_traits =
             typename GetBucketTraits<typename pack_options::proto_bucket_traits, value_traits, size_type>::type;
 
@@ -51,7 +51,7 @@ struct make_unordered_multiset {
     using size_type = typename pack_options::size_type;
     using flags = HashtableFlags<pack_options::is_power_2_buckets, true>;
 
-    using value_traits = typename pack_options::proto_value_traits::template Apply<ValueType>::type;
+    using value_traits = typename GetValueTraits<ValueType, typename pack_options::proto_value_traits>::type;
     using bucket_traits =
             typename GetBucketTraits<typename pack_options::proto_bucket_traits, value_traits, size_type>::type;
 
@@ -62,7 +62,7 @@ template<class... Options>
 struct make_unordered_bucket_type {
     struct empty {};
     using pack_options = typename GetPackOptions<empty, Options...>::type;
-    using value_traits = typename pack_options::proto_value_traits::template Apply<void>::type;
+    using value_traits = typename GetValueTraits<void, typename pack_options::proto_value_traits>::type;
     using node_traits = typename value_traits::node_traits;
     using type = BucketValue<node_traits>;
 };

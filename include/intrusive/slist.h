@@ -783,15 +783,8 @@ private:
     node nil_node_;
 };
 
-struct DefaultSlistHookApplier {
-    template<class ValueType>
-    struct Apply {
-        using type = typename HookToValueTraits<ValueType, typename ValueType::slist_default_hook_type>::type;
-    };
-};
-
 template<class HookType>
-struct DefaultSlistHook {
+struct SlistDefaultHook {
     using slist_default_hook_type = HookType;
 };
 
@@ -800,12 +793,21 @@ class SlistBaseHook
     : public GenericHook<CircularSlistAlgo<SlistNodeTraits<VoidPointer>>, SlistNodeTraits<VoidPointer>, Tag,
                          IsAutoUnlink>,
       public std::conditional_t<std::is_same_v<Tag, DefaultHookTag>,
-                                DefaultSlistHook<GenericHook<CircularSlistAlgo<SlistNodeTraits<VoidPointer>>,
+                                SlistDefaultHook<GenericHook<CircularSlistAlgo<SlistNodeTraits<VoidPointer>>,
                                                              SlistNodeTraits<VoidPointer>, Tag, IsAutoUnlink>>,
                                 NotDefaultHook> {};
 
+struct DefaultSlistHook {
+    template <class ValueType>
+    struct GetValueTraits {
+        using type = typename HookToValueTraits<ValueType, typename ValueType::slist_default_hook_type>::type;
+    };
+
+    struct is_default_hook_tag;
+};
+
 struct SlistDefaults {
-    using proto_value_traits = DefaultSlistHookApplier;
+    using proto_value_traits = DefaultSlistHook;
     using size_type = std::size_t;
 };
 

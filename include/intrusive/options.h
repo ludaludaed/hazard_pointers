@@ -10,13 +10,7 @@ template<class HookType>
 struct base_hook {
     template<class Base>
     struct pack : public Base {
-
-        struct proto_value_traits {
-            template<class ValueType>
-            struct Apply {
-                using type = typename detail::HookToValueTraits<ValueType, HookType>::type;
-            };
-        };
+        using proto_value_traits = HookType;
     };
 };
 
@@ -24,13 +18,7 @@ template<class ValueTraits>
 struct value_traits {
     template<class Base>
     struct pack : public Base {
-
-        struct proto_value_traits {
-            template<class>
-            struct Apply {
-                using type = ValueTraits;
-            };
-        };
+        using proto_value_traits = ValueTraits;
     };
 };
 

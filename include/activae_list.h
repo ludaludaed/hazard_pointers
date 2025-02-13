@@ -4,6 +4,7 @@
 #include "intrusive/base_value_traits.h"
 #include "intrusive/empty_base_holder.h"
 #include "intrusive/generic_hook.h"
+#include "intrusive/get_traits.h"
 #include "intrusive/node_holder.h"
 #include "intrusive/pack_options.h"
 
@@ -317,15 +318,17 @@ struct ActiveListBaseHook
       public std::conditional_t<std::is_same_v<Tag, DefaultHookTag>,
                                 ActiveListDefaultHook<ActiveListHook<VoidPointer, Tag>>, NotDefaultHook> {};
 
-struct DefaultActiveListHookApplier {
+struct DefaultActiveListHook {
     template<class ValueType>
-    struct Apply {
+    struct GetValueTraits {
         using type = typename HookToValueTraits<ValueType, typename ValueType::active_list_default_hook>::type;
     };
+
+    struct is_default_hook_tag;
 };
 
 struct ActiveListDefaults {
-    using proto_value_traits = DefaultActiveListHookApplier;
+    using proto_value_traits = DefaultActiveListHook;
 };
 
 struct ActiveListHookDefaults {
@@ -352,7 +355,7 @@ struct make_active_list_base_hook {
 template<class ValueType, class... Options>
 struct make_active_list {
     using pack_options = typename GetPackOptions<ActiveListDefaults, Options...>::type;
-    using value_traits = typename pack_options::proto_value_traits::template Apply<ValueType>::type;
+    using value_traits = typename GetValueTraits<ValueType, typename pack_options::proto_value_traits>::type;
 
     using type = ActiveList<value_traits>;
 };

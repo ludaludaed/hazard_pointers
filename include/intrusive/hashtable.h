@@ -1136,13 +1136,6 @@ class HashtableBaseHook
                                                HashtableNodeTraits<VoidPointer, StoreHash>, Tag, IsAutoUnlink>>,
               NotDefaultHook> {};
 
-struct DefaultHashtableHookApplier {
-    template<class ValueType>
-    struct Apply {
-        using type = typename HookToValueTraits<ValueType, typename ValueType::hashtable_default_hook_type>::type;
-    };
-};
-
 template<class ValueType>
 struct DefaultKeyOfValue {
     using type = ValueType;
@@ -1153,10 +1146,19 @@ struct DefaultKeyOfValue {
     }
 };
 
+struct DefaultHashTableHook {
+    template<class ValueType>
+    struct GetValueTraits {
+        using type = typename HookToValueTraits<ValueType, typename ValueType::hashtable_default_hook_type>::type;
+    };
+
+    struct is_default_hook_tag;
+};
+
 struct DefaultBucketTraits;
 
 struct HashtableDefaults {
-    using proto_value_traits = DefaultHashtableHookApplier;
+    using proto_value_traits = DefaultHashTableHook;
     using size_type = std::size_t;
     using key_of_value = void;
     using equal = void;
