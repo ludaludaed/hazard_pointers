@@ -4,6 +4,7 @@
 #include "get_traits.h"
 #include "hash.h"
 #include "hashtable.h"
+#include "intrusive/get_traits.h"
 #include "pack_options.h"
 
 #include <functional>
@@ -62,8 +63,7 @@ template<class... Options>
 struct make_unordered_bucket_type {
     struct empty {};
     using pack_options = typename GetPackOptions<empty, Options...>::type;
-    using value_traits = typename GetValueTraits<void, typename pack_options::proto_value_traits>::type;
-    using node_traits = typename value_traits::node_traits;
+    using node_traits = typename GetNodeTraits<typename pack_options::proto_value_traits>::type;
     using type = BucketValue<node_traits>;
 };
 

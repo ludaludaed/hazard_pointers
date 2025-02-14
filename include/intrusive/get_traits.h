@@ -24,12 +24,13 @@ enum ProtoValueTraitsType {
 
 template<class ProtoValueTraits>
 struct ProtoValueTraitsTypeDispatch {
-    static constexpr ProtoValueTraitsType value
-        = is_default_hook_v<ProtoValueTraits> ?
-            IS_DEFAULT_HOOK : is_hook_v<ProtoValueTraits> ? IS_HOOK : IS_VALUE_TRAITS;
+    static constexpr ProtoValueTraitsType value = is_default_hook_v<ProtoValueTraits> ? IS_DEFAULT_HOOK
+                                                  : is_hook_v<ProtoValueTraits>       ? IS_HOOK
+                                                                                      : IS_VALUE_TRAITS;
 };
 
-template<class ValueType, class ProtoValueTraits, ProtoValueTraitsType = ProtoValueTraitsTypeDispatch<ProtoValueTraits>::value>
+template<class ValueType, class ProtoValueTraits,
+         ProtoValueTraitsType = ProtoValueTraitsTypeDispatch<ProtoValueTraits>::value>
 struct GetValueTraits;
 
 template<class ValueType, class ProtoValueTraits>
@@ -47,9 +48,17 @@ struct GetValueTraits<ValueType, ProtoValueTraits, IS_VALUE_TRAITS> {
     using type = ProtoValueTraits;
 };
 
+template<class ProtoValueTraits, ProtoValueTraitsType = ProtoValueTraitsTypeDispatch<ProtoValueTraits>::value>
+struct GetNodeTraits;
+
 template<class ProtoValueTraits>
-struct GetNodeTraits {
-    // TODO
+struct GetNodeTraits<ProtoValueTraits, IS_HOOK> {
+    using type = typename ProtoValueTraits::hook_tags::node_traits;
+};
+
+template<class ProtoValueTraits>
+struct GetNodeTraits<ProtoValueTraits, IS_VALUE_TRAITS> {
+    using type = typename ProtoValueTraits::node_traits;
 };
 
 }// namespace detail

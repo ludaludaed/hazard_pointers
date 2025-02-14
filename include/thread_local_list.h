@@ -78,7 +78,7 @@ private:
                                                lu::hash<detail::PointerHash>>;
 
         using BucketTraits = typename UnorderedSet::bucket_traits;
-        using BucketType = typename UnorderedSet::bucket_type;
+        using BucketType = unordered_bucket_type<base_hook<unordered_set_base_hook<>>>;
         using Buckets = std::array<BucketType, 8>;
 
     public:
