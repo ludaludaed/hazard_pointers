@@ -1,6 +1,7 @@
 #ifndef __ORDERED_LIST_H__
 #define __ORDERED_LIST_H__
 
+#include <intrusive/compressed_tuple.h>
 #include <back_off.h>
 #include <hazard_pointer.h>
 #include <intrusive/utils.h>
@@ -26,11 +27,7 @@ public:
 };
 
 template<class ValueType, class KeyCompare, class KeySelect, class Backoff>
-class OrderedList : private lu::detail::EmptyBaseHolder<KeyCompare>, private lu::detail::EmptyBaseHolder<KeySelect> {
-
-    using KeyCompareHolder = lu::detail::EmptyBaseHolder<KeyCompare>;
-    using KeySelectHolder = lu::detail::EmptyBaseHolder<KeySelect>;
-
+class OrderedList {
     using node_type = OrderedListNode<ValueType>;
     using node_ptr = node_type *;
     using node_marked_ptr = lu::marked_ptr<node_type>;
@@ -267,8 +264,7 @@ private:
 
 public:
     explicit OrderedList(const compare &compare = {}, const key_select &key_select = {})
-        : KeyCompareHolder(compare)
-        , KeySelectHolder(key_select) {}
+        : data_(node_marked_ptr{}, compare, key_select) {}
 
     OrderedList(const OrderedList &other) = delete;
 
@@ -280,19 +276,19 @@ public:
 
 private:
     decltype(auto) select_key(const value_type &value) const {
-        auto key_select = KeySelectHolder::get();
+        auto& key_select = lu::get<KeySelect>(data_);
         return key_select(value);
     }
 
     bool find(const key_type &key, position &pos) const {
-        auto comp = KeyCompareHolder::get();
-        auto key_select = KeySelectHolder::get();
-
-        return find(const_cast<std::atomic<node_marked_ptr> *>(&head_), key, pos, comp, key_select);
+        auto& comp = lu::get<KeyCompare>(data_);
+        auto& key_select = lu::get<KeySelect>(data_);
+        auto head_ptr = const_cast<std::atomic<node_marked_ptr> *>(&lu::get<0>(data_));
+        return find(head_ptr, key, pos, comp, key_select);
     }
 
     bool insert_node(node_ptr new_node) {
-        auto key_select = KeySelectHolder::get();
+        auto& key_select = lu::get<KeySelect>(data_);
         Backoff back_off;
         position pos;
         while (true) {
@@ -350,11 +346,11 @@ public:
     }
 
     void clear() {
-        auto key_select = KeySelectHolder::get();
+        auto& key_select = lu::get<KeySelect>(data_);
         lu::hazard_pointer head_guard = lu::make_hazard_pointer();
         position pos;
         while (true) {
-            auto head = head_guard.protect(head_, [](node_marked_ptr ptr) { return ptr.get(); });
+            auto head = head_guard.protect(lu::get<0>(data_), [](node_marked_ptr ptr) { return ptr.get(); });
             if (!head) {
                 break;
             }
@@ -389,12 +385,12 @@ public:
     }
 
     bool empty() const {
-        return !head_.load();
+        return !lu::get<0>(data_).load();
     }
 
     iterator begin() {
         auto head_guard = lu::make_hazard_pointer();
-        auto head = head_guard.protect(head_, [](node_marked_ptr ptr) { return ptr.get(); });
+        auto head = head_guard.protect(lu::get<0>(data_), [](node_marked_ptr ptr) { return ptr.get(); });
         return iterator(std::move(head_guard), head, this);
     }
 
@@ -404,7 +400,7 @@ public:
 
     const_iterator cbegin() const {
         auto head_guard = lu::make_hazard_pointer();
-        auto head = head_guard.protect(head_, [](node_marked_ptr ptr) { return ptr.get(); });
+        auto head = head_guard.protect(lu::get<0>(data_), [](node_marked_ptr ptr) { return ptr.get(); });
         return const_iterator(std::move(head_guard), head, this);
     }
 
@@ -421,14 +417,14 @@ public:
     }
 
 private:
-    std::atomic<node_marked_ptr> head_{};
+    lu::compressed_tuple<std::atomic<node_marked_ptr>, KeyCompare, KeySelect> data_;
 };
 
 template<class KeyType, class ValueType>
 struct MapKeySelect {
     using type = KeyType;
 
-    const KeyType &operator()(const std::pair<KeyType, ValueType> &value) {
+    const KeyType &operator()(const std::pair<KeyType, ValueType> &value) const {
         return value.first;
     }
 };
@@ -437,8 +433,8 @@ template<class KeyType>
 struct SetKeySelect {
     using type = KeyType;
 
-    template<class T, class = std::enable_if_t<std::is_same_v<std::decay_t<T>, KeyType>>>
-    T &&operator()(T &&value) {
+    template<class T, class = std::enable_if_t<std::is_same_v<std::remove_cvref_t<T>, KeyType>>>
+    T &&operator()(T &&value) const {
         return std::forward<T>(value);
     }
 };

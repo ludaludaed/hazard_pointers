@@ -1,7 +1,7 @@
 #ifndef __ACTIVE_LIST_H__
 #define __ACTIVE_LIST_H__
 
-#include "intrusive/empty_base_holder.h"
+#include "intrusive/compressed_tuple.h"
 #include "intrusive/generic_hook.h"
 #include "intrusive/get_traits.h"
 #include "intrusive/node_holder.h"
@@ -208,8 +208,7 @@ private:
 };
 
 template<class ValueTraits>
-class ActiveList : private EmptyBaseHolder<ValueTraits> {
-    using ValueTraitsHolder = EmptyBaseHolder<ValueTraits>;
+class ActiveList {
     using Algo = ActiveListAlgo<typename ValueTraits::node_traits>;
 
 public:
@@ -235,7 +234,7 @@ public:
 
 public:
     explicit ActiveList(const value_traits& value_traits = {})
-        : ValueTraitsHolder(std::move(value_traits)) {}
+        : data_(node_ptr{}, value_traits) {}
 
     ActiveList(const ActiveList &) = delete;
 
@@ -243,41 +242,37 @@ public:
 
 private:
     inline value_traits_ptr GetValueTraitsPtr() const noexcept {
-        return std::pointer_traits<value_traits_ptr>::pointer_to(ValueTraitsHolder::get());
-    }
-
-    inline const value_traits &GetValueTraits() const noexcept {
-        return ValueTraitsHolder::get();
+        return std::pointer_traits<value_traits_ptr>::pointer_to(lu::get<ValueTraits>(data_));
     }
 
 public:
     bool try_acquire(reference item) {
-        const value_traits &_value_traits = GetValueTraits();
+        const value_traits &_value_traits = lu::get<ValueTraits>(data_);
         return Algo::try_acquire(_value_traits.to_node_ptr(item));
     }
 
     bool is_acquired(reference item, std::memory_order order = std::memory_order_relaxed) const {
-        const value_traits &_value_traits = GetValueTraits();
+        const value_traits &_value_traits = lu::get<ValueTraits>(data_);
         return Algo::is_acquired(_value_traits.to_node_ptr(item), order);
     }
 
     void release(reference item) {
-        const value_traits &_value_traits = GetValueTraits();
+        const value_traits &_value_traits = lu::get<ValueTraits>(data_);
         Algo::release(_value_traits.to_node_ptr(item));
     }
 
     void push(reference new_element) {
-        const value_traits &_value_traits = GetValueTraits();
-        Algo::push_front(head_, _value_traits.to_node_ptr(new_element));
+        const value_traits &_value_traits = lu::get<ValueTraits>(data_);
+        Algo::push_front(lu::get<0>(data_), _value_traits.to_node_ptr(new_element));
     }
 
     iterator find_free() {
-        auto found = Algo::find_free(head_);
+        auto found = Algo::find_free(lu::get<0>(data_));
         return iterator(found, GetValueTraitsPtr());
     }
 
     iterator begin() noexcept {
-        auto head = head_.load(std::memory_order_acquire);
+        auto head = lu::get<0>(data_).load(std::memory_order_acquire);
         return iterator(head, GetValueTraitsPtr());
     }
 
@@ -286,7 +281,7 @@ public:
     }
 
     const_iterator cbegin() const noexcept {
-        auto head = head_.load(std::memory_order_acquire);
+        auto head = lu::get<0>(data_).load(std::memory_order_acquire);
         return const_iterator(head, GetValueTraitsPtr());
     }
 
@@ -303,7 +298,7 @@ public:
     }
 
 private:
-    std::atomic<node_ptr> head_{};
+    lu::compressed_tuple<std::atomic<node_ptr>, ValueTraits> data_;
 };
 
 template<class HookType>
