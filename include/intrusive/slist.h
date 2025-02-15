@@ -1,7 +1,6 @@
 #ifndef __INTRUSIVE_SLIST_H__
 #define __INTRUSIVE_SLIST_H__
 
-#include "base_value_traits.h"
 #include "empty_base_holder.h"
 #include "generic_hook.h"
 #include "size_traits.h"
@@ -799,8 +798,8 @@ class SlistBaseHook
 
 struct DefaultSlistHook {
     template <class ValueType>
-    struct GetValueTraits {
-        using type = typename HookToValueTraits<ValueType, typename ValueType::slist_default_hook_type>::type;
+    struct GetDefaultHook {
+        using type = typename ValueType::slist_default_hook_type;
     };
 
     struct is_default_hook_tag;

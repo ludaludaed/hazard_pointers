@@ -35,7 +35,8 @@ struct GetValueTraits;
 
 template<class ValueType, class ProtoValueTraits>
 struct GetValueTraits<ValueType, ProtoValueTraits, IS_DEFAULT_HOOK> {
-    using type = typename ProtoValueTraits::template GetValueTraits<ValueType>::type;
+    using hook_type = typename ProtoValueTraits::template GetDefaultHook<ValueType>::type;
+    using type = typename HookToValueTraits<ValueType, hook_type>::type;
 };
 
 template<class ValueType, class ProtoValueTraits>

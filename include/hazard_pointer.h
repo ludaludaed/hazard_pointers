@@ -40,7 +40,6 @@ class HazardObject : public HazardPointerHook {
     template<class, class>
     friend class lu::hazard_pointer_obj_base;
 
-    using ReclaimFunc = void(HazardObject *value);
     using ReclaimFuncPtr = void (*)(HazardObject *value);
 
 private:

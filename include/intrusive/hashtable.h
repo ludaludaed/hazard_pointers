@@ -1,7 +1,6 @@
 #ifndef __INTRUSIVE_HASH_TABLE_H__
 #define __INTRUSIVE_HASH_TABLE_H__
 
-#include "base_value_traits.h"
 #include "empty_base_holder.h"
 #include "generic_hook.h"
 #include "size_traits.h"
@@ -1148,8 +1147,8 @@ struct DefaultKeyOfValue {
 
 struct DefaultHashTableHook {
     template<class ValueType>
-    struct GetValueTraits {
-        using type = typename HookToValueTraits<ValueType, typename ValueType::hashtable_default_hook_type>::type;
+    struct GetDefaultHook {
+        using type = typename ValueType::hashtable_default_hook_type;
     };
 
     struct is_default_hook_tag;

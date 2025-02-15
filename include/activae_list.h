@@ -1,7 +1,6 @@
 #ifndef __ACTIVE_LIST_H__
 #define __ACTIVE_LIST_H__
 
-#include "intrusive/base_value_traits.h"
 #include "intrusive/empty_base_holder.h"
 #include "intrusive/generic_hook.h"
 #include "intrusive/get_traits.h"
@@ -320,8 +319,8 @@ struct ActiveListBaseHook
 
 struct DefaultActiveListHook {
     template<class ValueType>
-    struct GetValueTraits {
-        using type = typename HookToValueTraits<ValueType, typename ValueType::active_list_default_hook>::type;
+    struct GetDefaultHook {
+        using type = typename ValueType::active_list_default_hook;
     };
 
     struct is_default_hook_tag;
