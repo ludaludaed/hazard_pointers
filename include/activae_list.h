@@ -234,7 +234,7 @@ public:
     using value_traits_ptr = const value_traits *;
 
 public:
-    explicit ActiveList(value_traits value_traits = {})
+    explicit ActiveList(const value_traits& value_traits = {})
         : ValueTraitsHolder(std::move(value_traits)) {}
 
     ActiveList(const ActiveList &) = delete;
