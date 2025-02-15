@@ -1,8 +1,6 @@
 #ifndef __INTRUSIVE_OPTIONS_H__
 #define __INTRUSIVE_OPTIONS_H__
 
-#include "base_value_traits.h"
-
 
 namespace lu {
 
