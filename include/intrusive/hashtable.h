@@ -1,7 +1,6 @@
 #ifndef __INTRUSIVE_HASH_TABLE_H__
 #define __INTRUSIVE_HASH_TABLE_H__
 
-#include "base_value_traits.h"
 #include "compressed_tuple.h"
 #include "generic_hook.h"
 #include "size_traits.h"

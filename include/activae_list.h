@@ -1,7 +1,6 @@
 #ifndef __ACTIVE_LIST_H__
 #define __ACTIVE_LIST_H__
 
-#include "intrusive/base_value_traits.h"
 #include "intrusive/compressed_tuple.h"
 #include "intrusive/generic_hook.h"
 #include "intrusive/get_traits.h"

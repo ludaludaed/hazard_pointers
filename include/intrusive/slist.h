@@ -1,7 +1,6 @@
 #ifndef __INTRUSIVE_SLIST_H__
 #define __INTRUSIVE_SLIST_H__
 
-#include "base_value_traits.h"
 #include "generic_hook.h"
 #include "compressed_tuple.h"
 #include "size_traits.h"
