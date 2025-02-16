@@ -8,6 +8,7 @@
 #include <utils/back_off.h>
 
 #include "ordered_list.h"
+#include "structures.h"
 
 #include <algorithm>
 #include <array>
@@ -27,13 +28,13 @@
 #include <vector>
 
 
-template<typename TContainer>
+template<class Container>
 void stressTest(int actions, int threads) {
     std::vector<std::thread> workers;
     workers.reserve(threads);
     std::vector<std::vector<int>> generated(threads);
     std::vector<std::vector<int>> extracted(threads);
-    TContainer container;
+    Container container;
     for (int i = 0; i < threads; i++) {
         workers.emplace_back([i, actions, &container, &generated, &extracted, threads]() {
             for (int j = 0; j < actions / threads; j++) {
