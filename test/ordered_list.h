@@ -1,11 +1,11 @@
 #ifndef __ORDERED_LIST_H__
 #define __ORDERED_LIST_H__
 
-#include <back_off.h>
-#include <hazard_pointer.h>
 #include <intrusive/compressed_tuple.h>
 #include <intrusive/utils.h>
-#include <marked_ptr.h>
+#include <reclamation/hazard_pointer.h>
+#include <utils/back_off.h>
+#include <utils/marked_ptr.h>
 
 #include <cstddef>
 #include <type_traits>

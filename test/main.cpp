@@ -1,11 +1,11 @@
-#include <back_off.h>
-#include <hazard_pointer.h>
 #include <intrusive/forward_list.h>
 #include <intrusive/hashtable.h>
 #include <intrusive/options.h>
 #include <intrusive/unordered_set.h>
-#include <marked_shared_ptr.h>
-#include <shared_ptr.h>
+#include <reclamation/hazard_pointer.h>
+#include <reclamation/marked_shared_ptr.h>
+#include <reclamation/shared_ptr.h>
+#include <utils/back_off.h>
 
 #include "ordered_list.h"
 

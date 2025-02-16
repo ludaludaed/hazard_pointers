@@ -1,12 +1,12 @@
 #ifndef __THREAD_LOCAL_LIST_H__
 #define __THREAD_LOCAL_LIST_H__
 
-#include <detail/activae_list.h>
-#include <detail/static_bucket_traits.h>
-#include <detail/utils.h>
-#include <fixed_size_function.h>
 #include <intrusive/options.h>
 #include <intrusive/unordered_set.h>
+#include <reclamation/detail/activae_list.h>
+#include <reclamation/detail/static_bucket_traits.h>
+#include <reclamation/detail/utils.h>
+#include <utils/fixed_size_function.h>
 
 #include <atomic>
 #include <cassert>

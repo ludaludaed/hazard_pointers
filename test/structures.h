@@ -1,7 +1,7 @@
 #ifndef __STRUCTURES_H__
 #define __STRUCTURES_H__
 
-#include <atomic_shared_ptr.h>
+#include <reclamation/atomic_shared_ptr.h>
 
 #include <optional>
 
