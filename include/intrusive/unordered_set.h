@@ -1,10 +1,10 @@
 #ifndef __INTRUSIVE_UNORDERED_SET_H__
 #define __INTRUSIVE_UNORDERED_SET_H__
 
-#include <intrusive/get_traits.h>
-#include <intrusive/hash.h>
+#include <intrusive/detail/get_traits.h>
+#include <intrusive/detail/hash.h>
+#include <intrusive/detail/pack_options.h>
 #include <intrusive/hashtable.h>
-#include <intrusive/pack_options.h>
 
 
 namespace lu {

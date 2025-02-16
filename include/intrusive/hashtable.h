@@ -1,9 +1,9 @@
 #ifndef __INTRUSIVE_HASH_TABLE_H__
 #define __INTRUSIVE_HASH_TABLE_H__
 
-#include <intrusive/compressed_tuple.h>
-#include <intrusive/generic_hook.h>
-#include <intrusive/size_traits.h>
+#include <intrusive/detail/compressed_tuple.h>
+#include <intrusive/detail/generic_hook.h>
+#include <intrusive/detail/size_traits.h>
 
 #include <cassert>
 #include <cstddef>

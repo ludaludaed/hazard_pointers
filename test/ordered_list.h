@@ -1,8 +1,8 @@
 #ifndef __ORDERED_LIST_H__
 #define __ORDERED_LIST_H__
 
-#include <intrusive/compressed_tuple.h>
-#include <intrusive/utils.h>
+#include <intrusive/detail/compressed_tuple.h>
+#include <intrusive/detail/utils.h>
 #include <reclamation/hazard_pointer.h>
 #include <utils/back_off.h>
 #include <utils/marked_ptr.h>

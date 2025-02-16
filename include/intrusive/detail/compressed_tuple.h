@@ -1,7 +1,7 @@
 #ifndef __INTRUSIVE_COMPRESSED_TUPLE_H__
 #define __INTRUSIVE_COMPRESSED_TUPLE_H__
 
-#include <intrusive/typelist.h>
+#include <intrusive/detail/typelist.h>
 
 #include <type_traits>
 #include <utility>

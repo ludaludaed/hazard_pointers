@@ -1,7 +1,7 @@
 #ifndef __INTRUSIVE_GENERIC_HOOK__
 #define __INTRUSIVE_GENERIC_HOOK__
 
-#include <intrusive/node_holder.h>
+#include <intrusive/detail/node_holder.h>
 
 #include <memory>
 

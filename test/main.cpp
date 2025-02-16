@@ -281,7 +281,7 @@ private:
     Config config_{};
 };
 
-#include <intrusive/compressed_tuple.h>
+#include <intrusive/detail/compressed_tuple.h>
 
 struct T : lu::unordered_set_base_hook<lu::is_auto_unlink<false>> {
     friend std::size_t hash_value(const T &t) {

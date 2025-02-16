@@ -1,9 +1,9 @@
 #ifndef __SHARED_PTR_H__
 #define __SHARED_PTR_H__
 
+#include <intrusive/detail/utils.h>
 #include <intrusive/forward_list.h>
 #include <intrusive/options.h>
-#include <intrusive/utils.h>
 #include <reclamation/detail/utils.h>
 #include <reclamation/hazard_pointer.h>
 

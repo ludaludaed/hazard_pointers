@@ -1,8 +1,8 @@
 #ifndef __INTRUSIVE_BASE_VALUE_TRAITS_H__
 #define __INTRUSIVE_BASE_VALUE_TRAITS_H__
 
-#include <intrusive/node_holder.h>
-#include <intrusive/utils.h>
+#include <intrusive/detail/node_holder.h>
+#include <intrusive/detail/utils.h>
 
 #include <memory>
 

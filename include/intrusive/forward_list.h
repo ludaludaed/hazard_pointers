@@ -1,8 +1,8 @@
 #ifndef __INTRUSIVE_FORWARD_LIST_H__
 #define __INTRUSIVE_FORWARD_LIST_H__
 
-#include <intrusive/get_traits.h>
-#include <intrusive/pack_options.h>
+#include <intrusive/detail/get_traits.h>
+#include <intrusive/detail/pack_options.h>
 #include <intrusive/slist.h>
 
 
