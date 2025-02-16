@@ -1,17 +1,16 @@
 #ifndef __ACTIVE_LIST_H__
 #define __ACTIVE_LIST_H__
 
-#include "intrusive/compressed_tuple.h"
-#include "intrusive/generic_hook.h"
-#include "intrusive/get_traits.h"
-#include "intrusive/node_holder.h"
-#include "intrusive/pack_options.h"
+#include <intrusive/compressed_tuple.h>
+#include <intrusive/generic_hook.h>
+#include <intrusive/get_traits.h>
+#include <intrusive/node_holder.h>
+#include <intrusive/pack_options.h>
 
 #include <atomic>
 #include <cassert>
 #include <memory>
 #include <type_traits>
-#include <utility>
 
 
 namespace lu {
@@ -233,7 +232,7 @@ public:
     using value_traits_ptr = const value_traits *;
 
 public:
-    explicit ActiveList(const value_traits& value_traits = {})
+    explicit ActiveList(const value_traits &value_traits = {})
         : data_(node_ptr{}, value_traits) {}
 
     ActiveList(const ActiveList &) = delete;

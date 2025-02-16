@@ -1,9 +1,9 @@
 #ifndef __INTRUSIVE_SLIST_H__
 #define __INTRUSIVE_SLIST_H__
 
-#include "generic_hook.h"
-#include "compressed_tuple.h"
-#include "size_traits.h"
+#include <intrusive/compressed_tuple.h>
+#include <intrusive/generic_hook.h>
+#include <intrusive/size_traits.h>
 
 #include <algorithm>
 #include <cassert>
@@ -380,7 +380,7 @@ public:
 
 private:
     struct NilNodeHolder {
-        friend void swap(NilNodeHolder& left, NilNodeHolder& right) {
+        friend void swap(NilNodeHolder &left, NilNodeHolder &right) {
             auto left_node = std::pointer_traits<node_ptr>::pointer_to(left.node_);
             auto right_node = std::pointer_traits<node_ptr>::pointer_to(right.node_);
             Algo::swap_nodes(left_node, right_node);
@@ -801,7 +801,7 @@ class SlistBaseHook
                                 NotDefaultHook> {};
 
 struct DefaultSlistHook {
-    template <class ValueType>
+    template<class ValueType>
     struct GetDefaultHook {
         using type = typename ValueType::slist_default_hook_type;
     };

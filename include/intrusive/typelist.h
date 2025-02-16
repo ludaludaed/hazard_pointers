@@ -1,7 +1,6 @@
 #ifndef __INTRUSIVE_TYPELIST_H__
 #define __INTRUSIVE_TYPELIST_H__
 
-#include <cuchar>
 #include <type_traits>
 #include <utility>
 

@@ -1,8 +1,8 @@
 #ifndef __INTRUSIVE_GET_TRAITS_H__
 #define __INTRUSIVE_GET_TRAITS_H__
 
-#include "intrusive/base_value_traits.h"
-#include "utils.h"
+#include <intrusive/base_value_traits.h>
+#include <intrusive/utils.h>
 
 #include <type_traits>
 

@@ -1,8 +1,8 @@
 #ifndef __MARKED_SHARED_PTR_H__
 #define __MARKED_SHARED_PTR_H__
 
-#include "marked_ptr.h"
-#include "shared_ptr.h"
+#include <marked_ptr.h>
+#include <shared_ptr.h>
 
 #include <memory>
 #include <type_traits>
@@ -53,7 +53,9 @@ public:
         Construct(value_ptr, std::move(deleter), allocator);
     }
 
-    marked_shared_ptr(const marked_shared_ptr &other) noexcept { this->CopyConstruct(other); }
+    marked_shared_ptr(const marked_shared_ptr &other) noexcept {
+        this->CopyConstruct(other);
+    }
 
     template<class _ValuePtr, class _ControlBlockPtr,
              class = std::enable_if_t<std::is_convertible_v<_ValuePtr, element_ptr>
@@ -71,7 +73,9 @@ public:
         this->control_block_ = control_block_ptr(this->control_block_.get(), bit_value);
     }
 
-    marked_shared_ptr(marked_shared_ptr &&other) noexcept { this->MoveConstruct(std::move(other)); }
+    marked_shared_ptr(marked_shared_ptr &&other) noexcept {
+        this->MoveConstruct(std::move(other));
+    }
 
     template<class _ValuePtr, class _ControlBlockPtr,
              class = std::enable_if_t<std::is_convertible_v<_ValuePtr, element_ptr>
@@ -87,7 +91,9 @@ public:
         this->ConstructFromWeak(other);
     }
 
-    ~marked_shared_ptr() { this->DecRef(); }
+    ~marked_shared_ptr() {
+        this->DecRef();
+    }
 
     marked_shared_ptr &operator=(const marked_shared_ptr &other) noexcept {
         marked_shared_ptr temp(other);
@@ -127,11 +133,17 @@ public:
         this->swap(temp);
     }
 
-    void mark() { this->control_block_.mark(); }
+    void mark() {
+        this->control_block_.mark();
+    }
 
-    void unmark() { this->control_block_.unmark(); }
+    void unmark() {
+        this->control_block_.unmark();
+    }
 
-    bool is_marked() { return this->control_block_.is_marked(); }
+    bool is_marked() {
+        return this->control_block_.is_marked();
+    }
 
     friend bool operator==(const marked_shared_ptr &left, const marked_shared_ptr &right) noexcept {
         return left.get() == right.get() && left.control_block_ == right.control_block_;
@@ -149,31 +161,6 @@ private:
         this->SetData(value_ptr, control_block);
     }
 };
-
-namespace detail {
-
-template<class ValueType>
-struct MarkedSharedPointerTraits {
-    using ref_count_ptr = marked_shared_ptr<ValueType>;
-    using control_block_ptr = typename ref_count_ptr::control_block_ptr;
-
-    static control_block_ptr get_control_block(ref_count_ptr &ptr) { return ptr.GetControlBlock(); }
-
-    static control_block_ptr release_ptr(ref_count_ptr &ptr) { return ptr.Release(); }
-
-    static ref_count_ptr create_ptr(control_block_ptr control_block) { return ref_count_ptr(control_block); }
-
-    static void dec_ref(control_block_ptr control_block) { control_block->DecRef(); }
-
-    static void inc_ref(control_block_ptr control_block) { control_block->IncRef(); }
-
-    static bool inc_ref_if_not_zero(control_block_ptr control_block) { return control_block->IncRefIfNotZero(); }
-};
-
-}// namespace detail
-
-template<class ValueType>
-using atomic_marked_shared_ptr = detail::AtomicRefCountPointer<detail::MarkedSharedPointerTraits<ValueType>>;
 
 }// namespace lu
 

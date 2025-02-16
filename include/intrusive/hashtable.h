@@ -1,9 +1,9 @@
 #ifndef __INTRUSIVE_HASH_TABLE_H__
 #define __INTRUSIVE_HASH_TABLE_H__
 
-#include "compressed_tuple.h"
-#include "generic_hook.h"
-#include "size_traits.h"
+#include <intrusive/compressed_tuple.h>
+#include <intrusive/generic_hook.h>
+#include <intrusive/size_traits.h>
 
 #include <cassert>
 #include <cstddef>
@@ -111,33 +111,18 @@ public:
         : buckets_(buckets)
         , size_(size) {}
 
-    BucketTraitsImpl(const BucketTraitsImpl &other) noexcept
-        : buckets_(other.buckets_)
-        , size_(other.size_) {}
+    BucketTraitsImpl(const BucketTraitsImpl &other) noexcept = default;
 
-    BucketTraitsImpl(BucketTraitsImpl &&other) noexcept
-        : buckets_(other.buckets_)
-        , size_(other.size_) {
-        other.buckets_ = bucket_ptr{};
-        other.size_ = size_type{};
-    }
-
-    BucketTraitsImpl &operator=(const BucketTraitsImpl &other) noexcept {
-        BucketTraitsImpl temp(other);
-        temp.swap(*this);
-        return *this;
-    }
-
-    BucketTraitsImpl &operator=(BucketTraitsImpl &&other) noexcept {
-        BucketTraitsImpl temp(std::move(other));
-        temp.swap(*this);
-        return *this;
-    }
+    BucketTraitsImpl(BucketTraitsImpl &&other) noexcept = default;
 
     void swap(BucketTraitsImpl &other) noexcept {
         using std::swap;
         swap(buckets_, other.buckets_);
         swap(size_, other.size_);
+    }
+
+    friend void swap(BucketTraitsImpl &left, BucketTraitsImpl &right) noexcept {
+        left.swap(right);
     }
 
     bucket_ptr data() const noexcept {
@@ -563,7 +548,7 @@ public:
 
 private:
     struct NilNodeHolder {
-        friend void swap(NilNodeHolder& left, NilNodeHolder& right) {
+        friend void swap(NilNodeHolder &left, NilNodeHolder &right) {
             auto left_node = std::pointer_traits<node_ptr>::pointer_to(left.node_);
             auto right_node = std::pointer_traits<node_ptr>::pointer_to(right.node_);
             Algo::swap_heads(left_node, right_node);
@@ -917,7 +902,6 @@ public:
 
         node_ptr current = GetFirst();
         Algo::init(GetNilPtr());
-        lu::get<size_traits>(data_).set_size(0);
 
         while (current) {
             node_ptr next = node_traits::get_next(current);

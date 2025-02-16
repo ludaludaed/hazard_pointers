@@ -3,7 +3,6 @@
 
 #include <thread>
 
-
 namespace lu {
 
 struct none_backoff {

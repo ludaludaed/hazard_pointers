@@ -1,13 +1,13 @@
 #ifndef __THREAD_LOCAL_LIST_H__
 #define __THREAD_LOCAL_LIST_H__
 
-#include "activae_list.h"
-#include "fixed_size_function.h"
-#include "intrusive/options.h"
-#include "intrusive/unordered_set.h"
-#include "utils.h"
+#include <detail/activae_list.h>
+#include <detail/static_bucket_traits.h>
+#include <detail/utils.h>
+#include <fixed_size_function.h>
+#include <intrusive/options.h>
+#include <intrusive/unordered_set.h>
 
-#include <array>
 #include <atomic>
 #include <cassert>
 
@@ -74,16 +74,13 @@ private:
     };
 
     class ThreadLocalOwner {
+        using BucketTraits = detail::StaticBucketTraits<8, unordered_bucket_type<base_hook<unordered_set_base_hook<>>>>;
         using UnorderedSet = lu::unordered_set<value_type, lu::key_of_value<KeyOfValue>, lu::is_power_2_buckets<true>,
-                                               lu::hash<detail::PointerHash>>;
-
-        using BucketTraits = typename UnorderedSet::bucket_traits;
-        using BucketType = unordered_bucket_type<base_hook<unordered_set_base_hook<>>>;
-        using Buckets = std::array<BucketType, 8>;
+                                               lu::hash<detail::PointerHash>, lu::bucket_traits<BucketTraits>>;
 
     public:
         ThreadLocalOwner()
-            : set_(BucketTraits(buckets_.data(), buckets_.size())) {}
+            : set_() {}
 
         ~ThreadLocalOwner() {
             auto current = set_.begin();
@@ -124,7 +121,6 @@ private:
         }
 
     private:
-        Buckets buckets_{};
         UnorderedSet set_;
     };
 

@@ -1,7 +1,7 @@
 #ifndef __INTRUSIVE_PACK_OPTIONS_H__
 #define __INTRUSIVE_PACK_OPTIONS_H__
 
-#include "typelist.h"
+#include <intrusive/typelist.h>
 
 namespace lu {
 namespace detail {

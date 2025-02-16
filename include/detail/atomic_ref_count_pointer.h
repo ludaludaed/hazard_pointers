@@ -1,7 +1,7 @@
-#ifndef __ATOMIC_SHARED_POINTER_H__
-#define __ATOMIC_SHARED_POINTER_H__
+#ifndef __ATOMIC_REF_COUNT_POINTER_H__
+#define __ATOMIC_REF_COUNT_POINTER_H__
 
-#include "hazard_pointer.h"
+#include <hazard_pointer.h>
 
 #include <atomic>
 

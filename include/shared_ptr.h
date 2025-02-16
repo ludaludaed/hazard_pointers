@@ -1,12 +1,12 @@
 #ifndef __SHARED_PTR_H__
 #define __SHARED_PTR_H__
 
-#include "atomic_shared_pointer.h"
-#include "hazard_pointer.h"
-#include "intrusive/forward_list.h"
-#include "intrusive/options.h"
-#include "intrusive/utils.h"
-#include "utils.h"
+#include <detail/atomic_ref_count_pointer.h>
+#include <detail/utils.h>
+#include <hazard_pointer.h>
+#include <intrusive/forward_list.h>
+#include <intrusive/options.h>
+#include <intrusive/utils.h>
 
 #include <atomic>
 #include <cassert>
@@ -765,40 +765,6 @@ public:
     }
 };
 
-namespace detail {
-
-template<class ValueType>
-struct SharedPointerTraits {
-    using ref_count_ptr = shared_ptr<ValueType>;
-    using control_block_ptr = typename ref_count_ptr::control_block_ptr;
-
-    static control_block_ptr get_control_block(ref_count_ptr &ptr) {
-        return ptr.GetControlBlock();
-    }
-
-    static control_block_ptr release_ptr(ref_count_ptr &ptr) {
-        return ptr.Release();
-    }
-
-    static ref_count_ptr create_ptr(control_block_ptr control_block) {
-        return ref_count_ptr(control_block);
-    }
-
-    static void dec_ref(control_block_ptr control_block) {
-        control_block->DecRef();
-    }
-
-    static void inc_ref(control_block_ptr control_block) {
-        control_block->IncRef();
-    }
-
-    static bool inc_ref_if_not_zero(control_block_ptr control_block) {
-        return control_block->IncRefIfNotZero();
-    }
-};
-
-}// namespace detail
-
 template<class ValueType, class Allocator = std::allocator<ValueType>, class... Args>
 shared_ptr<ValueType> alloc_shared(const Allocator &allocator, Args &&...args) {
     using control_block_ptr = typename shared_ptr<ValueType>::control_block_ptr;
@@ -816,9 +782,6 @@ template<class ValueType, class... Args>
 shared_ptr<ValueType> make_shared(Args &&...args) {
     return alloc_shared<ValueType>(std::allocator<ValueType>{}, std::forward<Args>(args)...);
 }
-
-template<class ValueType>
-using atomic_shared_ptr = detail::AtomicRefCountPointer<detail::SharedPointerTraits<ValueType>>;
 
 }// namespace lu
 

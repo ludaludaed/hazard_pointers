@@ -1,9 +1,9 @@
 #ifndef __ORDERED_LIST_H__
 #define __ORDERED_LIST_H__
 
-#include <intrusive/compressed_tuple.h>
 #include <back_off.h>
 #include <hazard_pointer.h>
+#include <intrusive/compressed_tuple.h>
 #include <intrusive/utils.h>
 #include <marked_ptr.h>
 
@@ -276,19 +276,19 @@ public:
 
 private:
     decltype(auto) select_key(const value_type &value) const {
-        auto& key_select = lu::get<KeySelect>(data_);
+        auto &key_select = lu::get<KeySelect>(data_);
         return key_select(value);
     }
 
     bool find(const key_type &key, position &pos) const {
-        auto& comp = lu::get<KeyCompare>(data_);
-        auto& key_select = lu::get<KeySelect>(data_);
+        auto &comp = lu::get<KeyCompare>(data_);
+        auto &key_select = lu::get<KeySelect>(data_);
         auto head_ptr = const_cast<std::atomic<node_marked_ptr> *>(&lu::get<0>(data_));
         return find(head_ptr, key, pos, comp, key_select);
     }
 
     bool insert_node(node_ptr new_node) {
-        auto& key_select = lu::get<KeySelect>(data_);
+        auto &key_select = lu::get<KeySelect>(data_);
         Backoff back_off;
         position pos;
         while (true) {
@@ -346,7 +346,7 @@ public:
     }
 
     void clear() {
-        auto& key_select = lu::get<KeySelect>(data_);
+        auto &key_select = lu::get<KeySelect>(data_);
         lu::hazard_pointer head_guard = lu::make_hazard_pointer();
         position pos;
         while (true) {
