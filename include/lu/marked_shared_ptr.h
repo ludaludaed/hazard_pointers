@@ -1,8 +1,8 @@
 #ifndef __MARKED_SHARED_PTR_H__
 #define __MARKED_SHARED_PTR_H__
 
-#include <reclamation/shared_ptr.h>
-#include <utils/marked_ptr.h>
+#include <lu/shared_ptr.h>
+#include <lu/utils/marked_ptr.h>
 
 #include <memory>
 #include <type_traits>

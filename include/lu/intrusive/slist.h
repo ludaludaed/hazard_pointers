@@ -1,9 +1,9 @@
 #ifndef __INTRUSIVE_SLIST_H__
 #define __INTRUSIVE_SLIST_H__
 
-#include <intrusive/detail/compressed_tuple.h>
-#include <intrusive/detail/generic_hook.h>
-#include <intrusive/detail/size_traits.h>
+#include <lu/intrusive/detail/compressed_tuple.h>
+#include <lu/intrusive/detail/generic_hook.h>
+#include <lu/intrusive/detail/size_traits.h>
 
 #include <algorithm>
 #include <cassert>

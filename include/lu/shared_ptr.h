@@ -1,11 +1,11 @@
 #ifndef __SHARED_PTR_H__
 #define __SHARED_PTR_H__
 
-#include <intrusive/detail/utils.h>
-#include <intrusive/forward_list.h>
-#include <intrusive/options.h>
-#include <reclamation/detail/utils.h>
-#include <reclamation/hazard_pointer.h>
+#include <lu/detail/utils.h>
+#include <lu/hazard_pointer.h>
+#include <lu/intrusive/detail/utils.h>
+#include <lu/intrusive/forward_list.h>
+#include <lu/intrusive/options.h>
 
 #include <atomic>
 #include <cassert>

@@ -1,8 +1,8 @@
 #ifndef __ATOMIC_MARKED_SHARED_POINTER_H__
 #define __ATOMIC_MARKED_SHARED_POINTER_H__
 
-#include <reclamation/detail/atomic_ref_count_pointer.h>
-#include <reclamation/marked_shared_ptr.h>
+#include <lu/detail/atomic_ref_count_pointer.h>
+#include <lu/marked_shared_ptr.h>
 
 
 namespace lu {

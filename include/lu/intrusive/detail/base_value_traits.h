@@ -1,8 +1,8 @@
 #ifndef __INTRUSIVE_BASE_VALUE_TRAITS_H__
 #define __INTRUSIVE_BASE_VALUE_TRAITS_H__
 
-#include <intrusive/detail/node_holder.h>
-#include <intrusive/detail/utils.h>
+#include <lu/intrusive/detail/node_holder.h>
+#include <lu/intrusive/detail/utils.h>
 
 #include <memory>
 
@@ -58,12 +58,6 @@ public:
         return pointer_cast_traits<const_pointer>::static_cast_from(
                 pointer_cast_traits<const_node_holder_ptr>::static_cast_from(node));
     }
-};
-
-template<class ValueType, class HookType>
-struct HookToValueTraits {
-    using tags = typename HookType::hook_tags;
-    using type = BaseValueTraits<ValueType, typename tags::node_traits, typename tags::tag, tags::is_auto_unlink>;
 };
 
 }// namespace detail

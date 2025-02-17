@@ -1,8 +1,8 @@
 #ifndef __INTRUSIVE_GET_TRAITS_H__
 #define __INTRUSIVE_GET_TRAITS_H__
 
-#include <intrusive/detail/base_value_traits.h>
-#include <intrusive/detail/utils.h>
+#include <lu/intrusive/detail/base_value_traits.h>
+#include <lu/intrusive/detail/utils.h>
 
 #include <type_traits>
 
@@ -15,6 +15,12 @@ HAS_DEFINE(is_default_hook, is_default_hook_tag)
 
 template<class Option, class DefaultOption>
 using GetOrDefault = std::conditional_t<!std::is_void_v<Option>, Option, DefaultOption>;
+
+template<class ValueType, class HookType>
+struct HookToValueTraits {
+    using tags = typename HookType::hook_tags;
+    using type = BaseValueTraits<ValueType, typename tags::node_traits, typename tags::tag, tags::is_auto_unlink>;
+};
 
 enum ProtoValueTraitsType {
     IS_DEFAULT_HOOK = 0,

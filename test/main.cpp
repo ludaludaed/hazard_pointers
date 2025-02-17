@@ -1,11 +1,11 @@
-#include <intrusive/forward_list.h>
-#include <intrusive/hashtable.h>
-#include <intrusive/options.h>
-#include <intrusive/unordered_set.h>
-#include <reclamation/hazard_pointer.h>
-#include <reclamation/marked_shared_ptr.h>
-#include <reclamation/shared_ptr.h>
-#include <utils/back_off.h>
+#include <lu/hazard_pointer.h>
+#include <lu/intrusive/forward_list.h>
+#include <lu/intrusive/hashtable.h>
+#include <lu/intrusive/options.h>
+#include <lu/intrusive/unordered_set.h>
+#include <lu/marked_shared_ptr.h>
+#include <lu/shared_ptr.h>
+#include <lu/utils/back_off.h>
 
 #include "ordered_list.h"
 #include "structures.h"
@@ -26,6 +26,7 @@
 #include <tuple>
 #include <utility>
 #include <vector>
+
 
 
 template<class Container>
@@ -281,7 +282,7 @@ private:
     Config config_{};
 };
 
-#include <intrusive/detail/compressed_tuple.h>
+#include <lu/intrusive/detail/compressed_tuple.h>
 
 struct T : lu::unordered_set_base_hook<lu::is_auto_unlink<false>> {
     friend std::size_t hash_value(const T &t) {
@@ -360,5 +361,9 @@ int main() {
     for (int i = 0; i < 1000; ++i) {
         std::cout << "iteration: #" << i << std::endl;
         abstractStressTest(SetFixture<lu::ordered_list_set<int, lu::backoff<lu::none_backoff>>>({}));
+        abstractStressTest(stressTest<lu::asp::TreiberStack<int, lu::yield_backoff>>);
+        abstractStressTest(stressTest<lu::asp::MSQueue<int, lu::yield_backoff>>);
+        abstractStressTest(stressTest<lu::hp::TreiberStack<int, lu::yield_backoff>>);
+        abstractStressTest(stressTest<lu::hp::MSQueue<int, lu::yield_backoff>>);
     }
 }

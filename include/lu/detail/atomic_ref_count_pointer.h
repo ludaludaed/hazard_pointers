@@ -1,7 +1,7 @@
 #ifndef __ATOMIC_REF_COUNT_POINTER_H__
 #define __ATOMIC_REF_COUNT_POINTER_H__
 
-#include <reclamation/hazard_pointer.h>
+#include <lu/hazard_pointer.h>
 
 #include <atomic>
 

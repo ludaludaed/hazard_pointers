@@ -1,11 +1,11 @@
 #ifndef __HAZARD_POINTERS_H__
 #define __HAZARD_POINTERS_H__
 
-#include <intrusive/forward_list.h>
-#include <intrusive/options.h>
-#include <intrusive/unordered_set.h>
-#include <reclamation/detail/thread_local_list.h>
-#include <reclamation/detail/utils.h>
+#include <lu/detail/thread_local_list.h>
+#include <lu/detail/utils.h>
+#include <lu/intrusive/forward_list.h>
+#include <lu/intrusive/options.h>
+#include <lu/intrusive/unordered_set.h>
 
 #include <algorithm>
 #include <atomic>
