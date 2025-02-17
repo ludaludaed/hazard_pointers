@@ -276,6 +276,10 @@ class hazard_pointer_domain {
     using HazardObject = detail::HazardObject;
     using HazardRecord = detail::HazardRecord;
 
+    static constexpr std::size_t DEFAULT_NUM_OF_RECORDS = 8;
+    static constexpr std::size_t DEFAULT_NUM_OF_RETIRES = 64;
+    static constexpr std::size_t DEFAULT_SCAN_THRESHOLD = 64;
+
     struct Detacher {
         explicit Detacher(hazard_pointer_domain *domain)
             : domain_(domain) {}
@@ -334,7 +338,9 @@ class hazard_pointer_domain {
     };
 
 public:
-    hazard_pointer_domain(std::size_t num_of_records, std::size_t num_of_retires, std::size_t scan_threshold)
+    hazard_pointer_domain(std::size_t num_of_records = DEFAULT_NUM_OF_RECORDS,
+                          std::size_t num_of_retires = DEFAULT_NUM_OF_RETIRES,
+                          std::size_t scan_threshold = DEFAULT_SCAN_THRESHOLD)
         : list_(Detacher(this), Creator(num_of_records, num_of_retires, scan_threshold), Deleter()) {}
 
     hazard_pointer_domain(const hazard_pointer_domain &) = delete;
@@ -426,12 +432,8 @@ private:
     lu::thread_local_list<HazardThreadData> list_;
 };
 
-static constexpr std::size_t DEFAULT_NUM_OF_RECORDS = 8;
-static constexpr std::size_t DEFAULT_NUM_OF_RETIRES = 64;
-static constexpr std::size_t DEFAULT_SCAN_THRESHOLD = 64;
-
 inline hazard_pointer_domain &get_default_domain() {
-    static hazard_pointer_domain domain(DEFAULT_NUM_OF_RECORDS, DEFAULT_NUM_OF_RETIRES, DEFAULT_SCAN_THRESHOLD);
+    static hazard_pointer_domain domain;
     return domain;
 }
 
