@@ -10,7 +10,7 @@ namespace lu {
 namespace detail {
 
 template<class RefCountTraits>
-class AtomicRefCountPointer {
+class AtomicStrongPointer {
     using control_block_ptr = typename RefCountTraits::control_block_ptr;
     using ref_count_ptr = typename RefCountTraits::ref_count_ptr;
 
@@ -29,24 +29,24 @@ private:
     }
 
 public:
-    AtomicRefCountPointer() = default;
+    AtomicStrongPointer() = default;
 
-    AtomicRefCountPointer(const AtomicRefCountPointer &) = delete;
+    AtomicStrongPointer(const AtomicStrongPointer &) = delete;
 
-    AtomicRefCountPointer(AtomicRefCountPointer &&) = delete;
+    AtomicStrongPointer(AtomicStrongPointer &&) = delete;
 
-    ~AtomicRefCountPointer() {
+    ~AtomicStrongPointer() {
         auto ptr = control_block_.load();
         if (ptr) {
             RefCountTraits::dec_ref(ptr);
         }
     }
 
-    AtomicRefCountPointer &operator=(const AtomicRefCountPointer &) = delete;
+    AtomicStrongPointer &operator=(const AtomicStrongPointer &) = delete;
 
-    AtomicRefCountPointer &operator=(AtomicRefCountPointer &&) = delete;
+    AtomicStrongPointer &operator=(AtomicStrongPointer &&) = delete;
 
-    AtomicRefCountPointer &operator=(ref_count_ptr other) noexcept {
+    AtomicStrongPointer &operator=(ref_count_ptr other) noexcept {
         store(std::move(other));
         return *this;
     }
@@ -56,7 +56,7 @@ public:
     }
 
     void store(ref_count_ptr desired, std::memory_order order = std::memory_order_seq_cst) noexcept {
-        auto desired_ptr = RefCountTraits::release_ptr(desired);
+        auto desired_ptr = RefCountTraits::release_pointer(desired);
         auto old_ptr = control_block_.exchange(desired_ptr, order);
         if (old_ptr) {
             RefCountTraits::dec_ref(old_ptr);
@@ -68,7 +68,7 @@ public:
         auto ptr = guard.protect(control_block_);
         while (ptr) {
             if (RefCountTraits::inc_ref_if_not_zero(ptr)) {
-                return RefCountTraits::create_ptr(ptr);
+                return RefCountTraits::make_pointer(ptr);
             }
             ptr = guard.protect(control_block_);
         }
@@ -76,9 +76,9 @@ public:
     }
 
     ref_count_ptr exchange(ref_count_ptr desired, std::memory_order order = std::memory_order_seq_cst) noexcept {
-        auto desired_ptr = RefCountTraits::release_ptr(desired);
+        auto desired_ptr = RefCountTraits::release_pointer(desired);
         auto old_ptr = control_block_.exchange(desired_ptr, order);
-        return RefCountTraits::create_ptr(old_ptr);
+        return RefCountTraits::make_pointer(old_ptr);
     }
 
     bool compare_exchange_weak(ref_count_ptr &expected, ref_count_ptr desired, std::memory_order success,
@@ -89,7 +89,7 @@ public:
             if (expected_ptr) {
                 RefCountTraits::dec_ref(expected_ptr);
             }
-            RefCountTraits::release_ptr(desired);
+            RefCountTraits::release_pointer(desired);
             return true;
         } else {
             expected = load();
@@ -105,7 +105,7 @@ public:
             if (expected_ptr) {
                 RefCountTraits::dec_ref(expected_ptr);
             }
-            RefCountTraits::release_ptr(desired);
+            RefCountTraits::release_pointer(desired);
             return true;
         } else {
             expected = load();

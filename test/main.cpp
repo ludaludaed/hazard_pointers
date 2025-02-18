@@ -7,6 +7,7 @@
 #include <lu/shared_ptr.h>
 #include <lu/utils/back_off.h>
 
+#include "lu/atomic_shared_ptr.h"
 #include "ordered_list.h"
 #include "structures.h"
 
@@ -300,9 +301,6 @@ struct U : lu::forward_list_base_hook<lu::is_auto_unlink<false>> {
     std::size_t i;
 };
 
-template<std::size_t I>
-struct Empty {};
-
 int main() {
     std::vector<T> values(10);
     std::vector<typename lu::unordered_set<T>::bucket_type> b(10);
@@ -326,44 +324,17 @@ int main() {
     }
     std::cout << std::endl;
 
-    lu::compressed_tuple<Empty<0>, Empty<1>, char, int, Empty<2>, long long, Empty<3>, Empty<4>, Empty<5>, Empty<6>,
-                         Empty<7>, Empty<8>, Empty<9>, Empty<10>, Empty<11>, std::array<long long, 2>>
-            ct;
-    std::tuple<Empty<0>, Empty<1>, char, int, Empty<2>, long long, Empty<3>, Empty<4>, Empty<5>, Empty<6>, Empty<7>,
-               Empty<8>, Empty<9>, Empty<10>, Empty<11>, std::array<long long, 2>>
-            t;
-
-    struct res {
-        std::array<long long, 2> a;
-        long long b;
-        int c;
-        char d;
-    };
-
-    std::cout << sizeof(ct) << std::endl << sizeof(t) << std::endl << sizeof(res) << std::endl;
-
-    auto &&e0 = lu::get<0>(ct);
-    auto &&e1 = lu::get<1>(std::move(ct));
-    auto &&e2 = lu::get<2>((const decltype(ct) &) ct);
-    auto &&e3 = lu::get<3>(std::move((const decltype(ct) &) ct));
-
-    auto &&e_int = lu::get<int>(ct);
-    auto &&e_int_rvalue = lu::get<int>(std::move(ct));
-    auto &&e_int_const = lu::get<int>((const decltype(ct) &) ct);
-    auto &&e_int_rvalue_const = lu::get<int>(std::move((const decltype(ct) &) ct));
-
-    lu::compressed_tuple<int, char, double> tp(0, 'a', 0.001);
-
-    std::cout << lu::get<int>(tp) << " " << lu::get<0>(tp) << std::endl;
-    std::cout << lu::get<char>(tp) << " " << lu::get<1>(tp) << std::endl;
-    std::cout << lu::get<double>(tp) << " " << lu::get<2>(tp) << std::endl;
-
     for (int i = 0; i < 1000; ++i) {
         std::cout << "iteration: #" << i << std::endl;
-        abstractStressTest(SetFixture<lu::ordered_list_set<int, lu::backoff<lu::none_backoff>>>({}));
+        // abstractStressTest(SetFixture<lu::ordered_list_set<int, lu::backoff<lu::none_backoff>>>({}));
         abstractStressTest(stressTest<lu::asp::TreiberStack<int, lu::yield_backoff>>);
-        abstractStressTest(stressTest<lu::asp::MSQueue<int, lu::yield_backoff>>);
-        abstractStressTest(stressTest<lu::hp::TreiberStack<int, lu::yield_backoff>>);
-        abstractStressTest(stressTest<lu::hp::MSQueue<int, lu::yield_backoff>>);
+        // abstractStressTest(stressTest<lu::asp::MSQueue<int, lu::yield_backoff>>);
+        // abstractStressTest(stressTest<lu::hp::TreiberStack<int, lu::yield_backoff>>);
+        // abstractStressTest(stressTest<lu::hp::MSQueue<int, lu::yield_backoff>>);
     }
+    std::shared_ptr<int> p;
+    lu::atomic_shared_ptr<int> asp;
+    lu::shared_ptr<int> sp = lu::make_shared<int>(0);
+    asp.store(sp);
+    std::cout << sp.use_count() << std::endl;
 }

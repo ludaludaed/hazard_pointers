@@ -17,11 +17,11 @@ struct SharedPointerTraits {
         return ptr.GetControlBlock();
     }
 
-    static control_block_ptr release_ptr(ref_count_ptr &ptr) {
+    static control_block_ptr release_pointer(ref_count_ptr &ptr) {
         return ptr.Release();
     }
 
-    static ref_count_ptr create_ptr(control_block_ptr control_block) {
+    static ref_count_ptr make_pointer(control_block_ptr control_block) {
         return ref_count_ptr(control_block);
     }
 
@@ -41,7 +41,7 @@ struct SharedPointerTraits {
 }// namespace detail
 
 template<class ValueType>
-using atomic_shared_ptr = detail::AtomicRefCountPointer<detail::SharedPointerTraits<ValueType>>;
+using atomic_shared_ptr = detail::AtomicStrongPointer<detail::SharedPointerTraits<ValueType>>;
 
 }// namespace lu
 
