@@ -41,7 +41,7 @@ struct MarkedSharedPointerTraits {
 }// namespace detail
 
 template<class ValueType>
-using atomic_marked_shared_ptr = detail::AtomicStrongPointer<detail::MarkedSharedPointerTraits<ValueType>>;
+using atomic_marked_shared_ptr = detail::AtomicRefCountPointer<detail::MarkedSharedPointerTraits<ValueType>>;
 
 }// namespace lu
 

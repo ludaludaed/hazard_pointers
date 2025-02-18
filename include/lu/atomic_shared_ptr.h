@@ -41,7 +41,7 @@ struct SharedPointerTraits {
 }// namespace detail
 
 template<class ValueType>
-using atomic_shared_ptr = detail::AtomicStrongPointer<detail::SharedPointerTraits<ValueType>>;
+using atomic_shared_ptr = detail::AtomicRefCountPointer<detail::SharedPointerTraits<ValueType>>;
 
 }// namespace lu
 

@@ -10,7 +10,7 @@ namespace lu {
 namespace detail {
 
 template<class RefCountTraits>
-class AtomicStrongPointer {
+class AtomicRefCountPointer {
     using control_block_ptr = typename RefCountTraits::control_block_ptr;
     using ref_count_ptr = typename RefCountTraits::ref_count_ptr;
 
@@ -29,24 +29,24 @@ private:
     }
 
 public:
-    AtomicStrongPointer() = default;
+    AtomicRefCountPointer() = default;
 
-    AtomicStrongPointer(const AtomicStrongPointer &) = delete;
+    AtomicRefCountPointer(const AtomicRefCountPointer &) = delete;
 
-    AtomicStrongPointer(AtomicStrongPointer &&) = delete;
+    AtomicRefCountPointer(AtomicRefCountPointer &&) = delete;
 
-    ~AtomicStrongPointer() {
+    ~AtomicRefCountPointer() {
         auto ptr = control_block_.load();
         if (ptr) {
             RefCountTraits::dec_ref(ptr);
         }
     }
 
-    AtomicStrongPointer &operator=(const AtomicStrongPointer &) = delete;
+    AtomicRefCountPointer &operator=(const AtomicRefCountPointer &) = delete;
 
-    AtomicStrongPointer &operator=(AtomicStrongPointer &&) = delete;
+    AtomicRefCountPointer &operator=(AtomicRefCountPointer &&) = delete;
 
-    AtomicStrongPointer &operator=(ref_count_ptr other) noexcept {
+    AtomicRefCountPointer &operator=(ref_count_ptr other) noexcept {
         store(std::move(other));
         return *this;
     }

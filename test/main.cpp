@@ -326,15 +326,10 @@ int main() {
 
     for (int i = 0; i < 1000; ++i) {
         std::cout << "iteration: #" << i << std::endl;
-        // abstractStressTest(SetFixture<lu::ordered_list_set<int, lu::backoff<lu::none_backoff>>>({}));
-        abstractStressTest(stressTest<lu::asp::TreiberStack<int, lu::yield_backoff>>);
+        abstractStressTest(SetFixture<lu::ordered_list_set<int, lu::backoff<lu::none_backoff>>>({}));
+        // abstractStressTest(stressTest<lu::asp::TreiberStack<int, lu::yield_backoff>>);
         // abstractStressTest(stressTest<lu::asp::MSQueue<int, lu::yield_backoff>>);
         // abstractStressTest(stressTest<lu::hp::TreiberStack<int, lu::yield_backoff>>);
         // abstractStressTest(stressTest<lu::hp::MSQueue<int, lu::yield_backoff>>);
     }
-    std::shared_ptr<int> p;
-    lu::atomic_shared_ptr<int> asp;
-    lu::shared_ptr<int> sp = lu::make_shared<int>(0);
-    asp.store(sp);
-    std::cout << sp.use_count() << std::endl;
 }
