@@ -63,17 +63,17 @@ public:
     using const_iterator = typename ActiveList::const_iterator;
 
 private:
-    using list_pointer = const thread_local_list *;
-
-    struct KeyOfValue {
-        using type = list_pointer;
-
-        type operator()(const thread_local_list_base_hook &value) const {
-            return reinterpret_cast<type>(value.key);
-        }
-    };
-
     class ThreadLocalOwner {
+        using key_type = const thread_local_list *;
+
+        struct KeyOfValue {
+            using type = key_type;
+
+            type operator()(const thread_local_list_base_hook &value) const {
+                return reinterpret_cast<type>(value.key);
+            }
+        };
+
         using BucketTraits = detail::StaticBucketTraits<8, unordered_bucket_type<base_hook<unordered_set_base_hook<>>>>;
         using UnorderedSet = lu::unordered_set<value_type, lu::key_of_value<KeyOfValue>, lu::is_power_2_buckets<true>,
                                                lu::hash<detail::PointerHash>, lu::bucket_traits<BucketTraits>>;
@@ -90,7 +90,7 @@ private:
             }
         }
 
-        pointer get_entry(list_pointer key) noexcept {
+        pointer get_entry(key_type key) noexcept {
             auto found = set_.find(key);
             if (found == set_.end()) {
                 return {};
@@ -98,7 +98,7 @@ private:
             return found.operator->();
         }
 
-        bool contains(list_pointer key) const noexcept {
+        bool contains(key_type key) const noexcept {
             return set_.contains(key);
         }
 
@@ -106,7 +106,7 @@ private:
             set_.insert(value);
         }
 
-        void detach(list_pointer key) noexcept {
+        void detach(key_type key) noexcept {
             auto found = set_.find(key);
             if (found != set_.end()) [[likely]] {
                 detach(*found);
@@ -114,7 +114,7 @@ private:
         }
 
         void detach(reference value) {
-            auto list = reinterpret_cast<list_pointer>(value.key);
+            auto list = reinterpret_cast<key_type>(value.key);
             list->detacher_(&value);
             set_.erase(set_.iterator_to(value));
             value.release();
