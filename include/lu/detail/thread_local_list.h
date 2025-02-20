@@ -79,8 +79,7 @@ private:
                                                lu::hash<detail::PointerHash>, lu::bucket_traits<BucketTraits>>;
 
     public:
-        ThreadLocalOwner()
-            : set_() {}
+        ThreadLocalOwner() = default;
 
         ~ThreadLocalOwner() {
             auto current = set_.begin();
@@ -121,7 +120,7 @@ private:
         }
 
     private:
-        UnorderedSet set_;
+        UnorderedSet set_{};
     };
 
 public:
