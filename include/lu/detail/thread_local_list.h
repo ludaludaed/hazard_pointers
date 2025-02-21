@@ -48,19 +48,25 @@ class thread_local_list_base_hook : public lu::unordered_set_base_hook<>, public
 };
 
 template<class ValueType>
-class thread_local_list {
-    using ActiveList = lu::active_list<ValueType>;
+class thread_local_list : private lu::active_list<ValueType> {
+    using Base = lu::active_list<ValueType>;
 
 public:
     using value_type = ValueType;
 
-    using pointer = typename ActiveList::pointer;
-    using const_pointer = typename ActiveList::const_pointer;
-    using reference = typename ActiveList::reference;
-    using const_reference = typename ActiveList::const_reference;
+    using pointer = typename Base::pointer;
+    using const_pointer = typename Base::const_pointer;
+    using reference = typename Base::reference;
+    using const_reference = typename Base::const_reference;
 
-    using iterator = typename ActiveList::iterator;
-    using const_iterator = typename ActiveList::const_iterator;
+    using iterator = typename Base::iterator;
+    using const_iterator = typename Base::const_iterator;
+
+    using Base::begin;
+    using Base::end;
+
+    using Base::cbegin;
+    using Base::cend;
 
 private:
     class ThreadLocalOwner {
@@ -95,10 +101,6 @@ private:
                 return {};
             }
             return found.operator->();
-        }
-
-        bool contains(key_type key) const noexcept {
-            return set_.contains(key);
         }
 
         void attach(reference value) noexcept {
@@ -136,8 +138,8 @@ public:
     thread_local_list(thread_local_list &&) = delete;
 
     ~thread_local_list() {
-        auto current = list_.begin();
-        while (current != list_.end()) {
+        auto current = begin();
+        while (current != end()) {
             auto prev = current++;
             bool acquired = prev->is_acquired(std::memory_order_acquire);
             UNUSED(acquired);
@@ -153,13 +155,13 @@ private:
     }
 
     pointer find_or_create() {
-        auto found = list_.find_free();
-        if (found != list_.end()) {
+        auto found = this->find_free();
+        if (found != end()) {
             return found.operator->();
         } else {
             auto new_item = creator_();
             new_item->key = this;
-            list_.push(*new_item);
+            this->push(*new_item);
             return new_item;
         }
     }
@@ -167,7 +169,8 @@ private:
 public:
     void attach_thread() {
         auto &owner = get_owner();
-        if (!owner.contains(this)) [[likely]] {
+        auto result = owner.get_entry(this);
+        if (!result) [[likely]] {
             auto new_item = find_or_create();
             owner.attach(*new_item);
         }
@@ -188,32 +191,7 @@ public:
         return *result;
     }
 
-    iterator begin() noexcept {
-        return list_.begin();
-    }
-
-    iterator end() noexcept {
-        return list_.end();
-    }
-
-    const_iterator cbegin() const noexcept {
-        return list_.cbegin();
-    }
-
-    const_iterator cend() const noexcept {
-        return list_.cend();
-    }
-
-    const_iterator begin() const noexcept {
-        return list_.begin();
-    }
-
-    const_iterator end() const noexcept {
-        return list_.end();
-    }
-
 private:
-    ActiveList list_{};
     lu::fixed_size_function<pointer(), 64> creator_;
     lu::fixed_size_function<void(pointer), 64> deleter_;
     lu::fixed_size_function<void(pointer), 64> detacher_;
