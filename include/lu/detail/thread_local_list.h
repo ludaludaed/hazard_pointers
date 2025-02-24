@@ -15,41 +15,73 @@
 namespace lu {
 namespace detail {
 
-template<class Pointer>
 struct DefaultDetacher {
-    void operator()(Pointer value) const {}
+    template<class ValueType>
+    void operator()(ValueType *value) const {}
 };
 
-template<class Pointer>
 struct DefaultCreator {
-    using value_type = typename std::pointer_traits<Pointer>::element_type;
-
-    Pointer operator()() const {
-        return new value_type();
+    template<class ValueType>
+    ValueType *operator()() const {
+        return new ValueType();
     }
 };
 
-template<class Pointer>
 struct DefaultDeleter {
-    using value_type = typename std::pointer_traits<Pointer>::element_type;
-
-    void operator()(Pointer value) const {
+    template<class ValueType>
+    void operator()(ValueType *value) const {
         delete value;
     }
 };
 
 }// namespace detail
 
+template<class ValueType>
 class thread_local_list_base_hook : public lu::unordered_set_base_hook<>, public lu::active_list_base_hook<> {
     template<class>
     friend class thread_local_list;
 
-    void *key{};
+public:
+    using detacher_func = void(ValueType *);
+    using deleter_func = void(ValueType *);
+
+protected:
+    thread_local_list_base_hook() = default;
+
+    template<class Detacher, class Deleter>
+    thread_local_list_base_hook(Detacher detacher = {}, Deleter deleter = {})
+        : detacher_(std::move(detacher))
+        , deleter_(std::move(deleter)) {}
+
+public:
+    template<class Detacher>
+    void set_detacher(Detacher detacher) noexcept {
+        detacher_ = std::move(detacher);
+    }
+
+    template<class Deleter>
+    void set_deleter(Deleter deleter) noexcept {
+        deleter_ = std::move(deleter);
+    }
+
+    void do_detach() noexcept {
+        detacher_(static_cast<ValueType *>(this));
+    }
+
+    void do_delete() noexcept {
+        deleter_(static_cast<ValueType *>(this));
+    }
+
+private:
+    void *key_{};
+    lu::fixed_size_function<detacher_func, 64> detacher_{detail::DefaultDetacher()};
+    lu::fixed_size_function<deleter_func, 64> deleter_{detail::DefaultDeleter()};
 };
 
 template<class ValueType>
 class thread_local_list : private lu::active_list<ValueType> {
     using Base = lu::active_list<ValueType>;
+    using Hook = lu::thread_local_list_base_hook<ValueType>;
 
 public:
     using value_type = ValueType;
@@ -75,8 +107,8 @@ private:
         struct KeyOfValue {
             using type = key_type;
 
-            type operator()(const thread_local_list_base_hook &value) const {
-                return reinterpret_cast<type>(value.key);
+            type operator()(const Hook &value) const {
+                return reinterpret_cast<type>(value.key_);
             }
         };
 
@@ -115,8 +147,7 @@ private:
         }
 
         void detach(reference value) {
-            auto list = reinterpret_cast<key_type>(value.key);
-            list->detacher_(&value);
+            value.do_detach();
             set_.erase(set_.iterator_to(value));
             value.release();
         }
@@ -126,12 +157,9 @@ private:
     };
 
 public:
-    template<class Detacher = detail::DefaultDetacher<pointer>, class Creator = detail::DefaultCreator<pointer>,
-             class Deleter = detail::DefaultDeleter<pointer>>
-    explicit thread_local_list(Detacher detacher = {}, Creator creator = {}, Deleter deleter = {})
-        : detacher_(std::move(detacher))
-        , creator_(std::move(creator))
-        , deleter_(std::move(deleter)) {}
+    template<class Creator = detail::DefaultCreator>
+    explicit thread_local_list(Creator creator = {})
+        : creator_(std::move(creator)) {}
 
     thread_local_list(const thread_local_list &) = delete;
 
@@ -144,7 +172,7 @@ public:
             bool acquired = prev->is_acquired(std::memory_order_acquire);
             UNUSED(acquired);
             assert(!acquired && "Can't clear while all threads aren't detached");
-            deleter_(prev.operator->());
+            prev->do_delete();
         }
     }
 
@@ -160,7 +188,7 @@ private:
             return found.operator->();
         } else {
             auto new_item = creator_();
-            new_item->key = this;
+            new_item->key_ = this;
             this->push(*new_item);
             return new_item;
         }
@@ -193,8 +221,6 @@ public:
 
 private:
     lu::fixed_size_function<pointer(), 64> creator_;
-    lu::fixed_size_function<void(pointer), 64> deleter_;
-    lu::fixed_size_function<void(pointer), 64> detacher_;
 };
 
 }// namespace lu

@@ -202,7 +202,7 @@ private:
     lu::forward_list<HazardRecord> free_list_{};
 };
 
-class HazardThreadData : public lu::thread_local_list_base_hook {
+class HazardThreadData : public lu::thread_local_list_base_hook<HazardThreadData> {
     friend class lu::hazard_pointer_domain;
 
 public:
@@ -292,9 +292,18 @@ class hazard_pointer_domain {
         hazard_pointer_domain *domain_;
     };
 
+    struct Deleter {
+        void operator()(HazardThreadData *thread_data) const {
+            thread_data->~HazardThreadData();
+            delete[] reinterpret_cast<std::uint8_t *>(thread_data);
+        }
+    };
+
     struct Creator {
-        Creator(std::size_t num_of_records, std::size_t num_of_retires, std::size_t scan_threshold)
-            : num_of_records_(num_of_records)
+        Creator(hazard_pointer_domain *domain, std::size_t num_of_records, std::size_t num_of_retires,
+                std::size_t scan_threshold)
+            : domain_(domain)
+            , num_of_records_(num_of_records)
             , num_of_retires_(num_of_retires)
             , scan_threshold_(scan_threshold) {}
 
@@ -321,27 +330,24 @@ class hazard_pointer_domain {
             ::new (blob) HazardThreadData(scan_threshold_, _records_resource, _retires_resource);
             auto thread_data = reinterpret_cast<HazardThreadData *>(blob);
 
+            thread_data->set_detacher(Detacher(domain_));
+            thread_data->set_deleter(Deleter());
+
             return thread_data;
         }
 
     private:
+        hazard_pointer_domain *domain_;
         std::size_t num_of_records_;
         std::size_t num_of_retires_;
         std::size_t scan_threshold_;
-    };
-
-    struct Deleter {
-        void operator()(HazardThreadData *thread_data) const {
-            thread_data->~HazardThreadData();
-            delete[] reinterpret_cast<std::uint8_t *>(thread_data);
-        }
     };
 
 public:
     hazard_pointer_domain(std::size_t num_of_records = DEFAULT_NUM_OF_RECORDS,
                           std::size_t num_of_retires = DEFAULT_NUM_OF_RETIRES,
                           std::size_t scan_threshold = DEFAULT_SCAN_THRESHOLD)
-        : list_(Detacher(this), Creator(num_of_records, num_of_retires, scan_threshold), Deleter()) {}
+        : list_(Creator(this, num_of_records, num_of_retires, scan_threshold)) {}
 
     hazard_pointer_domain(const hazard_pointer_domain &) = delete;
 
@@ -636,7 +642,7 @@ public:
 
 private:
     static void reclaim_func(HazardObject *obj) {
-        auto obj_base = static_cast<hazard_pointer_obj_base<ValueType, Deleter> *>(obj);
+        auto obj_base = static_cast<hazard_pointer_obj_base *>(obj);
         auto value = static_cast<ValueType *>(obj);
         obj_base->do_delete(value);
     }
