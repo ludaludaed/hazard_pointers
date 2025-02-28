@@ -37,7 +37,8 @@ struct DefaultDeleter {
 }// namespace detail
 
 template<class ValueType>
-class thread_local_list_base_hook : public lu::unordered_set_base_hook<>, public lu::active_list_base_hook<> {
+class thread_local_list_base_hook : public lu::unordered_set_base_hook<lu::is_auto_unlink<false>>,
+                                    public lu::active_list_base_hook<> {
     template<class>
     friend class thread_local_list;
 
@@ -102,10 +103,8 @@ public:
 
 private:
     class ThreadLocalOwner {
-        using key_type = const thread_local_list *;
-
         struct KeyOfValue {
-            using type = key_type;
+            using type = const thread_local_list *;
 
             type operator()(const Hook &value) const {
                 return reinterpret_cast<type>(value.key_);
@@ -127,8 +126,8 @@ private:
             }
         }
 
-        pointer get_entry(key_type key) noexcept {
-            auto found = set_.find(key);
+        pointer get_entry(const thread_local_list *list) noexcept {
+            auto found = set_.find(list);
             if (found == set_.end()) {
                 return {};
             }
@@ -139,13 +138,14 @@ private:
             set_.insert(value);
         }
 
-        void detach(key_type key) noexcept {
-            auto found = set_.find(key);
+        void detach(const thread_local_list *list) noexcept {
+            auto found = set_.find(list);
             if (found != set_.end()) [[likely]] {
                 detach(*found);
             }
         }
 
+    private:
         void detach(reference value) {
             value.do_detach();
             set_.erase(set_.iterator_to(value));
