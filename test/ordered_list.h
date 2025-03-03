@@ -4,7 +4,7 @@
 #include <lu/hazard_pointer.h>
 #include <lu/intrusive/detail/compressed_tuple.h>
 #include <lu/intrusive/detail/utils.h>
-#include <lu/utils/back_off.h>
+#include <lu/utils/backoff.h>
 #include <lu/utils/marked_ptr.h>
 
 #include <cstddef>
@@ -16,12 +16,10 @@ namespace detail {
 
 template<class ValueType>
 struct OrderedListNode : public lu::hazard_pointer_obj_base<OrderedListNode<ValueType>> {
-public:
     template<class... Args>
     explicit OrderedListNode(Args &&...args)
         : value(std::forward<Args>(args)...) {}
 
-public:
     ValueType value;
     std::atomic<lu::marked_ptr<OrderedListNode>> next{};
 };
@@ -218,10 +216,9 @@ private:
         }
     }
 
-    template<class _KeyCompare, class _KeySelect>
-    static bool find(std::atomic<node_marked_ptr> *head, const key_type &key, position &pos, _KeyCompare &&comp,
-                     _KeySelect &&key_select) {
-        Backoff back_off;
+    template<class _KeyType, class _KeyCompare, class _KeySelect>
+    static bool find(std::atomic<node_marked_ptr> *head, const _KeyType &key, position &pos, Backoff &backoff,
+                     _KeyCompare &&comp, _KeySelect &&key_select) {
 
     try_again:
         pos.prev_pointer = head;
@@ -238,7 +235,7 @@ private:
             pos.next = pos.next_guard.protect(pos.cur->next, [](node_marked_ptr ptr) { return ptr.get(); });
 
             if (pos.prev_pointer->load().raw() != pos.cur) {
-                back_off();
+                backoff();
                 goto try_again;
             }
 
@@ -247,7 +244,7 @@ private:
                 if (pos.prev_pointer->compare_exchange_weak(not_marked_cur, node_marked_ptr(pos.next, 0))) {
                     pos.cur->retire();
                 } else {
-                    back_off();
+                    backoff();
                     goto try_again;
                 }
             } else {
@@ -281,24 +278,29 @@ private:
     }
 
     bool find(const key_type &key, position &pos) const {
+        Backoff backoff;
+        return find(key, pos, backoff);
+    }
+
+    bool find(const key_type &key, position &pos, Backoff& backoff) const {
         auto &comp = lu::get<KeyCompare>(data_);
         auto &key_select = lu::get<KeySelect>(data_);
         auto head_ptr = const_cast<std::atomic<node_marked_ptr> *>(&lu::get<0>(data_));
-        return find(head_ptr, key, pos, comp, key_select);
+        return find(head_ptr, key, pos, backoff, comp, key_select);
     }
 
     bool insert_node(node_ptr new_node) {
         auto &key_select = lu::get<KeySelect>(data_);
-        Backoff back_off;
+        Backoff backoff;
         position pos;
         while (true) {
-            if (find(key_select(new_node->value), pos)) {
+            if (find(key_select(new_node->value), pos, backoff)) {
                 return false;
             }
             if (link(pos, new_node)) {
                 return true;
             }
-            back_off();
+            backoff();
         }
     }
 
@@ -322,25 +324,25 @@ public:
     }
 
     bool erase(const key_type &value) {
-        Backoff back_off;
+        Backoff backoff;
         position pos;
-        while (find(value, pos)) {
+        while (find(value, pos, backoff)) {
             if (unlink(pos)) {
                 return true;
             }
-            back_off();
+            backoff();
         }
         return false;
     }
 
     guarded_ptr extract(const key_type &value) {
-        Backoff back_off;
+        Backoff backoff;
         position pos;
-        while (find(value, pos)) {
+        while (find(value, pos, backoff)) {
             if (unlink(pos)) {
                 return guarded_ptr(std::move(pos.cur_guard), &pos.cur->value);
             }
-            back_off();
+            backoff();
         }
         return guarded_ptr();
     }

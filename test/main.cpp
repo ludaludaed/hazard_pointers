@@ -5,9 +5,8 @@
 #include <lu/intrusive/unordered_set.h>
 #include <lu/marked_shared_ptr.h>
 #include <lu/shared_ptr.h>
-#include <lu/utils/back_off.h>
+#include <lu/utils/backoff.h>
 
-#include "lu/atomic_shared_ptr.h"
 #include "ordered_list.h"
 #include "structures.h"
 
@@ -24,10 +23,8 @@
 #include <stdexcept>
 #include <string>
 #include <thread>
-#include <tuple>
 #include <utility>
 #include <vector>
-
 
 
 template<class Container>
