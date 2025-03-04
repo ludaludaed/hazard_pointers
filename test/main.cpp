@@ -280,47 +280,7 @@ private:
     Config config_{};
 };
 
-#include <lu/intrusive/detail/compressed_tuple.h>
-
-struct T : lu::unordered_set_base_hook<lu::is_auto_unlink<false>> {
-    friend std::size_t hash_value(const T &t) {
-        return t.i;
-    }
-
-    friend bool operator==(const T &l, const T &r) {
-        return l.i == r.i;
-    }
-
-    std::size_t i{};
-};
-
-struct U : lu::forward_list_base_hook<lu::is_auto_unlink<false>> {
-    std::size_t i;
-};
-
 int main() {
-    std::vector<T> values(10);
-    std::vector<typename lu::unordered_set<T>::bucket_type> b(10);
-    lu::unordered_set<T> set(typename lu::unordered_set<T>::bucket_traits(b.data(), b.size()));
-
-    std::cout << set.size() << std::endl;
-    for (int i = 0; i < values.size(); ++i) {
-        values[i].i = i;
-        set.insert(values[i]);
-        std::cout << i << " " << set.size() << std::endl;
-    }
-    std::cout << std::endl;
-
-    std::vector<U> list_values(10);
-    lu::forward_list<U> list;
-    std::cout << list.size() << std::endl;
-    for (int i = 0; i < list_values.size(); ++i) {
-        list_values[i].i = i;
-        list.push_front(list_values[i]);
-        std::cout << i << " " << list.size() << std::endl;
-    }
-    std::cout << std::endl;
-
     for (int i = 0; i < 1000; ++i) {
         std::cout << "iteration: #" << i << std::endl;
         abstractStressTest(SetFixture<lu::ordered_list_set<int, lu::backoff<lu::none_backoff>>>({}));
