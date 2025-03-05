@@ -24,13 +24,18 @@ struct OrderedListNode : public lu::hazard_pointer_obj_base<OrderedListNode<Valu
     std::atomic<lu::marked_ptr<OrderedListNode>> next{};
 };
 
-template<class ValueType, class KeyCompare, class KeySelect, class Backoff>
-class OrderedList {
-    using node_type = OrderedListNode<ValueType>;
-    using node_ptr = node_type *;
-    using node_marked_ptr = lu::marked_ptr<node_type>;
+template<class ValueType>
+struct OrderedListNodeTraits {
+    using node = OrderedListNode<ValueType>;
+    using node_ptr = node *;
+    using node_marked_ptr = lu::marked_ptr<node>;
+};
 
-    using list_ptr = const OrderedList *;
+template<class NodeTraits>
+struct OrderedListAlgo {
+    using node = typename NodeTraits::node;
+    using node_ptr = typename NodeTraits::node_ptr;
+    using node_marked_ptr = typename NodeTraits::node_marked_ptr;
 
     struct position {
         node_ptr cur;
@@ -41,6 +46,84 @@ class OrderedList {
         lu::hazard_pointer next_guard{lu::make_hazard_pointer()};
         lu::hazard_pointer prev_guard{lu::make_hazard_pointer()};
     };
+
+    static bool unlink(position &pos) {
+        node_marked_ptr next(pos.next, 0);
+        if (pos.cur->next.compare_exchange_weak(next, node_marked_ptr(pos.next, 1))) {
+            node_marked_ptr cur(pos.cur, 0);
+            if (pos.prev_pointer->compare_exchange_weak(cur, next)) {
+                cur->retire();
+            }
+            return true;
+        }
+        return false;
+    }
+
+    static bool link(position &pos, node_ptr new_node) {
+        node_marked_ptr cur(pos.cur, 0);
+        new_node->next.store(cur);
+        if (pos.prev_pointer->compare_exchange_weak(cur, node_marked_ptr(new_node, 0))) {
+            return true;
+        } else {
+            new_node->next.store({});
+            return false;
+        }
+    }
+
+    template<class KeyType, class Backoff, class KeyCompare, class KeySelect>
+    static bool find(std::atomic<node_marked_ptr> *head, const KeyType &key, position &pos, Backoff &backoff,
+                     KeyCompare &&comp, KeySelect &&key_select) {
+
+    try_again:
+        pos.prev_pointer = head;
+        pos.cur = pos.cur_guard.protect(*head, [](node_marked_ptr ptr) { return ptr.get(); });
+
+        while (true) {
+            if (!pos.cur) {
+                pos.cur = {};
+                pos.next = {};
+                return false;
+            }
+
+            pos.next = pos.next_guard.protect(pos.cur->next, [](node_marked_ptr ptr) { return ptr.get(); });
+
+            if (pos.prev_pointer->load().raw() != pos.cur) {
+                backoff();
+                goto try_again;
+            }
+
+            if (pos.next.is_marked()) {
+                node_marked_ptr not_marked_cur(pos.cur, 0);
+                if (pos.prev_pointer->compare_exchange_weak(not_marked_cur, node_marked_ptr(pos.next, 0))) {
+                    pos.cur->retire();
+                } else {
+                    backoff();
+                    goto try_again;
+                }
+            } else {
+                if (!comp(key_select(pos.cur->value), key)) {
+                    return !comp(key, key_select(pos.cur->value));
+                }
+                pos.prev_pointer = &(pos.cur->next);
+                pos.prev_guard.reset_protection(pos.cur);
+            }
+            pos.cur_guard.reset_protection(pos.next.get());
+            pos.cur = pos.next;
+        }
+    }
+};
+
+template<class ValueType, class KeyCompare, class KeySelect, class Backoff>
+class OrderedList {
+    using node_traits = OrderedListNodeTraits<ValueType>;
+    using node = typename node_traits::node;
+    using node_ptr = typename node_traits::node_ptr;
+    using node_marked_ptr = typename node_traits::node_marked_ptr;
+
+    using Algo = OrderedListAlgo<node_traits>;
+    using position = typename Algo::position;
+
+    using list_ptr = const OrderedList *;
 
     template<class Types, bool IsConst>
     class OrderedListIterator {
@@ -192,73 +275,6 @@ public:
     using iterator = OrderedListIterator<OrderedList, !is_key_value>;
     using const_iterator = OrderedListIterator<OrderedList, true>;
 
-private:
-    static bool unlink(position &pos) {
-        node_marked_ptr next(pos.next, 0);
-        if (pos.cur->next.compare_exchange_weak(next, node_marked_ptr(pos.next, 1))) {
-            node_marked_ptr cur(pos.cur, 0);
-            if (pos.prev_pointer->compare_exchange_weak(cur, next)) {
-                cur->retire();
-            }
-            return true;
-        }
-        return false;
-    }
-
-    static bool link(position &pos, node_ptr new_node) {
-        node_marked_ptr cur(pos.cur, 0);
-        new_node->next.store(cur);
-        if (pos.prev_pointer->compare_exchange_weak(cur, node_marked_ptr(new_node, 0))) {
-            return true;
-        } else {
-            new_node->next.store({});
-            return false;
-        }
-    }
-
-    template<class _KeyType, class _KeyCompare, class _KeySelect>
-    static bool find(std::atomic<node_marked_ptr> *head, const _KeyType &key, position &pos, Backoff &backoff,
-                     _KeyCompare &&comp, _KeySelect &&key_select) {
-
-    try_again:
-        pos.prev_pointer = head;
-
-        pos.cur = pos.cur_guard.protect(*head, [](node_marked_ptr ptr) { return ptr.get(); });
-
-        while (true) {
-            if (!pos.cur) {
-                pos.cur = {};
-                pos.next = {};
-                return false;
-            }
-
-            pos.next = pos.next_guard.protect(pos.cur->next, [](node_marked_ptr ptr) { return ptr.get(); });
-
-            if (pos.prev_pointer->load().raw() != pos.cur) {
-                backoff();
-                goto try_again;
-            }
-
-            if (pos.next.is_marked()) {
-                node_marked_ptr not_marked_cur(pos.cur, 0);
-                if (pos.prev_pointer->compare_exchange_weak(not_marked_cur, node_marked_ptr(pos.next, 0))) {
-                    pos.cur->retire();
-                } else {
-                    backoff();
-                    goto try_again;
-                }
-            } else {
-                if (!comp(key_select(pos.cur->value), key)) {
-                    return !comp(key, key_select(pos.cur->value));
-                }
-                pos.prev_pointer = &(pos.cur->next);
-                pos.prev_guard.reset_protection(pos.cur);
-            }
-            pos.cur_guard.reset_protection(pos.next.get());
-            pos.cur = pos.next;
-        }
-    }
-
 public:
     explicit OrderedList(const compare &compare = {}, const key_select &key_select = {})
         : data_(node_marked_ptr{}, compare, key_select) {}
@@ -282,11 +298,11 @@ private:
         return find(key, pos, backoff);
     }
 
-    bool find(const key_type &key, position &pos, Backoff& backoff) const {
+    bool find(const key_type &key, position &pos, Backoff &backoff) const {
         auto &comp = lu::get<KeyCompare>(data_);
         auto &key_select = lu::get<KeySelect>(data_);
         auto head_ptr = const_cast<std::atomic<node_marked_ptr> *>(&lu::get<0>(data_));
-        return find(head_ptr, key, pos, backoff, comp, key_select);
+        return Algo::find(head_ptr, key, pos, backoff, comp, key_select);
     }
 
     bool insert_node(node_ptr new_node) {
@@ -297,7 +313,7 @@ private:
             if (find(key_select(new_node->value), pos, backoff)) {
                 return false;
             }
-            if (link(pos, new_node)) {
+            if (Algo::link(pos, new_node)) {
                 return true;
             }
             backoff();
@@ -315,7 +331,7 @@ public:
 
     template<class... Args>
     bool emplace(Args &&...args) {
-        node_ptr new_node = new node_type(std::forward<Args>(args)...);
+        node_ptr new_node = new node(std::forward<Args>(args)...);
         if (!insert_node(new_node)) {
             delete new_node;
             return false;
@@ -327,7 +343,7 @@ public:
         Backoff backoff;
         position pos;
         while (find(value, pos, backoff)) {
-            if (unlink(pos)) {
+            if (Algo::unlink(pos)) {
                 return true;
             }
             backoff();
@@ -339,7 +355,7 @@ public:
         Backoff backoff;
         position pos;
         while (find(value, pos, backoff)) {
-            if (unlink(pos)) {
+            if (Algo::unlink(pos)) {
                 return guarded_ptr(std::move(pos.cur_guard), &pos.cur->value);
             }
             backoff();
@@ -357,7 +373,7 @@ public:
                 break;
             }
             if (find(key_select(head->value), pos) && pos.cur == head.get()) {
-                unlink(pos);
+                Algo::unlink(pos);
             }
         }
     }
