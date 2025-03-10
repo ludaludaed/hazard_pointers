@@ -113,6 +113,7 @@ struct OrderedListAlgo {
     }
 };
 
+
 template<class ValueType, class KeyCompare, class KeySelect, class Backoff>
 class OrderedList {
     using node_traits = OrderedListNodeTraits<ValueType>;
@@ -123,8 +124,6 @@ class OrderedList {
     using Algo = OrderedListAlgo<node_traits>;
     using position = typename Algo::position;
 
-    using list_ptr = const OrderedList *;
-
     template<class Types, bool IsConst>
     class OrderedListIterator {
         template<class, class, class, class>
@@ -133,7 +132,6 @@ class OrderedList {
         class DummyNonConstIter;
         using NonConstIter = std::conditional_t<IsConst, OrderedListIterator<Types, false>, DummyNonConstIter>;
 
-        using list_ptr = typename Types::list_ptr;
         using node_ptr = typename Types::node_ptr;
         using node_marked_ptr = typename Types::node_marked_ptr;
         using position = typename Types::position;
@@ -145,9 +143,8 @@ class OrderedList {
         using reference = std::conditional_t<IsConst, typename Types::const_reference, typename Types::reference>;
         using iterator_category = std::forward_iterator_tag;
 
-
     private:
-        OrderedListIterator(lu::hazard_pointer guard, node_ptr current, list_ptr list) noexcept
+        OrderedListIterator(lu::hazard_pointer guard, node_ptr current, const OrderedList *list) noexcept
             : guard_(std::move(guard))
             , current_(current)
             , list_(list) {}
@@ -238,9 +235,12 @@ class OrderedList {
         void increment() noexcept {
             auto next_guard = lu::make_hazard_pointer();
             auto next = next_guard.protect(current_->next, [](node_marked_ptr ptr) { return ptr.get(); });
+
             if (next.is_marked()) {
+                next_guard = lu::hazard_pointer();
                 position new_pos;
                 list_->find(list_->select_key(current_->value), new_pos);
+
                 guard_ = std::move(new_pos.cur_guard);
                 current_ = new_pos.cur;
             } else {
@@ -252,7 +252,7 @@ class OrderedList {
     private:
         lu::hazard_pointer guard_{};
         node_ptr current_{};
-        list_ptr list_{};
+        const OrderedList *list_{};
     };
 
 public:
@@ -284,7 +284,12 @@ public:
     OrderedList(OrderedList &&other) = delete;
 
     ~OrderedList() {
-        clear();
+        auto current = lu::get<0>(data_).load();
+        while (current) {
+            auto next = current->next.load();
+            delete current.get();
+            current = next;
+        }
     }
 
 private:
@@ -364,6 +369,7 @@ public:
     }
 
     void clear() {
+        Backoff backoff;
         auto &key_select = lu::get<KeySelect>(data_);
         lu::hazard_pointer head_guard = lu::make_hazard_pointer();
         position pos;
@@ -372,7 +378,7 @@ public:
             if (!head) {
                 break;
             }
-            if (find(key_select(head->value), pos) && pos.cur == head.get()) {
+            if (find(key_select(head->value), pos, backoff) && pos.cur == head.get()) {
                 Algo::unlink(pos);
             }
         }
