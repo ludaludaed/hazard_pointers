@@ -7,6 +7,7 @@
 #include <lu/utils/backoff.h>
 #include <lu/utils/marked_ptr.h>
 
+#include <atomic>
 #include <cstddef>
 #include <type_traits>
 
@@ -42,9 +43,9 @@ struct OrderedListAlgo {
         node_marked_ptr next;
         std::atomic<node_marked_ptr> *prev_pointer;
 
+        lu::hazard_pointer prev_guard{lu::make_hazard_pointer()};
         lu::hazard_pointer cur_guard{lu::make_hazard_pointer()};
         lu::hazard_pointer next_guard{lu::make_hazard_pointer()};
-        lu::hazard_pointer prev_guard{lu::make_hazard_pointer()};
     };
 
     static bool unlink(position &pos) {
@@ -94,12 +95,11 @@ struct OrderedListAlgo {
 
             if (pos.next.is_marked()) {
                 node_marked_ptr not_marked_cur(pos.cur, 0);
-                if (pos.prev_pointer->compare_exchange_weak(not_marked_cur, node_marked_ptr(pos.next, 0))) {
-                    pos.cur->retire();
-                } else {
+                if (!pos.prev_pointer->compare_exchange_weak(not_marked_cur, node_marked_ptr(pos.next, 0))) {
                     backoff();
                     goto try_again;
                 }
+                pos.cur->retire();
             } else {
                 if (!comp(key_select(pos.cur->value), key)) {
                     return !comp(key, key_select(pos.cur->value));
@@ -112,7 +112,6 @@ struct OrderedListAlgo {
         }
     }
 };
-
 
 template<class ValueType, class KeyCompare, class KeySelect, class Backoff>
 class OrderedList {
