@@ -74,7 +74,6 @@ struct OrderedListAlgo {
     template<class KeyType, class Backoff, class KeyCompare, class KeySelect>
     static bool find(std::atomic<node_marked_ptr> *head, const KeyType &key, position &pos, Backoff &backoff,
                      KeyCompare &&comp, KeySelect &&key_select) {
-
     try_again:
         pos.prev_pointer = head;
         pos.cur = pos.cur_guard.protect(*head, [](node_marked_ptr ptr) { return ptr.get(); });
@@ -343,10 +342,10 @@ public:
         return true;
     }
 
-    bool erase(const key_type &value) {
+    bool erase(const key_type &key) {
         Backoff backoff;
         position pos;
-        while (find(value, pos, backoff)) {
+        while (find(key, pos, backoff)) {
             if (Algo::unlink(pos)) {
                 return true;
             }
@@ -355,10 +354,10 @@ public:
         return false;
     }
 
-    guarded_ptr extract(const key_type &value) {
+    guarded_ptr extract(const key_type &key) {
         Backoff backoff;
         position pos;
-        while (find(value, pos, backoff)) {
+        while (find(key, pos, backoff)) {
             if (Algo::unlink(pos)) {
                 return guarded_ptr(std::move(pos.cur_guard), &pos.cur->value);
             }
@@ -383,28 +382,43 @@ public:
         }
     }
 
-    guarded_ptr find(const key_type &value) const {
+    iterator find(const key_type &key) {
         position pos;
-        if (find(value, pos)) {
-            return guarded_ptr(std::move(pos.cur_guard), &pos.cur->value);
-        } else {
-            return guarded_ptr();
+        if (find(key, pos)) {
+            return iterator(std::move(pos.cur_guard), pos.cur, this);
         }
+        return end();
     }
 
-    guarded_ptr find_no_less(const key_type &value) const {
+    const_iterator find(const key_type &key) const {
         position pos;
-        find(value, pos);
+        if (find(key, pos)) {
+            return const_iterator(std::move(pos.cur_guard), pos.cur, this);
+        }
+        return end();
+    }
+
+    iterator find_no_less(const key_type &key) {
+        position pos;
+        find(key, pos);
         if (pos.cur) {
-            return guarded_ptr(std::move(pos.cur_guard), &pos.cur->value);
-        } else {
-            return guarded_ptr();
+            return iterator(std::move(pos.cur_guard), pos.cur, this);
         }
+        return end();
     }
 
-    bool contains(const key_type &value) const {
+    const_iterator find_no_less(const key_type &key) const {
         position pos;
-        return find(value, pos);
+        find(key, pos);
+        if (pos.cur) {
+            return const_iterator(std::move(pos.cur_guard), pos.cur, this);
+        }
+        return end();
+    }
+
+    bool contains(const key_type &key) const {
+        position pos;
+        return find(key, pos);
     }
 
     bool empty() const {

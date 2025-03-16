@@ -150,7 +150,7 @@ class SetFixture {
                         break;
                     case OperationType::find:
                         auto found = set.find(key);
-                        if (found) {
+                        if (found == set.end()) {
                             num_of_found++;
                         } else {
                             num_of_not_found++;
