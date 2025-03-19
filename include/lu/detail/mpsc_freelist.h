@@ -133,10 +133,11 @@ public:
         assert(lu::get<std::thread::id>(data_) == std::this_thread::get_id());
         auto &local_head = GetLocalHead();
         if (local_head) {
-            return local_head;
+            return true;
+        } else {
+            auto &global_head = GetGlobalHead();
+            return global_head.load(std::memory_order_relaxed);
         }
-        auto &global_head = GetGlobalHead();
-        return global_head.load(std::memory_order_relaxed);
     }
 
 private:
