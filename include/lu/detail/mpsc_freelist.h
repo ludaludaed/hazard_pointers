@@ -130,6 +130,7 @@ public:
     }
 
     bool empty() const noexcept {
+        assert(lu::get<std::thread::id>(data_) == std::this_thread::get_id());
         auto &local_head = GetLocalHead();
         if (local_head) {
             return local_head;
