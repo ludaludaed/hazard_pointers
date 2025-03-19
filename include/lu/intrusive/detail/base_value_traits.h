@@ -14,7 +14,7 @@ template<class ValueType, class NodeTraits, class Tag, bool IsAutoUnlink>
 struct BaseValueTraits {
     using node_traits = NodeTraits;
 
-    using node = typename NodeTraits::node;
+    using node = typename node_traits::node;
     using node_ptr = typename node_traits::node_ptr;
     using const_node_ptr = typename node_traits::const_node_ptr;
 

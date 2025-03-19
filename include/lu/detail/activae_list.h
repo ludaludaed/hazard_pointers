@@ -211,10 +211,13 @@ class ActiveList {
     using Algo = ActiveListAlgo<typename ValueTraits::node_traits>;
 
 public:
-    using value_type = typename ValueTraits::value_type;
+    using value_traits = ValueTraits;
+    using node_traits = typename value_traits::node_traits;
 
-    using pointer = typename ValueTraits::pointer;
-    using const_pointer = typename ValueTraits::const_pointer;
+    using value_type = typename value_traits::value_type;
+
+    using pointer = typename value_traits::pointer;
+    using const_pointer = typename value_traits::const_pointer;
     using difference_type = typename std::pointer_traits<pointer>::difference_type;
 
     using reference = value_type &;
@@ -222,13 +225,11 @@ public:
 
     using iterator = ActiveListIterator<ActiveList, false>;
     using const_iterator = ActiveListIterator<ActiveList, true>;
-
-    using node_traits = typename ValueTraits::node_traits;
+    
     using node = typename node_traits::node;
     using node_ptr = typename node_traits::node_ptr;
     using const_node_ptr = typename node_traits::const_node_ptr;
 
-    using value_traits = ValueTraits;
     using value_traits_ptr = const value_traits *;
 
 public:
