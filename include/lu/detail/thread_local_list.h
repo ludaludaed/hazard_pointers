@@ -183,7 +183,7 @@ private:
     }
 
     pointer find_or_create() {
-        auto found = this->find_free();
+        auto found = this->acquire_free();
         if (found != end()) {
             return found.operator->();
         } else {
