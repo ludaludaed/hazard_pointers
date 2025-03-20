@@ -70,6 +70,9 @@ public:
     pointer pop() noexcept {
         erasure_heads();
         node_ptr result = pop_from_local();
+        if (result) {
+            return nullptr;
+        }
         return value_traits_.to_value_ptr(result);
     }
 
