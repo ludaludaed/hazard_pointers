@@ -6,6 +6,7 @@
 #include <atomic>
 #include <cassert>
 #include <memory>
+#include <thread>
 
 namespace lu {
 namespace detail {
@@ -59,29 +60,43 @@ public:
 
     FreeList(FreeList &&) = delete;
 
-    void push_to_local(reference value) {
-        push_to_local(value_traits_.to_node_ptr(value));
-    }
-
-    void push_to_global(reference value) {
-        push_to_global(value_traits_.to_node_ptr(value));
+    void push(reference value) {
+        std::thread::id current_id = std::this_thread::get_id();
+        node_ptr new_node = value_traits_.to_node_ptr(value);
+        if (current_id == owner_id_) {
+            push_to_local(new_node);
+        } else {
+            push_to_global(new_node);
+        }
     }
 
     pointer pop() noexcept {
-        erasure_heads();
+        assert(owner_id_ == std::this_thread::get_id());
+        if (!local_head) {
+            local_head = global_head.exchange(nullptr, std::memory_order_acquire);
+        }
         node_ptr result = pop_from_local();
         if (!result) {
             return nullptr;
         }
-        return value_traits_.to_value_ptr(result);
+        return value_traits_.to_value_ptr(pop_from_local());
     }
 
     bool empty() const noexcept {
+        assert(owner_id_ == std::this_thread::get_id());
         if (local_head) {
             return true;
         } else {
             return global_head.load(std::memory_order_relaxed);
         }
+    }
+
+    void set_owner() noexcept {
+        owner_id_ = std::this_thread::get_id();
+    }
+
+    void clear_owner() noexcept {
+        owner_id_ = std::thread::id();
     }
 
 private:
@@ -106,15 +121,10 @@ private:
         return result;
     }
 
-    void erasure_heads() noexcept {
-        if (!local_head) {
-            local_head = global_head.exchange(nullptr, std::memory_order_acquire);
-        }
-    }
-
 private:
     std::atomic<node_ptr> global_head{};
     node_ptr local_head{};
+    std::thread::id owner_id_{};
     value_traits value_traits_;
 };
 

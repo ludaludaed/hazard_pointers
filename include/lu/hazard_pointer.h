@@ -103,13 +103,18 @@ public:
     }
 };
 
+class HazardRecords;
+
 class HazardRecord : public lu::forward_list_base_hook<> {
+    friend class HazardRecords;
+
 public:
     using pointer = HazardObject *;
     using const_pointer = const HazardObject *;
 
 public:
-    HazardRecord() = default;
+    explicit HazardRecord(HazardRecords *owner)
+        : owner_(owner) {}
 
     HazardRecord(const HazardRecord &) = delete;
 
@@ -127,8 +132,13 @@ public:
         return !protected_.load(std::memory_order_acquire);
     }
 
+    inline HazardRecords *get_owner() const noexcept {
+        return owner_;
+    }
+
 private:
     std::atomic<const_pointer> protected_{};
+    HazardRecords *owner_;
 };
 
 class HazardRecords {
@@ -149,7 +159,7 @@ public:
     HazardRecords(resource data) noexcept
         : data_(data) {
         for (std::size_t i = 0; i < data_.size(); ++i) {
-            ::new (data_.data() + i) value_type();
+            ::new (data_.data() + i) value_type(this);
             free_list_.push_front(data_[i]);
         }
     }
@@ -175,10 +185,6 @@ public:
             record->reset();
             free_list_.push_front(*record);
         }
-    }
-
-    bool full() const noexcept {
-        return free_list_.empty();
     }
 
     iterator begin() noexcept {

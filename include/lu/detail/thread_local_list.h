@@ -15,6 +15,11 @@
 namespace lu {
 namespace detail {
 
+struct DefaultAttacher {
+    template<class ValueType>
+    void operator()(ValueType *value) const {}
+};
+
 struct DefaultDetacher {
     template<class ValueType>
     void operator()(ValueType *value) const {}
@@ -44,17 +49,18 @@ class thread_local_list_base_hook : public lu::unordered_set_base_hook<lu::is_au
 
 public:
     using detacher_func = void(ValueType *);
+    using attacher_func = void(ValueType *);
     using deleter_func = void(ValueType *);
 
 protected:
     thread_local_list_base_hook() = default;
 
-    template<class Detacher, class Deleter>
-    thread_local_list_base_hook(Detacher detacher = {}, Deleter deleter = {})
-        : detacher_(std::move(detacher))
-        , deleter_(std::move(deleter)) {}
-
 public:
+    template<class Attacher>
+    void set_attacher(Attacher attacher) noexcept {
+        attacher_ = std::move(attacher);
+    }
+
     template<class Detacher>
     void set_detacher(Detacher detacher) noexcept {
         detacher_ = std::move(detacher);
@@ -63,6 +69,11 @@ public:
     template<class Deleter>
     void set_deleter(Deleter deleter) noexcept {
         deleter_ = std::move(deleter);
+    }
+
+private:
+    void do_attach() noexcept {
+        attacher_(static_cast<ValueType *>(this));
     }
 
     void do_detach() noexcept {
@@ -75,6 +86,7 @@ public:
 
 private:
     void *key_{};
+    lu::fixed_size_function<attacher_func, 64> attacher_{detail::DefaultAttacher()};
     lu::fixed_size_function<detacher_func, 64> detacher_{detail::DefaultDetacher()};
     lu::fixed_size_function<deleter_func, 64> deleter_{detail::DefaultDeleter()};
 };
@@ -136,6 +148,7 @@ private:
 
         void attach(reference value) noexcept {
             set_.insert(value);
+            value.do_attach();
         }
 
         void detach(const thread_local_list *list) noexcept {
