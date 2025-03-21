@@ -15,16 +15,6 @@
 namespace lu {
 namespace detail {
 
-struct DefaultAttacher {
-    template<class ValueType>
-    void operator()(ValueType *value) const {}
-};
-
-struct DefaultDetacher {
-    template<class ValueType>
-    void operator()(ValueType *value) const {}
-};
-
 struct DefaultCreator {
     template<class ValueType>
     ValueType *operator()() const {
@@ -48,36 +38,28 @@ class thread_local_list_base_hook : public lu::unordered_set_base_hook<lu::is_au
     friend class thread_local_list;
 
 public:
-    using detacher_func = void(ValueType *);
-    using attacher_func = void(ValueType *);
     using deleter_func = void(ValueType *);
 
 protected:
     thread_local_list_base_hook() = default;
 
 public:
-    template<class Attacher>
-    void set_attacher(Attacher attacher) noexcept {
-        attacher_ = std::move(attacher);
-    }
-
-    template<class Detacher>
-    void set_detacher(Detacher detacher) noexcept {
-        detacher_ = std::move(detacher);
-    }
-
     template<class Deleter>
     void set_deleter(Deleter deleter) noexcept {
         deleter_ = std::move(deleter);
     }
 
+    void on_attach() noexcept {}
+
+    void on_detach() noexcept {}
+
 private:
     void do_attach() noexcept {
-        attacher_(static_cast<ValueType *>(this));
+        static_cast<ValueType *>(this)->on_attach();
     }
 
     void do_detach() noexcept {
-        detacher_(static_cast<ValueType *>(this));
+        static_cast<ValueType *>(this)->on_detach();
     }
 
     void do_delete() noexcept {
@@ -86,8 +68,6 @@ private:
 
 private:
     void *key_{};
-    lu::fixed_size_function<attacher_func, 64> attacher_{detail::DefaultAttacher()};
-    lu::fixed_size_function<detacher_func, 64> detacher_{detail::DefaultDetacher()};
     lu::fixed_size_function<deleter_func, 64> deleter_{detail::DefaultDeleter()};
 };
 
@@ -159,7 +139,7 @@ private:
         }
 
     private:
-        void detach(reference value) {
+        void detach(reference value) noexcept {
             value.do_detach();
             set_.erase(set_.iterator_to(value));
             value.release();
@@ -171,7 +151,7 @@ private:
 
 public:
     template<class Creator = detail::DefaultCreator>
-    explicit thread_local_list(Creator creator = {})
+    explicit thread_local_list(Creator creator = {}) noexcept
         : creator_(std::move(creator)) {}
 
     thread_local_list(const thread_local_list &) = delete;
@@ -190,12 +170,12 @@ public:
     }
 
 private:
-    ThreadLocalOwner &get_owner() {
+    ThreadLocalOwner &get_owner() noexcept {
         static thread_local ThreadLocalOwner owner;
         return owner;
     }
 
-    pointer find_or_create() {
+    pointer find_or_create() noexcept {
         auto found = this->acquire_free();
         if (found != end()) {
             return found.operator->();
@@ -208,7 +188,7 @@ private:
     }
 
 public:
-    void attach_thread() {
+    void attach_thread() noexcept {
         auto &owner = get_owner();
         auto result = owner.get_entry(this);
         if (!result) [[likely]] {
@@ -217,12 +197,12 @@ public:
         }
     }
 
-    void detach_thread() {
+    void detach_thread() noexcept {
         auto &owner = get_owner();
         owner.detach(this);
     }
 
-    reference get_thread_local() {
+    reference get_thread_local() noexcept {
         auto &owner = get_owner();
         auto result = owner.get_entry(this);
         if (!result) [[unlikely]] {

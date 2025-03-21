@@ -208,68 +208,6 @@ private:
     lu::forward_list<HazardRecord> free_list_{};
 };
 
-class HazardThreadData : public lu::thread_local_list_base_hook<HazardThreadData> {
-    friend class lu::hazard_pointer_domain;
-
-public:
-    using records_resource = typename HazardRecords::resource;
-    using retires_resource = typename HazardRetires::resource;
-
-public:
-    HazardThreadData(std::size_t scan_threshold, records_resource records_resource, retires_resource retires_resource)
-        : scan_threshold_(scan_threshold)
-        , records_(records_resource)
-        , retires_(retires_resource) {}
-
-    HazardThreadData(const HazardThreadData &) = delete;
-
-    HazardThreadData(HazardThreadData &&) = delete;
-
-    ~HazardThreadData() {
-        clear();
-    }
-
-    void clear() {
-        auto current = retires_.begin();
-        while (current != retires_.end()) {
-            auto prev = current++;
-            reclaim(*prev);
-        }
-    }
-
-    void reclaim(HazardObject &retired) {
-        retires_.erase(retires_.iterator_to(retired));
-        retired.reclaim();
-        num_of_reclaimed.fetch_add(1, std::memory_order_relaxed);
-    }
-
-    bool retire(HazardObject &retired) {
-        retires_.insert(retired);
-        num_of_retired.fetch_add(1, std::memory_order_relaxed);
-        return retires_.size() >= scan_threshold_;
-    }
-
-    void merge(HazardThreadData &other) {
-        retires_.merge(other.retires_);
-    }
-
-    HazardRecord *acquire_record() noexcept {
-        return records_.acquire();
-    }
-
-    void release_record(HazardRecord *record) noexcept {
-        records_.release(record);
-    }
-
-private:
-    std::size_t scan_threshold_;
-    HazardRecords records_;
-    HazardRetires retires_;
-
-    std::atomic<std::size_t> num_of_retired;
-    std::atomic<std::size_t> num_of_reclaimed;
-};
-
 }// namespace detail
 
 class hazard_pointer_domain {
@@ -278,31 +216,81 @@ class hazard_pointer_domain {
 
     friend class hazard_pointer;
 
-    using HazardThreadData = detail::HazardThreadData;
     using HazardObject = detail::HazardObject;
     using HazardRecord = detail::HazardRecord;
 
-    static constexpr std::size_t DEFAULT_NUM_OF_RECORDS = 8;
-    static constexpr std::size_t DEFAULT_NUM_OF_RETIRES = 64;
-    static constexpr std::size_t DEFAULT_SCAN_THRESHOLD = 64;
+    class HazardThreadData : public lu::thread_local_list_base_hook<HazardThreadData> {
+        friend class lu::hazard_pointer_domain;
 
-    struct Detacher {
-        explicit Detacher(hazard_pointer_domain *domain)
-            : domain_(domain) {}
+        using hazard_records = detail::HazardRecords;
+        using hazard_retires = detail::HazardRetires;
 
-        void operator()(HazardThreadData *) const {
+    public:
+        using records_resource = typename hazard_records::resource;
+        using retires_resource = typename hazard_retires::resource;
+
+    public:
+        HazardThreadData(hazard_pointer_domain *domain, std::size_t scan_threshold, records_resource records_resource,
+                         retires_resource retires_resource)
+            : domain_(domain)
+            , scan_threshold_(scan_threshold)
+            , records_(records_resource)
+            , retires_(retires_resource) {}
+
+        HazardThreadData(const HazardThreadData &) = delete;
+
+        HazardThreadData(HazardThreadData &&) = delete;
+
+        ~HazardThreadData() {
+            clear();
+        }
+
+        void clear() noexcept {
+            auto current = retires_.begin();
+            while (current != retires_.end()) {
+                auto prev = current++;
+                reclaim(*prev);
+            }
+        }
+
+        void reclaim(HazardObject &retired) noexcept {
+            retires_.erase(retires_.iterator_to(retired));
+            retired.reclaim();
+            num_of_reclaimed.fetch_add(1, std::memory_order_relaxed);
+        }
+
+        bool retire(HazardObject &retired) noexcept {
+            retires_.insert(retired);
+            num_of_retired.fetch_add(1, std::memory_order_relaxed);
+            return retires_.size() >= scan_threshold_;
+        }
+
+        void merge(HazardThreadData &other) noexcept {
+            retires_.merge(other.retires_);
+        }
+
+        HazardRecord *acquire_record() noexcept {
+            return records_.acquire();
+        }
+
+        void release_record(HazardRecord *record) noexcept {
+            records_.release(record);
+        }
+
+        void on_attach() noexcept {}
+
+        void on_detach() noexcept {
             domain_->help_scan();
         }
 
     private:
         hazard_pointer_domain *domain_;
-    };
+        std::size_t scan_threshold_;
+        hazard_records records_;
+        hazard_retires retires_;
 
-    struct Deleter {
-        void operator()(HazardThreadData *thread_data) const {
-            thread_data->~HazardThreadData();
-            delete[] reinterpret_cast<std::uint8_t *>(thread_data);
-        }
+        std::atomic<std::size_t> num_of_retired;
+        std::atomic<std::size_t> num_of_reclaimed;
     };
 
     struct Creator {
@@ -333,12 +321,15 @@ class hazard_pointer_domain {
             records_resource _records_resource(records, num_of_records_);
             retires_resource _retires_resource(retires, num_of_retires_);
 
-            ::new (blob) HazardThreadData(scan_threshold_, _records_resource, _retires_resource);
+            ::new (blob) HazardThreadData(domain_, scan_threshold_, _records_resource, _retires_resource);
             auto thread_data = reinterpret_cast<HazardThreadData *>(blob);
 
-            thread_data->set_detacher(Detacher(domain_));
-            thread_data->set_deleter(Deleter());
+            auto deleter = [](HazardThreadData *thread_data) {
+                thread_data->~HazardThreadData();
+                delete[] reinterpret_cast<std::uint8_t *>(thread_data);
+            };
 
+            thread_data->set_deleter(std::move(deleter));
             return thread_data;
         }
 
@@ -348,6 +339,10 @@ class hazard_pointer_domain {
         std::size_t num_of_retires_;
         std::size_t scan_threshold_;
     };
+
+    static constexpr std::size_t DEFAULT_NUM_OF_RECORDS = 8;
+    static constexpr std::size_t DEFAULT_NUM_OF_RETIRES = 64;
+    static constexpr std::size_t DEFAULT_SCAN_THRESHOLD = 64;
 
 public:
     hazard_pointer_domain(std::size_t num_of_records = DEFAULT_NUM_OF_RECORDS,
@@ -359,15 +354,15 @@ public:
 
     hazard_pointer_domain(hazard_pointer_domain &&) = delete;
 
-    void attach_thread() {
+    void attach_thread() noexcept {
         list_.attach_thread();
     }
 
-    void detach_thread() {
+    void detach_thread() noexcept {
         list_.detach_thread();
     }
 
-    std::size_t num_of_retired() {
+    std::size_t num_of_retired() noexcept {
         std::size_t result{};
         for (auto it = list_.begin(); it != list_.end(); ++it) {
             result += it->num_of_retired.load(std::memory_order_relaxed);
@@ -375,7 +370,7 @@ public:
         return result;
     }
 
-    std::size_t num_of_reclaimed() {
+    std::size_t num_of_reclaimed() noexcept {
         std::size_t result{};
         for (auto it = list_.begin(); it != list_.end(); ++it) {
             result += it->num_of_reclaimed.load(std::memory_order_relaxed);
@@ -384,7 +379,7 @@ public:
     }
 
 private:
-    void retire(HazardObject *retired) {
+    void retire(HazardObject *retired) noexcept {
         auto &thread_data = list_.get_thread_local();
         if (thread_data.retire(*retired)) [[unlikely]] {
             scan();
@@ -401,7 +396,7 @@ private:
         thread_data.release_record(record);
     }
 
-    void scan() {
+    void scan() noexcept {
         auto &thread_data = list_.get_thread_local();
         auto &retires = thread_data.retires_;
         std::atomic_thread_fence(std::memory_order_seq_cst);
@@ -429,7 +424,7 @@ private:
         }
     }
 
-    void help_scan() {
+    void help_scan() noexcept {
         auto &thread_data = list_.get_thread_local();
         for (auto current = list_.begin(); current != list_.end(); ++current) {
             if (current->try_acquire()) {
