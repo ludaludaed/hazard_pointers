@@ -1,5 +1,5 @@
-#ifndef __INTRUSIVE_GENERIC_HOOK__
-#define __INTRUSIVE_GENERIC_HOOK__
+#ifndef __INTRUSIVE_GENERIC_HOOK_H__
+#define __INTRUSIVE_GENERIC_HOOK_H__
 
 #include <lu/intrusive/detail/node_holder.h>
 

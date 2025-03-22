@@ -207,7 +207,7 @@ private:
 };
 
 template<class ValueTraits>
-class ActiveList {
+class ActiveList : private ValueTraits {
     using Algo = ActiveListAlgo<typename ValueTraits::node_traits>;
 
 public:
@@ -234,7 +234,7 @@ public:
 
 public:
     explicit ActiveList(const value_traits &value_traits = {})
-        : data_(node_ptr{}, value_traits) {}
+        : ValueTraits(value_traits) {}
 
     ActiveList(const ActiveList &) = delete;
 
@@ -242,37 +242,33 @@ public:
 
 private:
     inline value_traits_ptr GetValueTraitsPtr() const noexcept {
-        return std::pointer_traits<value_traits_ptr>::pointer_to(lu::get<ValueTraits>(data_));
+        return std::pointer_traits<value_traits_ptr>::pointer_to(static_cast<const ValueTraits &>(*this));
     }
 
 public:
     bool try_acquire(reference item) {
-        const value_traits &_value_traits = lu::get<ValueTraits>(data_);
-        return Algo::try_acquire(_value_traits.to_node_ptr(item));
+        return Algo::try_acquire(ValueTraits::to_node_ptr(item));
     }
 
     bool is_acquired(reference item, std::memory_order order = std::memory_order_relaxed) const {
-        const value_traits &_value_traits = lu::get<ValueTraits>(data_);
-        return Algo::is_acquired(_value_traits.to_node_ptr(item), order);
+        return Algo::is_acquired(ValueTraits::to_node_ptr(item), order);
     }
 
     void release(reference item) {
-        const value_traits &_value_traits = lu::get<ValueTraits>(data_);
-        Algo::release(_value_traits.to_node_ptr(item));
+        Algo::release(ValueTraits::to_node_ptr(item));
     }
 
     void push(reference new_element) {
-        const value_traits &_value_traits = lu::get<ValueTraits>(data_);
-        Algo::push_front(lu::get<0>(data_), _value_traits.to_node_ptr(new_element));
+        Algo::push_front(head_, ValueTraits::to_node_ptr(new_element));
     }
 
     iterator acquire_free() {
-        auto found = Algo::acquire_free(lu::get<0>(data_));
+        auto found = Algo::acquire_free(head_);
         return iterator(found, GetValueTraitsPtr());
     }
 
     iterator begin() noexcept {
-        auto head = lu::get<0>(data_).load(std::memory_order_acquire);
+        auto head = head_.load(std::memory_order_acquire);
         return iterator(head, GetValueTraitsPtr());
     }
 
@@ -281,7 +277,7 @@ public:
     }
 
     const_iterator cbegin() const noexcept {
-        auto head = lu::get<0>(data_).load(std::memory_order_acquire);
+        auto head = head_.load(std::memory_order_acquire);
         return const_iterator(head, GetValueTraitsPtr());
     }
 
@@ -298,7 +294,7 @@ public:
     }
 
 private:
-    lu::compressed_tuple<std::atomic<node_ptr>, ValueTraits> data_;
+    std::atomic<node_ptr> head_;
 };
 
 template<class HookType>

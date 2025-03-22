@@ -1,5 +1,5 @@
-#ifndef __FREE_LIST__
-#define __FREE_LIST__
+#ifndef __SHARED_FREE_LIST_H__
+#define __SHARED_FREE_LIST_H__
 
 #include <lu/intrusive/detail/compressed_tuple.h>
 #include <lu/intrusive/detail/generic_hook.h>
@@ -18,19 +18,19 @@ namespace lu {
 namespace detail {
 
 template<class VoidPointer>
-class FreeListNode {
+class SharedFreeListNode {
     template<class>
-    friend struct FreeListNodeTraits;
+    friend struct SharedFreeListNodeTraits;
 
-    using pointer = std::pointer_traits<VoidPointer>::template rebind<FreeListNode>;
-    using const_pointer = std::pointer_traits<VoidPointer>::template rebind<const FreeListNode>;
+    using pointer = std::pointer_traits<VoidPointer>::template rebind<SharedFreeListNode>;
+    using const_pointer = std::pointer_traits<VoidPointer>::template rebind<const SharedFreeListNode>;
 
     pointer next;
 };
 
 template<class VoidPointer>
-struct FreeListNodeTraits {
-    using node = FreeListNode<VoidPointer>;
+struct SharedFreeListNodeTraits {
+    using node = SharedFreeListNode<VoidPointer>;
     using node_ptr = typename node::pointer;
     using const_node_ptr = typename node::const_pointer;
 
@@ -44,7 +44,7 @@ struct FreeListNodeTraits {
 };
 
 template<class ValueTraits>
-class FreeList {
+class SharedFreeList : private ValueTraits {
 public:
     using value_traits = ValueTraits;
     using node_traits = typename value_traits::node_traits;
@@ -59,16 +59,16 @@ public:
     using const_reference = typename value_traits::const_reference;
 
 public:
-    explicit FreeList(const value_traits &value_traits = {}) noexcept
-        : value_traits_(value_traits) {}
+    explicit SharedFreeList(const value_traits &value_traits = {}) noexcept
+        : ValueTraits(value_traits) {}
 
-    FreeList(const FreeList &) = delete;
+    SharedFreeList(const SharedFreeList &) = delete;
 
-    FreeList(FreeList &&) = delete;
+    SharedFreeList(SharedFreeList &&) = delete;
 
     void push(reference value) {
         std::thread::id current_id = std::this_thread::get_id();
-        node_ptr new_node = value_traits_.to_node_ptr(value);
+        node_ptr new_node = ValueTraits::to_node_ptr(value);
         if (current_id == owner_id_) {
             push_to_local(new_node);
         } else {
@@ -77,12 +77,12 @@ public:
     }
 
     void push_to_local(reference value) {
-        node_ptr new_node = value_traits_.to_node_ptr(value);
+        node_ptr new_node = ValueTraits::to_node_ptr(value);
         push_to_local(new_node);
     }
 
     void push_to_global(reference value) {
-        node_ptr new_node = value_traits_.to_node_ptr(value);
+        node_ptr new_node = ValueTraits::to_node_ptr(value);
         push_to_global(new_node);
     }
 
@@ -95,7 +95,7 @@ public:
         if (!result) {
             return nullptr;
         }
-        return value_traits_.to_value_ptr(result);
+        return ValueTraits::to_value_ptr(result);
     }
 
     bool empty() const noexcept {
@@ -141,25 +141,24 @@ private:
     std::atomic<node_ptr> global_head{};
     node_ptr local_head{};
     std::thread::id owner_id_{};
-    value_traits value_traits_;
 };
 
 template<class VoidPointer, class Tag>
-struct FreeListHook : public NodeHolder<FreeListNode<VoidPointer>, Tag> {
-    using hook_tags = HookTags<FreeListNodeTraits<VoidPointer>, Tag, false>;
+struct SharedFreeListHook : public NodeHolder<SharedFreeListNode<VoidPointer>, Tag> {
+    using hook_tags = HookTags<SharedFreeListNodeTraits<VoidPointer>, Tag, false>;
 };
 
 template<class HookType>
-struct FreeListDefaultHook {
+struct SharedFreeListDefaultHook {
     using free_list_default_hook = HookType;
 };
 
 template<class VoidPointer, class Tag>
-struct FreeListBaseHook : public FreeListHook<VoidPointer, Tag>,
+struct SharedFreeListBaseHook : public SharedFreeListHook<VoidPointer, Tag>,
                           std::conditional_t<std::is_same_v<Tag, DefaultHookTag>,
-                                             FreeListDefaultHook<FreeListHook<VoidPointer, Tag>>, NotDefaultHook> {};
+                                             SharedFreeListDefaultHook<SharedFreeListHook<VoidPointer, Tag>>, NotDefaultHook> {};
 
-struct DefaultFreeListHook {
+struct DefaultSharedFreeListHook {
     template<class ValueType>
     struct GetDefaultHook {
         using type = typename ValueType::free_list_default_hook;
@@ -168,11 +167,11 @@ struct DefaultFreeListHook {
     struct is_default_hook_tag;
 };
 
-struct FreeListDefaults {
-    using proto_value_traits = DefaultFreeListHook;
+struct SharedFreeListDefaults {
+    using proto_value_traits = DefaultSharedFreeListHook;
 };
 
-struct FreeListHookDefaults {
+struct SharedFreeListHookDefaults {
     using void_pointer = void *;
     using tag = DefaultHookTag;
 };
@@ -184,30 +183,30 @@ namespace lu {
 namespace detail {
 
 template<class... Options>
-struct make_free_list_base_hook {
-    using pack_options = typename GetPackOptions<FreeListHookDefaults, Options...>::type;
+struct make_shared_free_list_base_hook {
+    using pack_options = typename GetPackOptions<SharedFreeListHookDefaults, Options...>::type;
 
     using void_pointer = typename pack_options::void_pointer;
     using tag = typename pack_options::tag;
 
-    using type = FreeListBaseHook<void_pointer, tag>;
+    using type = SharedFreeListBaseHook<void_pointer, tag>;
 };
 
 template<class ValueType, class... Options>
-struct make_free_list {
-    using pack_options = typename GetPackOptions<FreeListDefaults, Options...>::type;
+struct make_shared_free_list {
+    using pack_options = typename GetPackOptions<SharedFreeListDefaults, Options...>::type;
     using value_traits = typename GetValueTraits<ValueType, typename pack_options::proto_value_traits>::type;
 
-    using type = FreeList<value_traits>;
+    using type = SharedFreeList<value_traits>;
 };
 
 }// namespace detail
 
 template<class... Options>
-using free_list_base_hook = typename detail::make_free_list_base_hook<Options...>::type;
+using shared_free_list_base_hook = typename detail::make_shared_free_list_base_hook<Options...>::type;
 
 template<class ValueType, class... Options>
-using free_list = typename detail::make_free_list<ValueType, Options...>::type;
+using shared_free_list = typename detail::make_shared_free_list<ValueType, Options...>::type;
 
 }// namespace lu
 #endif
