@@ -170,12 +170,12 @@ public:
 
 public:
     pointer acquire() noexcept {
-        pointer record{};
         if (!free_list_.empty()) [[likely]] {
-            record = &free_list_.front();
+            pointer record = std::pointer_traits<pointer>::pointer_to(free_list_.front());
             free_list_.pop_front();
+            return record;
         }
-        return record;
+        return nullptr;
     }
 
     void release(pointer record) noexcept {
@@ -222,12 +222,12 @@ class hazard_pointer_domain {
     class HazardThreadData : public lu::thread_local_list_base_hook<HazardThreadData> {
         friend class lu::hazard_pointer_domain;
 
-        using hazard_records = detail::HazardRecords;
-        using hazard_retires = detail::HazardRetires;
+        using HazardRecords = detail::HazardRecords;
+        using HazardRetires = detail::HazardRetires;
 
     public:
-        using records_resource = typename hazard_records::resource;
-        using retires_resource = typename hazard_retires::resource;
+        using records_resource = typename HazardRecords::resource;
+        using retires_resource = typename HazardRetires::resource;
 
     public:
         HazardThreadData(hazard_pointer_domain *domain, std::size_t scan_threshold, records_resource records_resource,
@@ -286,8 +286,8 @@ class hazard_pointer_domain {
     private:
         hazard_pointer_domain *domain_;
         std::size_t scan_threshold_;
-        hazard_records records_;
-        hazard_retires retires_;
+        HazardRecords records_;
+        HazardRetires retires_;
 
         std::atomic<std::size_t> num_of_retired;
         std::atomic<std::size_t> num_of_reclaimed;
@@ -563,11 +563,11 @@ inline hazard_pointer make_hazard_pointer(hazard_pointer_domain &domain = get_de
 template<class ValueType>
 class guarded_ptr {
 public:
-    using value_type = ValueType;
+    using element_type = ValueType;
 
-    using pointer = ValueType *;
-    using reference = ValueType &;
-    using const_reference = const ValueType &;
+    using pointer = element_type *;
+    using reference = element_type &;
+    using const_reference = const element_type &;
 
 public:
     guarded_ptr() = default;
@@ -614,7 +614,7 @@ protected:
         deleter_ = std::move(deleter);
     }
 
-    void do_delete(ValueType *value) {
+    void do_delete(ValueType *value) noexcept {
         deleter_(value);
     }
 
@@ -642,7 +642,7 @@ public:
     }
 
 private:
-    static void reclaim_func(HazardObject *obj) {
+    static void reclaim_func(HazardObject *obj) noexcept {
         auto obj_base = static_cast<hazard_pointer_obj_base *>(obj);
         auto value = static_cast<ValueType *>(obj);
         obj_base->do_delete(value);

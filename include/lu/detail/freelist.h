@@ -2,11 +2,17 @@
 #define __FREE_LIST__
 
 #include <lu/intrusive/detail/compressed_tuple.h>
+#include <lu/intrusive/detail/generic_hook.h>
+#include <lu/intrusive/detail/get_traits.h>
+#include <lu/intrusive/detail/node_holder.h>
+#include <lu/intrusive/detail/pack_options.h>
 
 #include <atomic>
 #include <cassert>
 #include <memory>
 #include <thread>
+#include <type_traits>
+
 
 namespace lu {
 namespace detail {
@@ -70,6 +76,16 @@ public:
         }
     }
 
+    void push_to_local(reference value) {
+        node_ptr new_node = value_traits_.to_node_ptr(value);
+        push_to_local(new_node);
+    }
+
+    void push_to_global(reference value) {
+        node_ptr new_node = value_traits_.to_node_ptr(value);
+        push_to_global(new_node);
+    }
+
     pointer pop() noexcept {
         assert(owner_id_ == std::this_thread::get_id());
         if (!local_head) {
@@ -79,7 +95,7 @@ public:
         if (!result) {
             return nullptr;
         }
-        return value_traits_.to_value_ptr(pop_from_local());
+        return value_traits_.to_value_ptr(result);
     }
 
     bool empty() const noexcept {
@@ -128,7 +144,70 @@ private:
     value_traits value_traits_;
 };
 
+template<class VoidPointer, class Tag>
+struct FreeListHook : public NodeHolder<FreeListNode<VoidPointer>, Tag> {
+    using hook_tags = HookTags<FreeListNodeTraits<VoidPointer>, Tag, false>;
+};
+
+template<class HookType>
+struct FreeListDefaultHook {
+    using free_list_default_hook = HookType;
+};
+
+template<class VoidPointer, class Tag>
+struct FreeListBaseHook : public FreeListHook<VoidPointer, Tag>,
+                          std::conditional_t<std::is_same_v<Tag, DefaultHookTag>,
+                                             FreeListDefaultHook<FreeListHook<VoidPointer, Tag>>, NotDefaultHook> {};
+
+struct DefaultFreeListHook {
+    template<class ValueType>
+    struct GetDefaultHook {
+        using type = typename ValueType::free_list_default_hook;
+    };
+
+    struct is_default_hook_tag;
+};
+
+struct FreeListDefaults {
+    using proto_value_traits = DefaultFreeListHook;
+};
+
+struct FreeListHookDefaults {
+    using void_pointer = void *;
+    using tag = DefaultHookTag;
+};
+
 }// namespace detail
 }// namespace lu
 
+namespace lu {
+namespace detail {
+
+template<class... Options>
+struct make_free_list_base_hook {
+    using pack_options = typename GetPackOptions<FreeListHookDefaults, Options...>::type;
+
+    using void_pointer = typename pack_options::void_pointer;
+    using tag = typename pack_options::tag;
+
+    using type = FreeListBaseHook<void_pointer, tag>;
+};
+
+template<class ValueType, class... Options>
+struct make_free_list {
+    using pack_options = typename GetPackOptions<FreeListDefaults, Options...>::type;
+    using value_traits = typename GetValueTraits<ValueType, typename pack_options::proto_value_traits>::type;
+
+    using type = FreeList<value_traits>;
+};
+
+}// namespace detail
+
+template<class... Options>
+using free_list_base_hook = typename detail::make_free_list_base_hook<Options...>::type;
+
+template<class ValueType, class... Options>
+using free_list = typename detail::make_free_list<ValueType, Options...>::type;
+
+}// namespace lu
 #endif
