@@ -68,79 +68,62 @@ public:
 
     void push(reference value) {
         std::thread::id current_id = std::this_thread::get_id();
-        node_ptr new_node = ValueTraits::to_node_ptr(value);
         if (current_id == owner_id_) {
-            push_to_local(new_node);
+            push_to_local(value);
         } else {
-            push_to_global(new_node);
+            push_to_global(value);
         }
     }
 
     void push_to_local(reference value) {
         node_ptr new_node = ValueTraits::to_node_ptr(value);
-        push_to_local(new_node);
+        node_traits::set_next(new_node, local_head_);
+        local_head_ = new_node;
     }
 
     void push_to_global(reference value) {
         node_ptr new_node = ValueTraits::to_node_ptr(value);
-        push_to_global(new_node);
+        node_ptr head = global_head_.load(std::memory_order_relaxed);
+        do {
+            node_traits::set_next(new_node, head);
+        } while (!global_head_.compare_exchange_weak(head, new_node, std::memory_order_release,
+                                                     std::memory_order_relaxed));
     }
 
     pointer pop() noexcept {
         assert(owner_id_ == std::this_thread::get_id());
-        if (!local_head) {
-            local_head = global_head.exchange(nullptr, std::memory_order_acquire);
+        if (!local_head_) {
+            local_head_ = global_head_.exchange(nullptr, std::memory_order_acquire);
         }
-        node_ptr result = pop_from_local();
-        if (!result) {
-            return nullptr;
+        if (local_head_) {
+            node_ptr result = local_head_;
+            local_head_ = node_traits::get_next(result);
+            return ValueTraits::to_value_ptr(result);
         }
-        return ValueTraits::to_value_ptr(result);
+        return nullptr;
     }
 
     bool empty() const noexcept {
         assert(owner_id_ == std::this_thread::get_id());
-        if (local_head) {
+        if (local_head_) {
             return true;
         } else {
-            return global_head.load(std::memory_order_relaxed);
+            return global_head_.load(std::memory_order_relaxed);
         }
     }
 
-    void set_owner() noexcept {
+    void set_owner_thread() noexcept {
         owner_id_ = std::this_thread::get_id();
     }
 
-    void clear_owner() noexcept {
+    void clear_owner_thread() noexcept {
         owner_id_ = std::thread::id();
     }
 
 private:
-    void push_to_global(node_ptr new_node) noexcept {
-        node_ptr current = global_head.load(std::memory_order_relaxed);
-        do {
-            node_traits::set_next(new_node, current);
-        } while (!global_head.compare_exchange_weak(current, new_node, std::memory_order_release,
-                                                    std::memory_order_relaxed));
-    }
-
-    void push_to_local(node_ptr new_node) noexcept {
-        node_traits::set_next(new_node, local_head);
-        local_head = new_node;
-    }
-
-    node_ptr pop_from_local() noexcept {
-        node_ptr result = local_head;
-        if (result) {
-            local_head = node_traits::get_next(result);
-        }
-        return result;
-    }
-
-private:
-    std::atomic<node_ptr> global_head{};
-    node_ptr local_head{};
     std::thread::id owner_id_{};
+    std::atomic<node_ptr> global_head_{};
+    node_ptr local_head_{};
 };
 
 template<class VoidPointer, class Tag>
@@ -154,9 +137,10 @@ struct SharedFreeListDefaultHook {
 };
 
 template<class VoidPointer, class Tag>
-struct SharedFreeListBaseHook : public SharedFreeListHook<VoidPointer, Tag>,
-                          std::conditional_t<std::is_same_v<Tag, DefaultHookTag>,
-                                             SharedFreeListDefaultHook<SharedFreeListHook<VoidPointer, Tag>>, NotDefaultHook> {};
+struct SharedFreeListBaseHook
+    : public SharedFreeListHook<VoidPointer, Tag>,
+      std::conditional_t<std::is_same_v<Tag, DefaultHookTag>,
+                         SharedFreeListDefaultHook<SharedFreeListHook<VoidPointer, Tag>>, NotDefaultHook> {};
 
 struct DefaultSharedFreeListHook {
     template<class ValueType>

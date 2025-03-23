@@ -27,12 +27,12 @@ class hazard_pointer_obj_base;
 
 namespace detail {
 
-class HazardPointerTag {};
+class HazardPointerTag;
 
-using HazardPointerHook
+using HazardRetiresHook
         = lu::unordered_set_base_hook<lu::tag<HazardPointerTag>, lu::store_hash<false>, lu::is_auto_unlink<false>>;
 
-class HazardObject : public HazardPointerHook {
+class HazardObject : public HazardRetiresHook {
     friend class HazardThreadData;
 
     friend class lu::hazard_pointer_domain;
@@ -82,7 +82,7 @@ struct RawPointerKeyOfValue {
 };
 
 using HazardRetiresSet
-        = lu::unordered_set<HazardObject, lu::base_hook<HazardPointerHook>, lu::is_power_2_buckets<true>,
+        = lu::unordered_set<HazardObject, lu::base_hook<HazardRetiresHook>, lu::is_power_2_buckets<true>,
                             lu::key_of_value<RawPointerKeyOfValue<HazardObject>>, lu::hash<detail::PointerHash>>;
 
 class HazardRetires : public HazardRetiresSet {
@@ -106,8 +106,6 @@ public:
 class HazardRecords;
 
 class HazardRecord : public lu::forward_list_base_hook<> {
-    friend class HazardRecords;
-
 public:
     using pointer = HazardObject *;
     using const_pointer = const HazardObject *;
