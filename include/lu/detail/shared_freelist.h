@@ -10,7 +10,6 @@
 #include <atomic>
 #include <cassert>
 #include <memory>
-#include <thread>
 #include <type_traits>
 
 
@@ -66,15 +65,6 @@ public:
 
     SharedFreeList(SharedFreeList &&) = delete;
 
-    void push(reference value) {
-        std::thread::id current_id = std::this_thread::get_id();
-        if (current_id == owner_id_) {
-            push_to_local(value);
-        } else {
-            push_to_global(value);
-        }
-    }
-
     void push_to_local(reference value) {
         node_ptr new_node = ValueTraits::to_node_ptr(value);
         node_traits::set_next(new_node, local_head_);
@@ -91,7 +81,6 @@ public:
     }
 
     pointer pop() noexcept {
-        assert(owner_id_ == std::this_thread::get_id());
         if (!local_head_) {
             local_head_ = global_head_.exchange(nullptr, std::memory_order_acquire);
         }
@@ -104,7 +93,6 @@ public:
     }
 
     bool empty() const noexcept {
-        assert(owner_id_ == std::this_thread::get_id());
         if (local_head_) {
             return true;
         } else {
@@ -112,16 +100,7 @@ public:
         }
     }
 
-    void set_owner_thread() noexcept {
-        owner_id_ = std::this_thread::get_id();
-    }
-
-    void clear_owner_thread() noexcept {
-        owner_id_ = std::thread::id();
-    }
-
 private:
-    std::thread::id owner_id_{};
     std::atomic<node_ptr> global_head_{};
     node_ptr local_head_{};
 };

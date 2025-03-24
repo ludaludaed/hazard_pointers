@@ -1,6 +1,7 @@
 #ifndef __HAZARD_POINTERS_H__
 #define __HAZARD_POINTERS_H__
 
+#include <lu/detail/shared_freelist.h>
 #include <lu/detail/thread_local_list.h>
 #include <lu/detail/utils.h>
 #include <lu/intrusive/forward_list.h>
@@ -105,7 +106,7 @@ public:
 
 class HazardRecords;
 
-class HazardRecord : public lu::forward_list_base_hook<> {
+class HazardRecord : public lu::shared_free_list_base_hook<> {
 public:
     using pointer = HazardObject *;
     using const_pointer = const HazardObject *;
@@ -158,7 +159,7 @@ public:
         : data_(data) {
         for (std::size_t i = 0; i < data_.size(); ++i) {
             ::new (data_.data() + i) value_type(this);
-            free_list_.push_front(data_[i]);
+            free_list_.push_to_local(data_[i]);
         }
     }
 
@@ -168,20 +169,15 @@ public:
 
 public:
     pointer acquire() noexcept {
-        if (!free_list_.empty()) [[likely]] {
-            pointer record = std::pointer_traits<pointer>::pointer_to(free_list_.front());
-            free_list_.pop_front();
-            return record;
-        }
-        return nullptr;
+        return free_list_.pop();
     }
 
     void release(pointer record) noexcept {
-        assert((data_.data() <= record) && (data_.data() + data_.size() > record)
-               && "Can't release hazard record from other thread");
-        if (record) [[likely]] {
-            record->reset();
-            free_list_.push_front(*record);
+        auto record_owner = record->get_owner();
+        if (record_owner == this) [[likely]] {
+            free_list_.push_to_local(*record);
+        } else {
+            record_owner->free_list_.push_to_global(*record);
         }
     }
 
@@ -203,7 +199,7 @@ public:
 
 private:
     resource data_;
-    lu::forward_list<HazardRecord> free_list_{};
+    lu::shared_free_list<HazardRecord> free_list_{};
 };
 
 }// namespace detail
