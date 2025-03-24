@@ -140,7 +140,9 @@ private:
     HazardRecords *owner_;
 };
 
-class HazardRecords {
+class HazardRecords : public lu::shared_free_list<HazardRecord> {
+    using Base = lu::shared_free_list<HazardRecord>;
+
 public:
     using resource = std::span<HazardRecord>;
 
@@ -159,7 +161,7 @@ public:
         : data_(data) {
         for (std::size_t i = 0; i < data_.size(); ++i) {
             ::new (data_.data() + i) value_type(this);
-            free_list_.push_to_local(data_[i]);
+            Base::push_to_local(data_[i]);
         }
     }
 
@@ -168,19 +170,6 @@ public:
     HazardRecords(HazardRecords &&) = delete;
 
 public:
-    pointer acquire() noexcept {
-        return free_list_.pop();
-    }
-
-    void release(pointer record) noexcept {
-        auto record_owner = record->get_owner();
-        if (record_owner == this) [[likely]] {
-            free_list_.push_to_local(*record);
-        } else {
-            record_owner->free_list_.push_to_global(*record);
-        }
-    }
-
     iterator begin() noexcept {
         return data_.data();
     }
@@ -199,7 +188,6 @@ public:
 
 private:
     resource data_;
-    lu::shared_free_list<HazardRecord> free_list_{};
 };
 
 }// namespace detail
@@ -264,11 +252,16 @@ class hazard_pointer_domain {
         }
 
         HazardRecord *acquire_record() noexcept {
-            return records_.acquire();
+            return records_.pop();
         }
 
         void release_record(HazardRecord *record) noexcept {
-            records_.release(record);
+            auto owner = record->get_owner();
+            if (owner == &records_) {
+                owner->push_to_local(*record);
+            } else {
+                owner->push_to_global(*record);
+            }
         }
 
         void on_attach() noexcept {}
