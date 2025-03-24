@@ -6,21 +6,21 @@
 namespace lu {
 
 struct none_backoff {
-  void operator()() const {}
+    void operator()() const {}
 };
 
 struct yield_backoff {
-  void operator()() const {
-    std::this_thread::yield();
-  }
+    void operator()() const {
+        std::this_thread::yield();
+    }
 };
 
 template<class Backoff>
 struct backoff {
-  template<class Base>
-  struct pack : public Base {
-    using backoff = Backoff;
-  };
+    template<class Base>
+    struct pack : public Base {
+        using backoff = Backoff;
+    };
 };
 
 }// namespace lu

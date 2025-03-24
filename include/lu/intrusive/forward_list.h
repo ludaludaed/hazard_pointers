@@ -11,20 +11,20 @@ namespace detail {
 
 template<class... Options>
 struct make_forward_list_base_hook {
-  using pack_options = typename GetPackOptions<SlistHookDefaults, Options...>::type;
+    using pack_options = typename GetPackOptions<SlistHookDefaults, Options...>::type;
 
-  using type = SlistBaseHook<typename pack_options::void_pointer, typename pack_options::tag,
-                             pack_options::is_auto_unlink>;
+    using type = SlistBaseHook<typename pack_options::void_pointer, typename pack_options::tag,
+                               pack_options::is_auto_unlink>;
 };
 
 template<class ValueType, class... Options>
 struct make_forward_list {
-  using pack_options = typename GetPackOptions<SlistDefaults, Options...>::type;
+    using pack_options = typename GetPackOptions<SlistDefaults, Options...>::type;
 
-  using value_traits = typename GetValueTraits<ValueType, typename pack_options::proto_value_traits>::type;
-  using size_type = typename pack_options::size_type;
+    using value_traits = typename GetValueTraits<ValueType, typename pack_options::proto_value_traits>::type;
+    using size_type = typename pack_options::size_type;
 
-  using type = IntrusiveSlist<value_traits, size_type>;
+    using type = IntrusiveSlist<value_traits, size_type>;
 };
 
 }// namespace detail
