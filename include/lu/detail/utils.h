@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <memory>
+#include <type_traits>
 #include <utility>
 
 
@@ -39,29 +40,29 @@ public:
     AlignedStorage() = default;
 
     template<class... Args>
-    AlignedStorage(Args &&...args) {
+    AlignedStorage(Args &&...args) noexcept(std::is_nothrow_constructible_v<ValueType, Args...>) {
         emplace(std::forward<Args>(args)...);
     }
 
 public:
     template<class... Args>
-    void emplace(Args &&...args) {
+    void emplace(Args &&...args) noexcept(std::is_nothrow_constructible_v<ValueType, Args...>) {
         ::new (data_) ValueType(std::forward<Args>(args)...);
     }
 
-    void destroy() {
+    void destroy() noexcept {
         reinterpret_cast<ValueType *>(data_)->~ValueType();
     }
 
-    reference operator*() {
+    reference operator*() noexcept {
         return *reinterpret_cast<pointer>(data_);
     }
 
-    pointer operator->() const {
+    pointer operator->() const noexcept {
         return const_cast<pointer>(reinterpret_cast<const_pointer>(data_));
     }
 
-    void *get_ptr() const {
+    void *get_ptr() const noexcept {
         return reinterpret_cast<void *>(this->operator->());
     }
 
@@ -89,7 +90,7 @@ public:
         return ptr_;
     }
 
-    pointer release() {
+    pointer release() noexcept {
         return std::exchange(ptr_, pointer{});
     }
 
@@ -111,7 +112,7 @@ public:
         }
     }
 
-    Ptr release() {
+    Ptr release() noexcept {
         return std::exchange(ptr_, Ptr{});
     }
 

@@ -17,14 +17,14 @@ namespace detail {
 
 struct DefaultCreator {
     template<class ValueType>
-    ValueType *operator()() const {
+    ValueType *operator()() const noexcept {
         return new ValueType();
     }
 };
 
 struct DefaultDeleter {
     template<class ValueType>
-    void operator()(ValueType *value) const {
+    void operator()(ValueType *value) const noexcept {
         delete value;
     }
 };
@@ -98,7 +98,7 @@ private:
         struct KeyOfValue {
             using type = const thread_local_list *;
 
-            type operator()(const Hook &value) const {
+            type operator()(const Hook &value) const noexcept {
                 return reinterpret_cast<type>(value.key_);
             }
         };
@@ -108,7 +108,7 @@ private:
                                                lu::hash<detail::PointerHash>, lu::bucket_traits<BucketTraits>>;
 
     public:
-        ThreadLocalOwner() = default;
+        ThreadLocalOwner() noexcept = default;
 
         ~ThreadLocalOwner() {
             auto current = set_.begin();

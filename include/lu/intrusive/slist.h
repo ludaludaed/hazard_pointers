@@ -46,7 +46,7 @@ struct CircularSlistAlgo {
         return (!next) || (next == this_node);
     }
 
-    static std::size_t distance(const_node_ptr first, const_node_ptr last) {
+    static std::size_t distance(const_node_ptr first, const_node_ptr last) noexcept {
         std::size_t result = 0;
         const_node_ptr current = first;
         while (current != last) {
@@ -264,11 +264,11 @@ struct SlistNodeTraits {
     using node_ptr = typename node::pointer;
     using const_node_ptr = typename node::const_pointer;
 
-    static void set_next(node_ptr this_node, node_ptr next) {
+    static void set_next(node_ptr this_node, node_ptr next) noexcept {
         this_node->next = next;
     }
 
-    static node_ptr get_next(const_node_ptr this_node) {
+    static node_ptr get_next(const_node_ptr this_node) noexcept {
         return this_node->next;
     }
 };
@@ -303,11 +303,11 @@ private:
 public:
     SlistIterator() noexcept = default;
 
-    SlistIterator(const NonConstIter &other)
+    SlistIterator(const NonConstIter &other) noexcept
         : current_node_(other.current_node_)
         , value_traits_(other.value_traits_) {}
 
-    SlistIterator &operator=(const NonConstIter &other) {
+    SlistIterator &operator=(const NonConstIter &other) noexcept {
         current_node_ = other.current_node_;
         value_traits_ = other.value_traits_;
         return *this;
@@ -332,16 +332,16 @@ public:
         return value_traits_->to_value_ptr(current_node_);
     }
 
-    friend bool operator==(const SlistIterator &left, const SlistIterator &right) {
+    friend bool operator==(const SlistIterator &left, const SlistIterator &right) noexcept {
         return left.current_node_ == right.current_node_ && left.value_traits_ == right.value_traits_;
     }
 
-    friend bool operator!=(const SlistIterator &left, const SlistIterator &right) {
+    friend bool operator!=(const SlistIterator &left, const SlistIterator &right) noexcept {
         return !(left == right);
     }
 
 private:
-    void Increment() {
+    void Increment() noexcept {
         current_node_ = node_traits::get_next(current_node_);
     }
 
@@ -380,7 +380,7 @@ public:
 
 private:
     struct NilNodeHolder {
-        friend void swap(NilNodeHolder &left, NilNodeHolder &right) {
+        friend void swap(NilNodeHolder &left, NilNodeHolder &right) noexcept {
             auto left_node = std::pointer_traits<node_ptr>::pointer_to(left.node_);
             auto right_node = std::pointer_traits<node_ptr>::pointer_to(right.node_);
             Algo::swap_nodes(left_node, right_node);
@@ -390,13 +390,13 @@ private:
     };
 
 public:
-    explicit IntrusiveSlist(const value_traits &value_traits = {})
+    explicit IntrusiveSlist(const value_traits &value_traits = {}) noexcept
         : data_(NilNodeHolder{}, value_traits, size_traits{}) {
         Construct();
     }
 
     template<class Iterator>
-    IntrusiveSlist(Iterator begin, Iterator end, const value_traits &value_traits = {})
+    IntrusiveSlist(Iterator begin, Iterator end, const value_traits &value_traits = {}) noexcept
         : data_(NilNodeHolder{}, value_traits, size_traits{}) {
         Construct();
         insert_after(before_begin(), begin, end);
@@ -495,7 +495,7 @@ private:
     }
 
     template<class Comp>
-    void Sort(Comp &&comp) {
+    void Sort(Comp &&comp) noexcept {
         const value_traits &_value_traits = lu::get<ValueTraits>(data_);
         auto node_comp = [&_value_traits, &comp](node_ptr left, node_ptr right) {
             return comp(*_value_traits.to_value_ptr(left), *_value_traits.to_value_ptr(right));
@@ -553,7 +553,7 @@ private:
 
 public:
     template<class Iterator>
-    void assign(Iterator first, Iterator last) {
+    void assign(Iterator first, Iterator last) noexcept {
         clear();
         insert_after(cbefore_begin(), first, last);
     }
@@ -610,7 +610,7 @@ public:
         return iterator(result, GetValueTraitsPtr());
     }
 
-    void clear() {
+    void clear() noexcept {
         EraseAfter(GetNilPtr(), GetEnd());
     }
 

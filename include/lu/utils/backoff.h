@@ -6,11 +6,11 @@
 namespace lu {
 
 struct none_backoff {
-    void operator()() const {}
+    void operator()() const noexcept {}
 };
 
 struct yield_backoff {
-    void operator()() const {
+    void operator()() const noexcept {
         std::this_thread::yield();
     }
 };

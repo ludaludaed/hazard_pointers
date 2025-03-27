@@ -264,8 +264,6 @@ class hazard_pointer_domain {
             }
         }
 
-        void on_attach() noexcept {}
-
         void on_detach() noexcept {
             domain_->help_scan();
         }
@@ -311,7 +309,7 @@ class hazard_pointer_domain {
             ::new (blob) HazardThreadData(domain_, scan_threshold_, _records_resource, _retires_resource);
             auto thread_data = reinterpret_cast<HazardThreadData *>(blob);
 
-            auto deleter = [](HazardThreadData *thread_data) {
+            auto deleter = [](HazardThreadData *thread_data) noexcept {
                 thread_data->~HazardThreadData();
                 delete[] reinterpret_cast<std::uint8_t *>(thread_data);
             };

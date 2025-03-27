@@ -22,19 +22,19 @@ struct ActiveListAlgo {
     using node_ptr = typename node_traits::node_ptr;
     using const_node_ptr = typename node_traits::const_node_ptr;
 
-    static bool is_acquired(node_ptr this_node, std::memory_order order = std::memory_order_relaxed) {
+    static bool is_acquired(node_ptr this_node, std::memory_order order = std::memory_order_relaxed) noexcept {
         return node_traits::load_active(this_node, order);
     }
 
-    static bool try_acquire(node_ptr this_node) {
+    static bool try_acquire(node_ptr this_node) noexcept {
         return !node_traits::exchange_active(this_node, true, std::memory_order_acquire);
     }
 
-    static void release(node_ptr this_node) {
+    static void release(node_ptr this_node) noexcept {
         node_traits::store_active(this_node, false, std::memory_order_release);
     }
 
-    static node_ptr acquire_free(std::atomic<node_ptr> &head) {
+    static node_ptr acquire_free(std::atomic<node_ptr> &head) noexcept {
         node_ptr current = head.load(std::memory_order_acquire);
         while (current) {
             if (try_acquire(current)) {
@@ -45,7 +45,7 @@ struct ActiveListAlgo {
         return current;
     }
 
-    static void push_front(std::atomic<node_ptr> &head, node_ptr new_node) {
+    static void push_front(std::atomic<node_ptr> &head, node_ptr new_node) noexcept {
         node_traits::exchange_active(new_node, true, std::memory_order_acquire);
         node_ptr current = head.load(std::memory_order_relaxed);
         do {
@@ -72,23 +72,23 @@ struct ActiveListNodeTraits {
     using node_ptr = typename node::pointer;
     using const_node_ptr = typename node::const_pointer;
 
-    static node_ptr get_next(const_node_ptr this_node) {
+    static node_ptr get_next(const_node_ptr this_node) noexcept {
         return this_node->next;
     }
 
-    static void set_next(node_ptr this_node, node_ptr next) {
+    static void set_next(node_ptr this_node, node_ptr next) noexcept {
         this_node->next = next;
     }
 
-    static bool exchange_active(node_ptr this_node, bool value, std::memory_order order) {
+    static bool exchange_active(node_ptr this_node, bool value, std::memory_order order) noexcept {
         return this_node->is_active.exchange(value, order);
     }
 
-    static bool load_active(node_ptr this_node, std::memory_order order) {
+    static bool load_active(node_ptr this_node, std::memory_order order) noexcept {
         return this_node->is_active.load(order);
     }
 
-    static void store_active(node_ptr this_node, bool value, std::memory_order order) {
+    static void store_active(node_ptr this_node, bool value, std::memory_order order) noexcept {
         this_node->is_active.store(value, order);
     }
 };
@@ -108,15 +108,15 @@ public:
     using hook_tags = HookTags<NodeTraits, Tag, false>;
 
 public:
-    bool try_acquire() {
+    bool try_acquire() noexcept {
         return Algo::try_acquire(as_node_ptr());
     }
 
-    bool is_acquired(std::memory_order order = std::memory_order_relaxed) {
+    bool is_acquired(std::memory_order order = std::memory_order_relaxed) noexcept {
         return Algo::is_acquired(as_node_ptr(), order);
     }
 
-    void release() {
+    void release() noexcept {
         Algo::release(as_node_ptr());
     }
 
@@ -163,7 +163,7 @@ public:
         : current_node_(other.current_node_)
         , value_traits_(other.value_traits_) {}
 
-    ActiveListIterator &operator=(const NonConstIter &other) {
+    ActiveListIterator &operator=(const NonConstIter &other) noexcept {
         current_node_ = other.current_node_;
         value_traits_ = other.value_traits_;
         return *this;
@@ -188,16 +188,16 @@ public:
         return value_traits_->to_value_ptr(current_node_);
     }
 
-    friend bool operator==(const ActiveListIterator &left, const ActiveListIterator &right) {
+    friend bool operator==(const ActiveListIterator &left, const ActiveListIterator &right) noexcept {
         return left.current_node_ == right.current_node_;
     }
 
-    friend bool operator!=(const ActiveListIterator &left, const ActiveListIterator &right) {
+    friend bool operator!=(const ActiveListIterator &left, const ActiveListIterator &right) noexcept {
         return !(left == right);
     }
 
 private:
-    void Increment() {
+    void Increment() noexcept {
         current_node_ = node_traits::get_next(current_node_);
     }
 
@@ -233,7 +233,7 @@ public:
     using value_traits_ptr = const value_traits *;
 
 public:
-    explicit ActiveList(const value_traits &value_traits = {})
+    explicit ActiveList(const value_traits &value_traits = {}) noexcept
         : ValueTraits(value_traits) {}
 
     ActiveList(const ActiveList &) = delete;
@@ -246,23 +246,23 @@ private:
     }
 
 public:
-    bool try_acquire(reference item) {
+    bool try_acquire(reference item) noexcept {
         return Algo::try_acquire(ValueTraits::to_node_ptr(item));
     }
 
-    bool is_acquired(reference item, std::memory_order order = std::memory_order_relaxed) const {
+    bool is_acquired(reference item, std::memory_order order = std::memory_order_relaxed) const noexcept {
         return Algo::is_acquired(ValueTraits::to_node_ptr(item), order);
     }
 
-    void release(reference item) {
+    void release(reference item) noexcept {
         Algo::release(ValueTraits::to_node_ptr(item));
     }
 
-    void push(reference new_element) {
+    void push(reference new_element) noexcept {
         Algo::push_front(head_, ValueTraits::to_node_ptr(new_element));
     }
 
-    iterator acquire_free() {
+    iterator acquire_free() noexcept {
         auto found = Algo::acquire_free(head_);
         return iterator(found, GetValueTraitsPtr());
     }

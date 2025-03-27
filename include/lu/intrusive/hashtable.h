@@ -155,11 +155,11 @@ struct HashtableAlgo {
         return !node_traits::get_prev(this_node) && !node_traits::get_next(this_node);
     }
 
-    static bool is_linked(const_node_ptr this_node) {
+    static bool is_linked(const_node_ptr this_node) noexcept {
         return !inited(this_node);
     }
 
-    static std::size_t distance(const_node_ptr first, const_node_ptr last) {
+    static std::size_t distance(const_node_ptr first, const_node_ptr last) noexcept {
         std::size_t result = 0;
         while (first != last) {
             ++result;
@@ -316,27 +316,27 @@ struct HashtableNodeTraits {
     using const_node_ptr = typename node::const_pointer;
     static constexpr bool store_hash = StoreHash;
 
-    static void set_next(node_ptr this_node, node_ptr next) {
+    static void set_next(node_ptr this_node, node_ptr next) noexcept {
         this_node->next = next;
     }
 
-    static node_ptr get_next(const_node_ptr this_node) {
+    static node_ptr get_next(const_node_ptr this_node) noexcept {
         return this_node->next;
     }
 
-    static void set_prev(node_ptr this_node, node_ptr prev) {
+    static void set_prev(node_ptr this_node, node_ptr prev) noexcept {
         this_node->prev = prev;
     }
 
-    static node_ptr get_prev(const_node_ptr this_node) {
+    static node_ptr get_prev(const_node_ptr this_node) noexcept {
         return this_node->prev;
     }
 
-    static std::size_t get_hash(const_node_ptr this_node) {
+    static std::size_t get_hash(const_node_ptr this_node) noexcept {
         return this_node->hash;
     }
 
-    static void set_hash(node_ptr this_node, std::size_t hash) {
+    static void set_hash(node_ptr this_node, std::size_t hash) noexcept {
         this_node->hash = hash;
     }
 };
@@ -371,11 +371,11 @@ private:
 public:
     HashIterator() noexcept = default;
 
-    HashIterator(const NonConstIter &other)
+    HashIterator(const NonConstIter &other) noexcept
         : current_node_(other.current_node_)
         , value_traits_(other.value_traits_) {}
 
-    HashIterator &operator=(const HashIterator &other) {
+    HashIterator &operator=(const HashIterator &other) noexcept {
         current_node_ = other.current_node_;
         value_traits_ = other.value_traits_;
         return *this;
@@ -400,16 +400,16 @@ public:
         return value_traits_->to_value_ptr(current_node_);
     }
 
-    friend bool operator==(const HashIterator &left, const HashIterator &right) {
+    friend bool operator==(const HashIterator &left, const HashIterator &right) noexcept {
         return left.current_node_ == right.current_node_ && left.value_traits_ == right.value_traits_;
     }
 
-    friend bool operator!=(const HashIterator &left, const HashIterator &right) {
+    friend bool operator!=(const HashIterator &left, const HashIterator &right) noexcept {
         return !(left == right);
     }
 
 private:
-    void Increment() {
+    void Increment() noexcept {
         current_node_ = node_traits::get_next(current_node_);
     }
 
@@ -449,11 +449,11 @@ private:
 public:
     HashLocalIterator() noexcept = default;
 
-    HashLocalIterator(const NonConstIter &other)
+    HashLocalIterator(const NonConstIter &other) noexcept
         : current_node_(other.current_node_)
         , value_traits_(other.value_traits_) {}
 
-    HashLocalIterator &operator=(const NonConstIter &other) {
+    HashLocalIterator &operator=(const NonConstIter &other) noexcept {
         current_node_ = other.current_node_;
         value_traits_ = other.value_traits_;
         return *this;
@@ -478,16 +478,16 @@ public:
         return value_traits_->to_value_ptr(current_node_);
     }
 
-    friend bool operator==(const HashLocalIterator &left, const HashLocalIterator &right) {
+    friend bool operator==(const HashLocalIterator &left, const HashLocalIterator &right) noexcept {
         return left.current_node_ == right.current_node_ && left.value_traits_ == right.value_traits_;
     }
 
-    friend bool operator!=(const HashLocalIterator &left, const HashLocalIterator &right) {
+    friend bool operator!=(const HashLocalIterator &left, const HashLocalIterator &right) noexcept {
         return !(left == right);
     }
 
 private:
-    void Increment() {
+    void Increment() noexcept {
         if (Algo::last_in_bucket(current_node_)) {
             current_node_ = node_ptr{};
         } else {
@@ -548,7 +548,7 @@ public:
 
 private:
     struct NilNodeHolder {
-        friend void swap(NilNodeHolder &left, NilNodeHolder &right) {
+        friend void swap(NilNodeHolder &left, NilNodeHolder &right) noexcept {
             auto left_node = std::pointer_traits<node_ptr>::pointer_to(left.node_);
             auto right_node = std::pointer_traits<node_ptr>::pointer_to(right.node_);
             Algo::swap_heads(left_node, right_node);
@@ -559,14 +559,14 @@ private:
 
 public:
     explicit IntrusiveHashtable(const bucket_traits &buckets = {}, const hasher &hash = {}, const key_equal &equal = {},
-                                const value_traits &value_traits = {})
+                                const value_traits &value_traits = {}) noexcept
         : data_(NilNodeHolder{}, value_traits, buckets, KeyOfValue{}, hash, equal, size_traits{}) {
         Construct();
     }
 
     template<class Iterator>
     IntrusiveHashtable(Iterator begin, Iterator end, const bucket_traits &buckets = {}, const hasher &hash = {},
-                       const key_equal &equal = {}, const value_traits &value_traits = {})
+                       const key_equal &equal = {}, const value_traits &value_traits = {}) noexcept
         : data_(NilNodeHolder{}, value_traits, buckets, KeyOfValue{}, hash, equal, size_traits{}) {
         Construct();
         insert(begin, end);
@@ -616,7 +616,7 @@ private:
         return node_ptr{};
     }
 
-    inline decltype(auto) GetKey(const_node_ptr node) const {
+    inline decltype(auto) GetKey(const_node_ptr node) const noexcept {
         const value_traits &_value_traits = lu::get<ValueTraits>(data_);
         const key_of_value &_key_of_value = lu::get<KeyOfValue>(data_);
 
@@ -624,7 +624,7 @@ private:
         return _key_of_value(*value_ptr);
     }
 
-    inline decltype(auto) GetKey(const_reference value) const {
+    inline decltype(auto) GetKey(const_reference value) const noexcept {
         const key_of_value &_key_of_value = lu::get<KeyOfValue>(data_);
         return _key_of_value(value);
     }
@@ -723,7 +723,7 @@ private:
         return {node_ptr{}, node_ptr{}};
     }
 
-    void InsertByRehash(reference value) {
+    void InsertByRehash(reference value) noexcept {
         const value_traits &_value_traits = lu::get<ValueTraits>(data_);
 
         node_ptr new_node = _value_traits.to_node_ptr(value);
@@ -741,7 +741,7 @@ private:
         }
     }
 
-    std::pair<iterator, bool> InsertUnique(reference value) {
+    std::pair<iterator, bool> InsertUnique(reference value) noexcept {
         const value_traits &_value_traits = lu::get<ValueTraits>(data_);
         const hasher &_key_hash = lu::get<KeyHash>(data_);
 
@@ -765,7 +765,7 @@ private:
         }
     }
 
-    iterator InsertEqual(reference value) {
+    iterator InsertEqual(reference value) noexcept {
         const value_traits &_value_traits = lu::get<ValueTraits>(data_);
         const hasher &_key_hash = lu::get<KeyHash>(data_);
 
@@ -790,12 +790,12 @@ private:
         }
     }
 
-    void Erase(node_ptr node) {
+    void Erase(node_ptr node) noexcept {
         lu::get<size_traits>(data_).decrement();
         Algo::unlink(node);
     }
 
-    size_type Erase(const key_type &key) {
+    size_type Erase(const key_type &key) noexcept {
         const value_traits &_value_traits = lu::get<ValueTraits>(data_);
         const hasher &_key_hash = lu::get<KeyHash>(data_);
         const key_equal &_key_equal = lu::get<KeyEqual>(data_);
@@ -821,13 +821,13 @@ private:
         return result;
     }
 
-    size_type Count(const key_type &key) const {
+    size_type Count(const key_type &key) const noexcept {
         std::pair<node_ptr, node_ptr> range = EqualRange(key);
         return Algo::distance(range.first, range.second);
     }
 
 public:
-    auto insert(reference value) {
+    auto insert(reference value) noexcept {
         bool v = Flags::is_multi;
         if constexpr (Flags::is_multi) {
             return InsertEqual(value);
@@ -837,7 +837,7 @@ public:
     }
 
     template<class Iterator>
-    void insert(Iterator begin, Iterator end) {
+    void insert(Iterator begin, Iterator end) noexcept {
         for (; begin != end; ++begin) {
             insert(*begin);
         }
@@ -874,7 +874,7 @@ public:
     template<class OtherBucketTraits, class OtherKeyOfValue, class OtherKeyHash, class OtherKeyEqual,
              class OtherSizeType, class OtherFlags>
     void merge(IntrusiveHashtable<ValueTraits, OtherBucketTraits, OtherKeyOfValue, OtherKeyHash, OtherKeyEqual,
-                                  OtherSizeType, OtherFlags> &other) {
+                                  OtherSizeType, OtherFlags> &other) noexcept {
         for (iterator it = other.begin(); it != other.end();) {
             iterator next = std::next(it);
             other.erase(it);
@@ -886,7 +886,7 @@ public:
     template<class OtherBucketTraits, class OtherKeyOfValue, class OtherKeyHash, class OtherKeyEqual,
              class OtherSizeType, class OtherFlags>
     void merge(IntrusiveHashtable<ValueTraits, OtherBucketTraits, OtherKeyOfValue, OtherKeyHash, OtherKeyEqual,
-                                  OtherSizeType, OtherFlags> &&other) {
+                                  OtherSizeType, OtherFlags> &&other) noexcept {
         merge(other);
     }
 
@@ -896,7 +896,7 @@ public:
         insert(first, last);
     }
 
-    void rehash(const bucket_traits &new_bucket_traits) {
+    void rehash(const bucket_traits &new_bucket_traits) noexcept {
         const value_traits &_value_traits = lu::get<ValueTraits>(data_);
         lu::get<BucketTraits>(data_) = new_bucket_traits;
 
@@ -929,29 +929,29 @@ public:
         return Find(key);
     }
 
-    std::pair<iterator, iterator> equal_range(const key_type &key) {
+    std::pair<iterator, iterator> equal_range(const key_type &key) noexcept {
         std::pair<node_ptr, node_ptr> res = EqualRange(key);
         return {iterator(res.first, GetValueTraitsPtr()), iterator(res.second, GetValueTraitsPtr())};
     }
 
-    std::pair<const_iterator, const_iterator> equal_range(const key_type &key) const {
+    std::pair<const_iterator, const_iterator> equal_range(const key_type &key) const noexcept {
         std::pair<node_ptr, node_ptr> res = EqualRange(key);
         return {const_iterator(res.first, GetValueTraitsPtr()), const_iterator(res.second, GetValueTraitsPtr())};
     }
 
-    iterator iterator_to(reference value) {
+    iterator iterator_to(reference value) noexcept {
         const value_traits &_value_traits = lu::get<ValueTraits>(data_);
         node_ptr node = _value_traits.to_node_ptr(value);
         return iterator(node, GetValueTraitsPtr());
     }
 
-    const_iterator iterator_to(const_reference value) const {
+    const_iterator iterator_to(const_reference value) const noexcept {
         const value_traits &_value_traits = lu::get<ValueTraits>(data_);
         node_ptr node = _value_traits.to_node_ptr(value);
         return const_iterator(node, GetValueTraitsPtr());
     }
 
-    local_iterator local_iterator_to(reference value) {
+    local_iterator local_iterator_to(reference value) noexcept {
         const value_traits &_value_traits = lu::get<ValueTraits>(data_);
         node_ptr node = _value_traits.to_node_ptr(value);
 
@@ -961,7 +961,7 @@ public:
         return local_iterator(node, GetValueTraitsPtr());
     }
 
-    const_local_iterator local_iterator_to(const_reference value) const {
+    const_local_iterator local_iterator_to(const_reference value) const noexcept {
         const value_traits &_value_traits = lu::get<ValueTraits>(data_);
         node_ptr node = _value_traits.to_node_ptr(value);
 
@@ -972,36 +972,36 @@ public:
     }
 
 public:
-    hasher hash_function() const {
+    hasher hash_function() const noexcept {
         return lu::get<KeyHash>(data_);
     }
 
-    key_equal key_eq() const {
+    key_equal key_eq() const noexcept {
         return lu::get<KeyEqual>(data_);
     }
 
 public:
-    iterator begin() {
+    iterator begin() noexcept {
         return iterator(GetFirst(), GetValueTraitsPtr());
     }
 
-    iterator end() {
+    iterator end() noexcept {
         return iterator(GetEnd(), GetValueTraitsPtr());
     }
 
-    const_iterator begin() const {
+    const_iterator begin() const noexcept {
         return const_iterator(GetFirst(), GetValueTraitsPtr());
     }
 
-    const_iterator end() const {
+    const_iterator end() const noexcept {
         return const_iterator(GetEnd(), GetValueTraitsPtr());
     }
 
-    const_iterator cbegin() const {
+    const_iterator cbegin() const noexcept {
         return const_iterator(GetFirst(), GetValueTraitsPtr());
     }
 
-    const_iterator cend() const {
+    const_iterator cend() const noexcept {
         return const_iterator(GetEnd(), GetValueTraitsPtr());
     }
 
@@ -1025,27 +1025,27 @@ public:
         return GetBucketIdx(hash);
     }
 
-    local_iterator begin(size_type bucket_index) {
+    local_iterator begin(size_type bucket_index) noexcept {
         return local_iterator(GetBucketBegin(bucket_index), GetValueTraitsPtr());
     }
 
-    local_iterator end(size_type bucket_index) {
+    local_iterator end(size_type bucket_index) noexcept {
         return local_iterator(GetEnd(), GetValueTraitsPtr());
     }
 
-    const_local_iterator begin(size_type bucket_index) const {
+    const_local_iterator begin(size_type bucket_index) const noexcept {
         return const_local_iterator(GetBucketBegin(bucket_index), GetValueTraitsPtr());
     }
 
-    const_local_iterator end(size_type bucket_index) const {
+    const_local_iterator end(size_type bucket_index) const noexcept {
         return const_local_iterator(GetEnd(), GetValueTraitsPtr());
     }
 
-    const_local_iterator cbegin(size_type bucket_index) const {
+    const_local_iterator cbegin(size_type bucket_index) const noexcept {
         return const_local_iterator(GetBucketBegin(bucket_index), GetValueTraitsPtr());
     }
 
-    const_local_iterator cend(size_type bucket_index) const {
+    const_local_iterator cend(size_type bucket_index) const noexcept {
         return const_local_iterator(GetEnd(), GetValueTraitsPtr());
     }
 
@@ -1059,7 +1059,7 @@ public:
     }
 
 public:
-    friend bool operator==(const IntrusiveHashtable &left, const IntrusiveHashtable &right) {
+    friend bool operator==(const IntrusiveHashtable &left, const IntrusiveHashtable &right) noexcept {
         if (left.size() != right.size()) {
             return false;
         }
@@ -1078,7 +1078,7 @@ public:
         return true;
     }
 
-    friend bool operator!=(const IntrusiveHashtable &left, const IntrusiveHashtable &right) {
+    friend bool operator!=(const IntrusiveHashtable &left, const IntrusiveHashtable &right) noexcept {
         return !(left == right);
     }
 
@@ -1110,7 +1110,7 @@ struct DefaultKeyOfValue {
     using type = ValueType;
 
     template<class T, class = std::enable_if_t<std::is_same_v<std::decay_t<T>, type>>>
-    T &&operator()(T &&value) const {
+    T &&operator()(T &&value) const noexcept {
         return std::forward<T>(value);
     }
 };

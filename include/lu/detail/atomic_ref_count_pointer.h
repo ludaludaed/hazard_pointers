@@ -18,7 +18,7 @@ public:
     static constexpr bool is_always_lock_free = true;
 
 private:
-    static std::memory_order get_default_failure(std::memory_order success) {
+    static std::memory_order get_default_failure(std::memory_order success) noexcept {
         if (success == std::memory_order_acq_rel) {
             return std::memory_order_acquire;
         }
@@ -29,7 +29,7 @@ private:
     }
 
 public:
-    AtomicRefCountPointer() = default;
+    AtomicRefCountPointer() noexcept = default;
 
     AtomicRefCountPointer(const AtomicRefCountPointer &) = delete;
 

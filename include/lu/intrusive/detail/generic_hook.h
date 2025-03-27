@@ -60,7 +60,7 @@ public:
         return std::pointer_traits<const_node_ptr>::pointer_to(static_cast<const node &>(*this));
     }
 
-    bool is_linked() const {
+    bool is_linked() const noexcept {
         return NodeAlgo::is_linked(as_node_ptr());
     }
 

@@ -54,11 +54,11 @@ public:
         return get();
     }
 
-    element_type *raw() const {
+    element_type *raw() const noexcept {
         return reinterpret_cast<element_type *>(ptr_);
     }
 
-    element_type *get() const {
+    element_type *get() const noexcept {
         return reinterpret_cast<element_type *>(ptr_ & ~(1));
     }
 
@@ -82,46 +82,46 @@ public:
         left.swap(right);
     }
 
-    friend bool operator==(const marked_ptr &left, const marked_ptr &right) {
+    friend bool operator==(const marked_ptr &left, const marked_ptr &right) noexcept {
         return left.ptr_ == right.ptr_;
     }
 
-    friend bool operator!=(const marked_ptr &left, const marked_ptr &right) {
+    friend bool operator!=(const marked_ptr &left, const marked_ptr &right) noexcept {
         return !(left == right);
     }
 
-    friend bool operator<(const marked_ptr &left, const marked_ptr &right) {
+    friend bool operator<(const marked_ptr &left, const marked_ptr &right) noexcept {
         return left.ptr_ < right.ptr_;
     }
 
-    friend bool operator>(const marked_ptr &left, const marked_ptr &right) {
+    friend bool operator>(const marked_ptr &left, const marked_ptr &right) noexcept {
         return right < left;
     }
 
-    friend bool operator<=(const marked_ptr &left, const marked_ptr &right) {
+    friend bool operator<=(const marked_ptr &left, const marked_ptr &right) noexcept {
         return !(right < left);
     }
 
-    friend bool operator>=(const marked_ptr &left, const marked_ptr &right) {
+    friend bool operator>=(const marked_ptr &left, const marked_ptr &right) noexcept {
         return !(left < right);
     }
 
-    static marked_ptr pointer_to(element_type &value) {
+    static marked_ptr pointer_to(element_type &value) noexcept {
         return marked_ptr(&value);
     }
 
     template<class _ValueType>
-    static marked_ptr static_cast_from(const marked_ptr<_ValueType> &from) {
+    static marked_ptr static_cast_from(const marked_ptr<_ValueType> &from) noexcept {
         return marked_ptr(static_cast<ValueType *>(from.get()), from.is_marked());
     }
 
     template<class _ValueType>
-    static marked_ptr const_cast_from(const marked_ptr<_ValueType> &from) {
+    static marked_ptr const_cast_from(const marked_ptr<_ValueType> &from) noexcept {
         return marked_ptr(const_cast<ValueType *>(from.get()), from.is_marked());
     }
 
     template<class _ValueType>
-    static marked_ptr dynamic_cast_from(const marked_ptr<_ValueType> &from) {
+    static marked_ptr dynamic_cast_from(const marked_ptr<_ValueType> &from) noexcept {
         return marked_ptr(dynamic_cast<ValueType *>(from.get()), from.is_marked());
     }
 

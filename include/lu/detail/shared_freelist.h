@@ -33,11 +33,11 @@ struct SharedFreeListNodeTraits {
     using node_ptr = typename node::pointer;
     using const_node_ptr = typename node::const_pointer;
 
-    static void set_next(node_ptr this_node, node_ptr next) {
+    static void set_next(node_ptr this_node, node_ptr next) noexcept {
         this_node->next = next;
     }
 
-    static node_ptr get_next(const_node_ptr this_node) {
+    static node_ptr get_next(const_node_ptr this_node) noexcept {
         return this_node->next;
     }
 };
@@ -65,13 +65,13 @@ public:
 
     SharedFreeList(SharedFreeList &&) = delete;
 
-    void push_to_local(reference value) {
+    void push_to_local(reference value) noexcept {
         node_ptr new_node = ValueTraits::to_node_ptr(value);
         node_traits::set_next(new_node, local_head_);
         local_head_ = new_node;
     }
 
-    void push_to_global(reference value) {
+    void push_to_global(reference value) noexcept {
         node_ptr new_node = ValueTraits::to_node_ptr(value);
         node_ptr head = global_head_.load(std::memory_order_relaxed);
         do {

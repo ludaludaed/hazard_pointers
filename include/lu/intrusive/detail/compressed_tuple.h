@@ -46,24 +46,24 @@ class EMPTY_BASES tuple_unit;
 template<std::size_t I, class T>
 class tuple_unit<I, T, true> {
 public:
-    constexpr tuple_unit() = default;
+    constexpr tuple_unit() noexcept = default;
 
     template<class _T,
              class = std::enable_if_t<std::conjunction_v<
                      std::is_constructible<T, _T>, std::negation<std::is_same<std::remove_cvref_t<_T>, tuple_unit>>>>>
-    constexpr tuple_unit(_T &&value)
+    constexpr tuple_unit(_T &&value) noexcept(std::is_nothrow_constructible_v<T, _T>)
         : data_(std::forward<_T>(value)) {}
 
-    constexpr void swap(tuple_unit &other) {
+    constexpr void swap(tuple_unit &other) noexcept(std::is_nothrow_swappable_v<T>) {
         using std::swap;
         swap(get(), other.get());
     }
 
-    constexpr T &get() {
+    constexpr T &get() noexcept {
         return data_;
     }
 
-    constexpr const T &get() const {
+    constexpr const T &get() const noexcept {
         return data_;
     }
 
@@ -74,24 +74,24 @@ private:
 template<std::size_t I, class T>
 class tuple_unit<I, T, false> : private T {
 public:
-    constexpr tuple_unit() = default;
+    constexpr tuple_unit() noexcept = default;
 
     template<class _T,
              class = std::enable_if_t<std::conjunction_v<
                      std::is_constructible<T, _T>, std::negation<std::is_same<std::remove_cvref_t<_T>, tuple_unit>>>>>
-    constexpr tuple_unit(_T &&value)
+    constexpr tuple_unit(_T &&value) noexcept(std::is_nothrow_constructible_v<T, _T>)
         : T(std::forward<_T>(value)) {}
 
-    constexpr void swap(tuple_unit &other) {
+    constexpr void swap(tuple_unit &other) noexcept(std::is_nothrow_swappable_v<T>) {
         using std::swap;
         swap(get(), other.get());
     }
 
-    constexpr T &get() {
+    constexpr T &get() noexcept {
         return static_cast<T &>(*this);
     }
 
-    constexpr const T &get() const {
+    constexpr const T &get() const noexcept {
         return static_cast<const T &>(*this);
     }
 };
@@ -101,23 +101,24 @@ struct tuple_base;
 
 template<>
 struct tuple_base<std::index_sequence<>> {
-    constexpr tuple_base() = default;
+    constexpr tuple_base() noexcept = default;
 
-    constexpr void swap(tuple_base &other) {}
+    constexpr void swap(tuple_base &other) noexcept {}
 };
 
 template<std::size_t... Is, class... Ts>
 struct EMPTY_BASES tuple_base<std::index_sequence<Is...>, Ts...> : tuple_unit<Is, Ts>... {
     static_assert(sizeof...(Is) == sizeof...(Ts), "the number of indexes must be equal to the number of types.");
 
-    constexpr tuple_base() = default;
+    constexpr tuple_base() noexcept = default;
 
     template<std::size_t... _Is, class... _Ts, class... _Us,
              class = std::enable_if_t<std::conjunction_v<std::is_base_of<tuple_unit<_Is, _Ts>, tuple_base>...>>>
-    constexpr tuple_base(std::index_sequence<_Is...>, typelist<_Ts...>, _Us &&...args)
+    constexpr tuple_base(std::index_sequence<_Is...>, typelist<_Ts...>, _Us &&...args) noexcept(
+            std::conjunction_v<std::is_nothrow_constructible<tuple_unit<_Is, _Ts>, _Us>...>)
         : tuple_unit<_Is, _Ts>(std::forward<_Us>(args))... {}
 
-    constexpr void swap(tuple_base &other) {
+    constexpr void swap(tuple_base &other) noexcept(std::conjunction_v<std::is_nothrow_swappable<Ts>...>) {
         (tuple_unit<Is, Ts>::swap(other), ...);
     }
 };
@@ -193,28 +194,29 @@ class compressed_tuple {
 
 private:
     template<std::size_t I, class... _Ts>
-    friend constexpr tuple_element_t<I, compressed_tuple<_Ts...>> &get(compressed_tuple<_Ts...> &);
+    friend constexpr tuple_element_t<I, compressed_tuple<_Ts...>> &get(compressed_tuple<_Ts...> &) noexcept;
 
     template<std::size_t I, class... _Ts>
-    friend constexpr tuple_element_t<I, compressed_tuple<_Ts...>> &&get(compressed_tuple<_Ts...> &&);
+    friend constexpr tuple_element_t<I, compressed_tuple<_Ts...>> &&get(compressed_tuple<_Ts...> &&) noexcept;
 
     template<std::size_t I, class... _Ts>
-    friend constexpr const tuple_element_t<I, compressed_tuple<_Ts...>> &get(const compressed_tuple<_Ts...> &);
+    friend constexpr const tuple_element_t<I, compressed_tuple<_Ts...>> &get(const compressed_tuple<_Ts...> &) noexcept;
 
     template<std::size_t I, class... _Ts>
-    friend constexpr const tuple_element_t<I, compressed_tuple<_Ts...>> &&get(const compressed_tuple<_Ts...> &&);
+    friend constexpr const tuple_element_t<I, compressed_tuple<_Ts...>> &&
+            get(const compressed_tuple<_Ts...> &&) noexcept;
 
     template<class T, class... _Ts>
-    friend constexpr T &get(compressed_tuple<_Ts...> &);
+    friend constexpr T &get(compressed_tuple<_Ts...> &) noexcept;
 
     template<class T, class... _Ts>
-    friend constexpr T &&get(compressed_tuple<_Ts...> &&);
+    friend constexpr T &&get(compressed_tuple<_Ts...> &&) noexcept;
 
     template<class T, class... _Ts>
-    friend constexpr const T &get(const compressed_tuple<_Ts...> &);
+    friend constexpr const T &get(const compressed_tuple<_Ts...> &) noexcept;
 
     template<class T, class... _Ts>
-    friend constexpr const T &&get(const compressed_tuple<_Ts...> &&);
+    friend constexpr const T &&get(const compressed_tuple<_Ts...> &&) noexcept;
 
 public:
     constexpr compressed_tuple() = default;
@@ -223,14 +225,16 @@ public:
                                    std::bool_constant<sizeof...(Ts) == sizeof...(_Us)>,
                                    std::is_constructible<Ts, _Us>..., std::negation<is_this_tuple<_Us...>>>>>
     constexpr explicit(std::negation_v<std::conjunction<std::is_convertible<_Us, Ts>...>>)
-            compressed_tuple(_Us &&...args)
+            compressed_tuple(_Us &&...args) noexcept(
+                    std::is_nothrow_constructible_v<tuple_base, original_indices, original_types, _Us...>)
         : base_(original_indices(), original_types(), std::forward<_Us>(args)...) {}
 
     constexpr void swap(compressed_tuple &other) {
         base_.swap(other.base_);
     }
 
-    friend constexpr void swap(compressed_tuple &left, compressed_tuple &right) {
+    friend constexpr void swap(compressed_tuple &left,
+                               compressed_tuple &right) noexcept(std::is_nothrow_swappable_v<tuple_base>) {
         left.swap(right);
     }
 
@@ -239,59 +243,59 @@ private:
 };
 
 template<std::size_t I, class... Ts>
-constexpr tuple_element_t<I, compressed_tuple<Ts...>> &get(compressed_tuple<Ts...> &tuple) {
+constexpr tuple_element_t<I, compressed_tuple<Ts...>> &get(compressed_tuple<Ts...> &tuple) noexcept {
     using tuple_element = tuple_element_t<I, compressed_tuple<Ts...>>;
     using tuple_unit = detail::tuple_unit<I, tuple_element>;
     return static_cast<tuple_unit &>(tuple.base_).get();
 }
 
 template<std::size_t I, class... Ts>
-constexpr tuple_element_t<I, compressed_tuple<Ts...>> &&get(compressed_tuple<Ts...> &&tuple) {
+constexpr tuple_element_t<I, compressed_tuple<Ts...>> &&get(compressed_tuple<Ts...> &&tuple) noexcept {
     using tuple_element = tuple_element_t<I, compressed_tuple<Ts...>>;
     using tuple_unit = detail::tuple_unit<I, tuple_element>;
     return std::move(static_cast<tuple_unit &>(tuple.base_).get());
 }
 
 template<std::size_t I, class... Ts>
-constexpr const tuple_element_t<I, compressed_tuple<Ts...>> &get(const compressed_tuple<Ts...> &tuple) {
+constexpr const tuple_element_t<I, compressed_tuple<Ts...>> &get(const compressed_tuple<Ts...> &tuple) noexcept {
     using tuple_element = tuple_element_t<I, compressed_tuple<Ts...>>;
     using tuple_unit = detail::tuple_unit<I, tuple_element>;
     return static_cast<const tuple_unit &>(tuple.base_).get();
 }
 
 template<std::size_t I, class... Ts>
-constexpr const tuple_element_t<I, compressed_tuple<Ts...>> &&get(const compressed_tuple<Ts...> &&tuple) {
+constexpr const tuple_element_t<I, compressed_tuple<Ts...>> &&get(const compressed_tuple<Ts...> &&tuple) noexcept {
     using tuple_element = tuple_element_t<I, compressed_tuple<Ts...>>;
     using tuple_unit = detail::tuple_unit<I, tuple_element>;
     return std::move(static_cast<const tuple_unit &>(tuple.base_).get());
 }
 
 template<class T, class... Ts>
-constexpr T &get(compressed_tuple<Ts...> &tuple) {
+constexpr T &get(compressed_tuple<Ts...> &tuple) noexcept {
     static_assert(lu::num_of_type_v<T, typelist<Ts...>> == 1, "type of T not unique.");
     return get<tuple_index_v<T, compressed_tuple<Ts...>>>(tuple);
 }
 
 template<class T, class... Ts>
-constexpr T &&get(compressed_tuple<Ts...> &&tuple) {
+constexpr T &&get(compressed_tuple<Ts...> &&tuple) noexcept {
     static_assert(lu::num_of_type_v<T, typelist<Ts...>> == 1, "type of T not unique.");
     return get<tuple_index_v<T, compressed_tuple<Ts...>>>(std::move(tuple));
 }
 
 template<class T, class... Ts>
-constexpr const T &get(const compressed_tuple<Ts...> &tuple) {
+constexpr const T &get(const compressed_tuple<Ts...> &tuple) noexcept {
     static_assert(lu::num_of_type_v<T, typelist<Ts...>> == 1, "type of T not unique.");
     return get<tuple_index_v<T, compressed_tuple<Ts...>>>(tuple);
 }
 
 template<class T, class... Ts>
-constexpr const T &&get(const compressed_tuple<Ts...> &&tuple) {
+constexpr const T &&get(const compressed_tuple<Ts...> &&tuple) noexcept {
     static_assert(lu::num_of_type_v<T, typelist<Ts...>> == 1, "type of T not unique.");
     return get<tuple_index_v<T, compressed_tuple<Ts...>>>(std::move(tuple));
 }
 
 template<class... Ts>
-compressed_tuple<std::unwrap_ref_decay_t<Ts>...> make_compressed_tuple(Ts &&...args) {
+compressed_tuple<std::unwrap_ref_decay_t<Ts>...> make_compressed_tuple(Ts &&...args) noexcept {
     return compressed_tuple<std::unwrap_ref_decay_t<Ts>...>(std::forward<Ts>(args)...);
 }
 

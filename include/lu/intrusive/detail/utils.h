@@ -51,12 +51,12 @@
 namespace lu {
 
 template<class ValueType>
-ValueType *to_raw_pointer(ValueType *ptr) {
+ValueType *to_raw_pointer(ValueType *ptr) noexcept {
     return ptr;
 }
 
 template<class Pointer>
-typename std::pointer_traits<Pointer>::element_type *to_raw_pointer(const Pointer &ptr) {
+typename std::pointer_traits<Pointer>::element_type *to_raw_pointer(const Pointer &ptr) noexcept {
     return to_raw_pointer(ptr.operator->());
 }
 
@@ -71,7 +71,7 @@ struct pointer_cast_traits {
     using element_type = typename pointer_traits::element_type;
 
     template<class UPtr>
-    static pointer static_cast_from(const UPtr &uptr) {
+    static pointer static_cast_from(const UPtr &uptr) noexcept {
         constexpr bool has_cast = has_static_cast_from<pointer, pointer (*)(UPtr)>::value
                                   || has_static_cast_from<pointer, pointer (*)(const UPtr &)>::value;
         if constexpr (has_cast) {
@@ -85,7 +85,7 @@ struct pointer_cast_traits {
     }
 
     template<class UPtr>
-    static pointer const_cast_from(const UPtr &uptr) {
+    static pointer const_cast_from(const UPtr &uptr) noexcept {
         constexpr bool has_cast = has_const_cast_from<pointer, pointer (*)(UPtr)>::value
                                   || has_const_cast_from<pointer, pointer (*)(const UPtr &)>::value;
         if constexpr (has_cast) {
@@ -99,7 +99,7 @@ struct pointer_cast_traits {
     }
 
     template<class UPtr>
-    static pointer dynamic_cast_from(const UPtr &uptr) {
+    static pointer dynamic_cast_from(const UPtr &uptr) noexcept {
         constexpr bool has_cast = has_dynamic_cast_from<pointer, pointer (*)(UPtr)>::value
                                   || has_dynamic_cast_from<pointer, pointer (*)(const UPtr &)>::value;
         if constexpr (has_cast) {
@@ -120,17 +120,17 @@ struct pointer_cast_traits<T *> {
     using element_type = typename pointer_traits::element_type;
 
     template<class UPtr>
-    static pointer static_cast_from(UPtr *uptr) {
+    static pointer static_cast_from(UPtr *uptr) noexcept {
         return static_cast<pointer>(uptr);
     }
 
     template<class UPtr>
-    static pointer const_cast_from(UPtr *uptr) {
+    static pointer const_cast_from(UPtr *uptr) noexcept {
         return const_cast<pointer>(uptr);
     }
 
     template<class UPtr>
-    static pointer dynamic_cast_from(UPtr *uptr) {
+    static pointer dynamic_cast_from(UPtr *uptr) noexcept {
         return dynamic_cast<pointer>(uptr);
     }
 };
@@ -145,7 +145,7 @@ struct erase_const_types {
 };
 
 template<class ConstPtr>
-typename detail::erase_const_types<ConstPtr>::non_const_pointer erase_const(const ConstPtr &ptr) {
+typename detail::erase_const_types<ConstPtr>::non_const_pointer erase_const(const ConstPtr &ptr) noexcept {
     using pointer_cast_traits = pointer_cast_traits<typename detail::erase_const_types<ConstPtr>::non_const_pointer>;
     return pointer_cast_traits::const_cast_from(ptr);
 }

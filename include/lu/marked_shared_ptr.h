@@ -33,7 +33,7 @@ public:
     using element_ptr = typename Base::element_ptr;
 
 private:
-    explicit marked_shared_ptr(control_block_ptr control_block) {
+    explicit marked_shared_ptr(control_block_ptr control_block) noexcept {
         this->SetData(reinterpret_cast<element_ptr>(control_block->get()), control_block);
     }
 
@@ -82,7 +82,7 @@ public:
     template<class _ValuePtr, class _ControlBlockPtr,
              class = std::enable_if_t<std::is_convertible_v<_ValuePtr, element_ptr>
                                       && std::is_convertible_v<_ControlBlockPtr, control_block_ptr>>>
-    explicit marked_shared_ptr(const detail::WeakPointer<_ValuePtr, _ControlBlockPtr> &other) {
+    explicit marked_shared_ptr(const detail::WeakPointer<_ValuePtr, _ControlBlockPtr> &other) noexcept {
         this->ConstructFromWeak(other);
     }
 
@@ -128,15 +128,15 @@ public:
         this->swap(temp);
     }
 
-    void mark() {
+    void mark() noexcept {
         this->control_block_.mark();
     }
 
-    void unmark() {
+    void unmark() noexcept {
         this->control_block_.unmark();
     }
 
-    bool is_marked() {
+    bool is_marked() const noexcept {
         return this->control_block_.is_marked();
     }
 

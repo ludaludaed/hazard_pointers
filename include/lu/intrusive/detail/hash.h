@@ -7,7 +7,7 @@
 namespace lu_adl {
 
 template<class ValueType>
-std::size_t hash_value(const ValueType &value) {
+std::size_t hash_value(const ValueType &value) noexcept {
     return std::hash<ValueType>()(value);
 }
 
@@ -18,7 +18,7 @@ namespace detail {
 
 template<class ValueType>
 struct hash {
-    std::size_t operator()(const ValueType &value) const {
+    std::size_t operator()(const ValueType &value) const noexcept {
         using lu_adl::hash_value;
         return hash_value(value);
     }
