@@ -45,7 +45,7 @@ public:
     template<class _ValueType, class Deleter = std::default_delete<_ValueType>,
              class Allocator = std::allocator<_ValueType>,
              class = std::enable_if_t<std::is_convertible_v<_ValueType *, ValueType *>>>
-    explicit marked_shared_ptr(_ValueType *value_ptr, Deleter deleter = {}, const Allocator &allocator = {}) noexcept {
+    explicit marked_shared_ptr(_ValueType *value_ptr, Deleter deleter = {}, const Allocator &allocator = {}) {
         Construct(value_ptr, std::move(deleter), allocator);
     }
 
@@ -151,7 +151,7 @@ public:
 private:
     template<class _ValueType, class Deleter = std::default_delete<_ValueType>,
              class Allocator = std::allocator<_ValueType>>
-    void Construct(_ValueType *value_ptr, Deleter deleter = {}, const Allocator &allocator = {}) noexcept {
+    void Construct(_ValueType *value_ptr, Deleter deleter = {}, const Allocator &allocator = {}) {
         auto control_block = make_outplace_control_block<_ValueType>(value_ptr, std::move(deleter), allocator);
         this->SetData(value_ptr, control_block);
     }
