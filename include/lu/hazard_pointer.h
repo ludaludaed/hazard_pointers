@@ -112,7 +112,7 @@ public:
     using const_pointer = const HazardObject *;
 
 public:
-    explicit HazardRecord(HazardRecords *owner)
+    explicit HazardRecord(HazardRecords *owner) noexcept
         : owner_(owner) {}
 
     HazardRecord(const HazardRecord &) = delete;
@@ -213,7 +213,7 @@ class hazard_pointer_domain {
 
     public:
         HazardThreadData(hazard_pointer_domain *domain, std::size_t scan_threshold, records_resource records_resource,
-                         retires_resource retires_resource)
+                         retires_resource retires_resource) noexcept
             : domain_(domain)
             , scan_threshold_(scan_threshold)
             , records_(records_resource)
@@ -339,7 +339,7 @@ public:
 
     hazard_pointer_domain(hazard_pointer_domain &&) = delete;
 
-    void attach_thread() noexcept {
+    void attach_thread() {
         list_.attach_thread();
     }
 
@@ -364,24 +364,24 @@ public:
     }
 
 private:
-    void retire(HazardObject *retired) noexcept {
+    void retire(HazardObject *retired) {
         auto &thread_data = list_.get_thread_local();
         if (thread_data.retire(*retired)) [[unlikely]] {
             scan();
         }
     }
 
-    HazardRecord *acquire_record() noexcept {
+    HazardRecord *acquire_record() {
         auto &thread_data = list_.get_thread_local();
         return thread_data.acquire_record();
     }
 
-    void release_record(HazardRecord *record) noexcept {
+    void release_record(HazardRecord *record) {
         auto &thread_data = list_.get_thread_local();
         thread_data.release_record(record);
     }
 
-    void scan() noexcept {
+    void scan() {
         auto &thread_data = list_.get_thread_local();
         auto &retires = thread_data.retires_;
         std::atomic_thread_fence(std::memory_order_seq_cst);
@@ -409,7 +409,7 @@ private:
         }
     }
 
-    void help_scan() noexcept {
+    void help_scan() {
         auto &thread_data = list_.get_thread_local();
         for (auto current = list_.begin(); current != list_.end(); ++current) {
             if (current->try_acquire()) {
@@ -424,7 +424,7 @@ private:
     lu::thread_local_list<HazardThreadData> list_;
 };
 
-inline hazard_pointer_domain &get_default_domain() {
+inline hazard_pointer_domain &get_default_domain() noexcept {
     static hazard_pointer_domain domain;
     return domain;
 }
@@ -433,7 +433,7 @@ inline void attach_thread(hazard_pointer_domain &domain = get_default_domain()) 
     domain.attach_thread();
 }
 
-inline void detach_thread(hazard_pointer_domain &domain = get_default_domain()) {
+inline void detach_thread(hazard_pointer_domain &domain = get_default_domain()) noexcept {
     domain.detach_thread();
 }
 
@@ -442,7 +442,7 @@ class hazard_pointer {
     using HazardRecord = detail::HazardRecord;
 
 public:
-    hazard_pointer() = default;
+    hazard_pointer() noexcept = default;
 
     explicit hazard_pointer(hazard_pointer_domain *domain) noexcept
         : domain_(domain)
@@ -555,9 +555,9 @@ public:
     using const_reference = const element_type &;
 
 public:
-    guarded_ptr() = default;
+    guarded_ptr() noexcept = default;
 
-    guarded_ptr(hazard_pointer guard, pointer ptr)
+    guarded_ptr(hazard_pointer guard, pointer ptr) noexcept
         : guard_(std::move(guard))
         , ptr_(ptr) {}
 
@@ -565,23 +565,23 @@ public:
 
     guarded_ptr &operator=(const guarded_ptr &) = delete;
 
-    pointer operator->() const {
+    pointer operator->() const noexcept {
         return ptr_;
     }
 
-    reference operator*() {
+    reference operator*() noexcept {
         return *ptr_;
     }
 
-    const_reference operator*() const {
+    const_reference operator*() const noexcept {
         return *ptr_;
     }
 
-    explicit operator bool() const {
+    explicit operator bool() const noexcept {
         return ptr_;
     }
 
-    std::pair<hazard_pointer, pointer> unpack() && {
+    std::pair<hazard_pointer, pointer> unpack() && noexcept {
         return {std::move(guard_), ptr_};
     }
 

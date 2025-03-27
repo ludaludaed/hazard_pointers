@@ -1,9 +1,8 @@
 #ifndef __ATOMIC_REF_COUNT_POINTER_H__
 #define __ATOMIC_REF_COUNT_POINTER_H__
 
-#include <lu/hazard_pointer.h>
-
 #include <atomic>
+#include <utility>
 
 
 namespace lu {
@@ -64,7 +63,7 @@ public:
     }
 
     ref_count_ptr load(std::memory_order order = std::memory_order_seq_cst) const noexcept {
-        lu::hazard_pointer guard = lu::make_hazard_pointer();
+        auto guard = RefCountTraits::make_guard();
         auto ptr = guard.protect(control_block_);
         while (ptr) {
             if (RefCountTraits::inc_ref_if_not_zero(ptr)) {

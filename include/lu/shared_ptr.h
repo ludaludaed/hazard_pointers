@@ -19,6 +19,11 @@
 namespace lu {
 namespace detail {
 
+inline lu::hazard_pointer_domain& get_ref_count_domain() noexcept {
+    static lu::hazard_pointer_domain domain(1);
+    return domain;
+}
+
 struct ControlBlockDeleter {
     template<class ControlBlock>
     void operator()(ControlBlock *ptr) {
@@ -63,7 +68,7 @@ public:
 
     inline void DecWeak(std::int64_t num = 1) noexcept {
         if (weak_count_.fetch_sub(num, std::memory_order_acq_rel) <= num) {
-            this->retire();
+            this->retire({}, get_ref_count_domain());
         }
     }
 
