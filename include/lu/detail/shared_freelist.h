@@ -24,7 +24,7 @@ class SharedFreeListNode {
     using pointer = std::pointer_traits<VoidPointer>::template rebind<SharedFreeListNode>;
     using const_pointer = std::pointer_traits<VoidPointer>::template rebind<const SharedFreeListNode>;
 
-    pointer next;
+    pointer next{};
 };
 
 template<class VoidPointer>

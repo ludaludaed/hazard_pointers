@@ -6,6 +6,7 @@
 #include <lu/marked_shared_ptr.h>
 #include <lu/shared_ptr.h>
 #include <lu/utils/backoff.h>
+#include <lu/utils/marked_ptr.h>
 
 #include "ordered_list.h"
 #include "structures.h"
@@ -17,6 +18,7 @@
 #include <cstdlib>
 #include <functional>
 #include <iostream>
+#include <memory>
 #include <ostream>
 #include <random>
 #include <span>

@@ -38,7 +38,7 @@ public:
         : ptr_(make_marked_ptr(other.get(), other.is_marked())) {}
 
 public:
-    element_type &operator*() const noexcept {
+    std::add_lvalue_reference_t<element_type> operator*() const noexcept {
         return *get();
     }
 
@@ -106,7 +106,8 @@ public:
         return !(left < right);
     }
 
-    static marked_ptr pointer_to(element_type &value) noexcept {
+    template<class _ValueType, class = std::enable_if_t<std::is_convertible_v<_ValueType *, ValueType *>>>
+    static marked_ptr pointer_to(_ValueType &value) noexcept {
         return marked_ptr(&value);
     }
 

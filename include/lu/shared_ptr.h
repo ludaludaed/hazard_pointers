@@ -278,7 +278,7 @@ public:
         return this->control_block_;
     }
 
-    element_type &operator*() const noexcept {
+    std::add_lvalue_reference_t<element_type> operator*() const noexcept {
         return *this->value_;
     }
 
