@@ -61,6 +61,10 @@ public:
         return reinterpret_cast<element_type *>(ptr_ & ~(1));
     }
 
+    void set_mark(bool value) noexcept {
+        ptr_ = make_marked_ptr(get(), value);
+    }
+
     void mark() noexcept {
         ptr_ |= 1;
     }
@@ -129,7 +133,7 @@ private:
     static inline std::uintptr_t make_marked_ptr(element_type *raw_ptr, bool marked) noexcept {
         static constexpr std::uintptr_t mask = 1;
         std::uintptr_t ptr = reinterpret_cast<std::uintptr_t>(raw_ptr);
-        return ptr | (mask & std::uintptr_t(marked));
+        return ptr | (mask & -std::uintptr_t(marked));
     }
 
 private:

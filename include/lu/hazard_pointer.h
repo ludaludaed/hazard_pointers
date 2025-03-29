@@ -39,15 +39,20 @@ class HazardObject : public HazardRetiresHook {
     friend class lu::hazard_pointer_domain;
     template<class, class>
     friend class lu::hazard_pointer_obj_base;
-    friend struct HazardKeyOfValue;
+
     friend class HazardThreadData;
+    friend struct HazardKeyOfValue;
 
     using ReclaimFuncPtr = void (*)(HazardObject *value);
 
 private:
-    explicit HazardObject(ReclaimFuncPtr reclaimer, const void *key = nullptr) noexcept
+    explicit HazardObject(ReclaimFuncPtr reclaimer) noexcept
         : reclaim_func_(reclaimer)
-        , key_(key ? key : this) {}
+        , key_(this) {}
+
+    HazardObject(const HazardObject &other)
+        : reclaim_func_(other.reclaim_func_)
+        , key_(this) {}
 
     ~HazardObject() {
         assert(!this->is_linked());
@@ -61,20 +66,16 @@ private:
         return key_.is_marked();
     }
 
-    void make_protected() noexcept {
-        key_.mark();
+    void set_protection(bool value) noexcept {
+        key_.set_mark(value);
     }
 
-    void make_unprotected() noexcept {
-        key_.unmark();
-    }
-
-    const void* get_key() const noexcept {
+    const void *get_key() const noexcept {
         return key_.get();
     }
 
 private:
-    ReclaimFuncPtr reclaim_func_{};
+    ReclaimFuncPtr reclaim_func_;
     lu::marked_ptr<const void> key_;
 };
 
@@ -372,8 +373,10 @@ public:
     void retire(ValueType *value, Deleter deleter = {}) {
         struct NonIntrusiveHazardObj : public detail::HazardObject {
             NonIntrusiveHazardObj(ValueType *value, Deleter deleter) noexcept
-                : HazardObject(reclaim_func, value)
-                , obj_(value, std::move(deleter)) {}
+                : HazardObject(reclaim_func)
+                , obj_(value, std::move(deleter)) {
+                key_ = value;
+            }
 
             static void reclaim_func(HazardObject *obj) {
                 delete static_cast<NonIntrusiveHazardObj *>(obj);
@@ -387,14 +390,15 @@ public:
         retire(retired_obj);
     }
 
-private:
-    void retire(HazardObject *retired) {
+    template<class ValueType, class = std::enable_if_t<std::is_base_of_v<detail::HazardObject, ValueType>>>
+    void retire(ValueType *retired) {
         auto &thread_data = list_.get_thread_local();
         if (thread_data.retire(*retired)) [[unlikely]] {
             scan();
         }
     }
 
+private:
     HazardRecord *acquire_record() {
         auto &thread_data = list_.get_thread_local();
         return thread_data.acquire_record();
@@ -417,7 +421,7 @@ private:
             for (auto record = records.begin(); record != records.end(); ++record) {
                 auto found = retires.find(record->get());
                 if (found != retires.end()) {
-                    found->make_protected();
+                    found->set_protection(true);
                 }
             }
         }
@@ -426,7 +430,7 @@ private:
         while (current != retires.end()) {
             auto prev = current++;
             if (prev->is_protected()) {
-                prev->make_unprotected();
+                prev->set_protection(false);
             } else {
                 thread_data.reclaim(*prev);
             }
@@ -503,14 +507,12 @@ public:
         return !empty();
     }
 
-    template<class Ptr,
-             class = std::enable_if_t<std::is_base_of_v<HazardObject, typename std::pointer_traits<Ptr>::element_type>>>
+    template<class Ptr>
     Ptr protect(const std::atomic<Ptr> &src) noexcept {
         return protect(src, [](auto &&p) { return std::forward<decltype(p)>(p); });
     }
 
-    template<class Ptr, class Func,
-             class = std::enable_if_t<std::is_base_of_v<HazardObject, typename std::pointer_traits<Ptr>::element_type>>>
+    template<class Ptr, class Func>
     Ptr protect(const std::atomic<Ptr> &src, Func &&func) noexcept {
         auto ptr = src.load(std::memory_order_relaxed);
         while (!try_protect(ptr, src, std::forward<Func>(func))) {
@@ -518,14 +520,12 @@ public:
         return ptr;
     }
 
-    template<class Ptr,
-             class = std::enable_if_t<std::is_base_of_v<HazardObject, typename std::pointer_traits<Ptr>::element_type>>>
+    template<class Ptr>
     bool try_protect(Ptr &ptr, const std::atomic<Ptr> &src) noexcept {
         return try_protect(ptr, src, [](auto &&p) { return std::forward<decltype(p)>(p); });
     }
 
-    template<class Ptr, class Func,
-             class = std::enable_if_t<std::is_base_of_v<HazardObject, typename std::pointer_traits<Ptr>::element_type>>>
+    template<class Ptr, class Func>
     bool try_protect(Ptr &ptr, const std::atomic<Ptr> &src, Func &&func) noexcept {
         assert(!empty() && "hazard_ptr must be initialized");
         auto old = ptr;
@@ -538,11 +538,14 @@ public:
         return true;
     }
 
-    template<class Ptr,
-             class = std::enable_if_t<std::is_base_of_v<HazardObject, typename std::pointer_traits<Ptr>::element_type>>>
+    template<class Ptr>
     void reset_protection(const Ptr ptr) noexcept {
         assert(!empty() && "hazard_ptr must be initialized");
-        record_->reset(static_cast<const HazardObject *>(to_raw_pointer(ptr)));
+        if constexpr (std::is_base_of_v<HazardObject, typename std::pointer_traits<Ptr>::element_type>) {
+            record_->reset(static_cast<const HazardObject *>(to_raw_pointer(ptr)));
+        } else { // if non intrusive hazard obj
+            record_->reset(to_raw_pointer(ptr));
+        }
         std::atomic_thread_fence(std::memory_order_seq_cst);
     }
 

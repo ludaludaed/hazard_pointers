@@ -19,7 +19,7 @@
 namespace lu {
 namespace detail {
 
-inline lu::hazard_pointer_domain& get_ref_count_domain() noexcept {
+inline lu::hazard_pointer_domain &get_ref_count_domain() noexcept {
     static lu::hazard_pointer_domain domain(1);
     return domain;
 }
