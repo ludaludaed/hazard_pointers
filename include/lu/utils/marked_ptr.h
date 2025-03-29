@@ -37,7 +37,6 @@ public:
     marked_ptr(const marked_ptr<_ValueType> &other) noexcept
         : ptr_(make_marked_ptr(other.get(), other.is_marked())) {}
 
-public:
     std::add_lvalue_reference_t<element_type> operator*() const noexcept {
         return *get();
     }

@@ -8,6 +8,7 @@
 #include <lu/intrusive/forward_list.h>
 #include <lu/intrusive/options.h>
 #include <lu/intrusive/unordered_set.h>
+#include <lu/utils/marked_ptr.h>
 
 #include <algorithm>
 #include <atomic>
@@ -35,20 +36,18 @@ using HazardRetiresHook
         = lu::unordered_set_base_hook<lu::tag<HazardPointerTag>, lu::store_hash<false>, lu::is_auto_unlink<false>>;
 
 class HazardObject : public HazardRetiresHook {
-    friend class HazardThreadData;
-
     friend class lu::hazard_pointer_domain;
-
     template<class, class>
     friend class lu::hazard_pointer_obj_base;
+    friend struct HazardKeyOfValue;
+    friend class HazardThreadData;
 
     using ReclaimFuncPtr = void (*)(HazardObject *value);
 
 private:
-    HazardObject() noexcept = default;
-
-    explicit HazardObject(ReclaimFuncPtr reclaimer) noexcept
-        : reclaim_func_(reclaimer) {}
+    explicit HazardObject(ReclaimFuncPtr reclaimer, const void *key = nullptr) noexcept
+        : reclaim_func_(reclaimer)
+        , key_(key ? key : this) {}
 
     ~HazardObject() {
         assert(!this->is_linked());
@@ -58,32 +57,32 @@ private:
         reclaim_func_(this);
     }
 
-    void set_reclaimer(ReclaimFuncPtr reclaim_func) noexcept {
-        reclaim_func_ = reclaim_func;
-    }
-
     bool is_protected() const noexcept {
-        return protected_;
+        return key_.is_marked();
     }
 
     void make_protected() noexcept {
-        protected_ = true;
+        key_.mark();
     }
 
     void make_unprotected() noexcept {
-        protected_ = false;
+        key_.unmark();
+    }
+
+    const void* get_key() const noexcept {
+        return key_.get();
     }
 
 private:
     ReclaimFuncPtr reclaim_func_{};
-    bool protected_{false};
+    lu::marked_ptr<const void> key_;
 };
 
 struct HazardKeyOfValue {
     using type = const void *;
 
     const void *operator()(const HazardObject &value) const noexcept {
-        return &value;
+        return value.get_key();
     }
 };
 
@@ -201,7 +200,6 @@ private:
 class hazard_pointer_domain {
     template<class, class>
     friend class hazard_pointer_obj_base;
-
     friend class hazard_pointer;
 
     using HazardObject = detail::HazardObject;
@@ -374,7 +372,7 @@ public:
     void retire(ValueType *value, Deleter deleter = {}) {
         struct NonIntrusiveHazardObj : public detail::HazardObject {
             NonIntrusiveHazardObj(ValueType *value, Deleter deleter) noexcept
-                : HazardObject(reclaim_func)
+                : HazardObject(reclaim_func, value)
                 , obj_(value, std::move(deleter)) {}
 
             static void reclaim_func(HazardObject *obj) {
@@ -618,8 +616,11 @@ private:
 
 namespace detail {
 
+template<class ValueType, class Deleter, bool = std::is_empty_v<Deleter> && !std::is_final_v<Deleter>>
+class HazardPointerDeleter;
+
 template<class ValueType, class Deleter>
-class HazardPointerDeleter {
+class HazardPointerDeleter<ValueType, Deleter, false> {
 protected:
     void set_deleter(Deleter deleter) noexcept(std::is_nothrow_move_assignable_v<Deleter>) {
         deleter_ = std::move(deleter);
@@ -631,6 +632,18 @@ protected:
 
 private:
     Deleter deleter_;
+};
+
+template<class ValueType, class Deleter>
+class HazardPointerDeleter<ValueType, Deleter, true> : private Deleter {
+protected:
+    void set_deleter(Deleter deleter) noexcept(std::is_nothrow_move_assignable_v<Deleter>) {
+        Deleter::operator=(std::move(deleter));
+    }
+
+    void do_delete(ValueType *value) noexcept {
+        Deleter::operator()(value);
+    }
 };
 
 }// namespace detail

@@ -24,6 +24,10 @@ inline lu::hazard_pointer_domain& get_ref_count_domain() noexcept {
     return domain;
 }
 
+// namespase hide for resolve this problem
+// error: 'ControlBlockDeleter' is a private member of 'lu::detail::ControlBlockDeleter'
+namespace hide {
+
 struct ControlBlockDeleter {
     template<class ControlBlock>
     void operator()(ControlBlock *ptr) {
@@ -31,10 +35,11 @@ struct ControlBlockDeleter {
     }
 };
 
+}// namespace hide
+
 class ControlBlock : public lu::forward_list_base_hook<lu::is_auto_unlink<false>>,
-                     public lu::hazard_pointer_obj_base<ControlBlock, ControlBlockDeleter> {
-public:
-    friend struct ControlBlockDeleter;
+                     public lu::hazard_pointer_obj_base<ControlBlock, hide::ControlBlockDeleter> {
+    friend struct hide::ControlBlockDeleter;
 
 public:
     ControlBlock() noexcept = default;
