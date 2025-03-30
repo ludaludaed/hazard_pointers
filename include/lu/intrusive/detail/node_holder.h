@@ -4,7 +4,7 @@
 namespace lu {
 namespace detail {
 
-template<class NodeType, class Tag>
+template <class NodeType, class Tag>
 class NodeHolder : public NodeType {};
 
 }// namespace detail

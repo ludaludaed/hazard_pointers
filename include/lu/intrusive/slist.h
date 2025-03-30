@@ -17,7 +17,7 @@
 namespace lu {
 namespace detail {
 
-template<class NodeTraits>
+template <class NodeTraits>
 struct CircularSlistAlgo {
     using node_traits = NodeTraits;
 
@@ -25,21 +25,13 @@ struct CircularSlistAlgo {
     using node_ptr = typename node_traits::node_ptr;
     using const_node_ptr = typename node_traits::const_node_ptr;
 
-    static void init_head(node_ptr this_node) noexcept {
-        node_traits::set_next(this_node, this_node);
-    }
+    static void init_head(node_ptr this_node) noexcept { node_traits::set_next(this_node, this_node); }
 
-    static void init(node_ptr this_node) noexcept {
-        node_traits::set_next(this_node, node_ptr{});
-    }
+    static void init(node_ptr this_node) noexcept { node_traits::set_next(this_node, node_ptr{}); }
 
-    static bool inited(const_node_ptr this_node) noexcept {
-        return !node_traits::get_next(this_node);
-    }
+    static bool inited(const_node_ptr this_node) noexcept { return !node_traits::get_next(this_node); }
 
-    static bool is_linked(const_node_ptr this_node) noexcept {
-        return !inited(this_node);
-    }
+    static bool is_linked(const_node_ptr this_node) noexcept { return !inited(this_node); }
 
     static bool unique(const_node_ptr this_node) noexcept {
         const_node_ptr next = node_traits::get_next(this_node);
@@ -56,9 +48,7 @@ struct CircularSlistAlgo {
         return result;
     }
 
-    static node_ptr get_end(const_node_ptr this_node) noexcept {
-        return erase_const(this_node);
-    }
+    static node_ptr get_end(const_node_ptr this_node) noexcept { return erase_const(this_node); }
 
     static node_ptr get_prev(node_ptr head_node, node_ptr this_node) noexcept {
         node_ptr current = head_node;
@@ -68,13 +58,9 @@ struct CircularSlistAlgo {
         return current;
     }
 
-    static node_ptr get_prev(node_ptr this_node) noexcept {
-        return get_prev(this_node, this_node);
-    }
+    static node_ptr get_prev(node_ptr this_node) noexcept { return get_prev(this_node, this_node); }
 
-    static node_ptr get_last(node_ptr this_node) noexcept {
-        return get_prev(this_node, this_node);
-    }
+    static node_ptr get_last(node_ptr this_node) noexcept { return get_prev(this_node, this_node); }
 
     static node_ptr next(node_ptr this_node, std::size_t steps = 1) noexcept {
         while (steps != 0) {
@@ -160,7 +146,7 @@ struct CircularSlistAlgo {
         }
     }
 
-    template<class Compare>
+    template <class Compare>
     static void merge(node_ptr left_head, node_ptr right_head, Compare &&comp) noexcept {
         node_ptr left_prev = left_head;
         node_ptr left_current = node_traits::get_next(left_head);
@@ -177,7 +163,7 @@ struct CircularSlistAlgo {
         transfer_after(left_prev, right_head, get_prev(right_head, right_head));
     }
 
-    template<class Compare>
+    template <class Compare>
     static void sort(node_ptr head, Compare &&comp) noexcept {
         std::size_t size = count(head) - 1;
 
@@ -191,7 +177,7 @@ struct CircularSlistAlgo {
     }
 
 private:
-    template<class Compare>
+    template <class Compare>
     static node_ptr linear_merge(node_ptr left_first, node_ptr right_first, Compare &&comp) noexcept {
         if (!left_first) {
             return right_first;
@@ -227,7 +213,7 @@ private:
         return start;
     }
 
-    template<class Compare>
+    template <class Compare>
     static node_ptr sort(node_ptr begin_node, std::size_t size, Compare &&comp) noexcept {
         if (size == 0) {
             return node_ptr{};
@@ -247,9 +233,9 @@ private:
     }
 };
 
-template<class VoidPointer>
+template <class VoidPointer>
 class SlistNode {
-    template<class>
+    template <class>
     friend class SlistNodeTraits;
 
     using pointer = typename std::pointer_traits<VoidPointer>::template rebind<SlistNode>;
@@ -258,24 +244,20 @@ class SlistNode {
     pointer next{};
 };
 
-template<class VoidPointer>
+template <class VoidPointer>
 struct SlistNodeTraits {
     using node = SlistNode<VoidPointer>;
     using node_ptr = typename node::pointer;
     using const_node_ptr = typename node::const_pointer;
 
-    static void set_next(node_ptr this_node, node_ptr next) noexcept {
-        this_node->next = next;
-    }
+    static void set_next(node_ptr this_node, node_ptr next) noexcept { this_node->next = next; }
 
-    static node_ptr get_next(const_node_ptr this_node) noexcept {
-        return this_node->next;
-    }
+    static node_ptr get_next(const_node_ptr this_node) noexcept { return this_node->next; }
 };
 
-template<class Types, bool IsConst>
+template <class Types, bool IsConst>
 class SlistIterator {
-    template<class, class>
+    template <class, class>
     friend class IntrusiveSlist;
     friend class SlistIterator<Types, true>;
 
@@ -324,13 +306,9 @@ public:
         return result;
     }
 
-    inline reference operator*() const noexcept {
-        return *operator->();
-    }
+    inline reference operator*() const noexcept { return *operator->(); }
 
-    inline pointer operator->() const noexcept {
-        return value_traits_->to_value_ptr(current_node_);
-    }
+    inline pointer operator->() const noexcept { return value_traits_->to_value_ptr(current_node_); }
 
     friend bool operator==(const SlistIterator &left, const SlistIterator &right) noexcept {
         return left.current_node_ == right.current_node_ && left.value_traits_ == right.value_traits_;
@@ -341,16 +319,14 @@ public:
     }
 
 private:
-    void Increment() noexcept {
-        current_node_ = node_traits::get_next(current_node_);
-    }
+    void Increment() noexcept { current_node_ = node_traits::get_next(current_node_); }
 
 private:
     node_ptr current_node_{};
     value_traits_ptr value_traits_{};
 };
 
-template<class ValueTraits, class SizeType>
+template <class ValueTraits, class SizeType>
 class IntrusiveSlist {
     using size_traits = SizeTraits<SizeType, !ValueTraits::is_auto_unlink>;
     using Algo = CircularSlistAlgo<typename ValueTraits::node_traits>;
@@ -395,7 +371,7 @@ public:
         Construct();
     }
 
-    template<class Iterator>
+    template <class Iterator>
     IntrusiveSlist(Iterator begin, Iterator end, const value_traits &value_traits = {}) noexcept
         : data_(NilNodeHolder{}, value_traits, size_traits{}) {
         Construct();
@@ -417,34 +393,25 @@ public:
         return *this;
     }
 
-    ~IntrusiveSlist() {
-        clear();
-    }
+    ~IntrusiveSlist() { clear(); }
 
 private:
-    void Construct() noexcept {
-        Algo::init_head(GetNilPtr());
-    }
+    void Construct() noexcept { Algo::init_head(GetNilPtr()); }
 
     inline value_traits_ptr GetValueTraitsPtr() const noexcept {
         return std::pointer_traits<value_traits_ptr>::pointer_to(lu::get<ValueTraits>(data_));
     }
 
     node_ptr GetNilPtr() const noexcept {
-        return Algo::get_end(std::pointer_traits<const_node_ptr>::pointer_to(lu::get<NilNodeHolder>(data_).node_));
+        return Algo::get_end(
+                std::pointer_traits<const_node_ptr>::pointer_to(lu::get<NilNodeHolder>(data_).node_));
     }
 
-    node_ptr GetEnd() const noexcept {
-        return Algo::get_end(GetNilPtr());
-    }
+    node_ptr GetEnd() const noexcept { return Algo::get_end(GetNilPtr()); }
 
-    node_ptr GetFirst() const noexcept {
-        return node_traits::get_next(GetNilPtr());
-    }
+    node_ptr GetFirst() const noexcept { return node_traits::get_next(GetNilPtr()); }
 
-    node_ptr GetLast() const noexcept {
-        return Algo::get_last(GetNilPtr());
-    }
+    node_ptr GetLast() const noexcept { return Algo::get_last(GetNilPtr()); }
 
     size_type GetSize() const noexcept {
         if constexpr (size_traits::is_tracking_size) {
@@ -454,9 +421,7 @@ private:
         }
     }
 
-    void SetSize(size_type new_size) noexcept {
-        return lu::get<size_traits>(data_).set_size(new_size);
-    }
+    void SetSize(size_type new_size) noexcept { return lu::get<size_traits>(data_).set_size(new_size); }
 
     node_ptr InsertAfter(node_ptr prev, node_ptr new_node) noexcept {
         Algo::link_after(prev, new_node);
@@ -476,9 +441,11 @@ private:
         return last;
     }
 
-    void SpliceAfter(node_ptr where, IntrusiveSlist &other, node_ptr before_first, node_ptr before_last) noexcept {
+    void SpliceAfter(node_ptr where, IntrusiveSlist &other, node_ptr before_first,
+                     node_ptr before_last) noexcept {
         if constexpr (size_traits::is_tracking_size) {
-            size_type distance(Algo::distance(node_traits::get_next(before_first), node_traits::get_next(before_last)));
+            size_type distance(
+                    Algo::distance(node_traits::get_next(before_first), node_traits::get_next(before_last)));
 
             lu::get<size_traits>(other.data_).decrease(distance);
             lu::get<size_traits>(data_).increase(distance);
@@ -494,7 +461,7 @@ private:
         SpliceAfter(where, other, other.GetNilPtr(), other.GetLast());
     }
 
-    template<class Comp>
+    template <class Comp>
     void Sort(Comp &&comp) noexcept {
         const value_traits &_value_traits = lu::get<ValueTraits>(data_);
         auto node_comp = [&_value_traits, &comp](node_ptr left, node_ptr right) {
@@ -503,7 +470,7 @@ private:
         Algo::sort(GetNilPtr(), node_comp);
     }
 
-    template<class Comp>
+    template <class Comp>
     void Merge(IntrusiveSlist &other, Comp &&comp) noexcept {
         if constexpr (size_traits::is_tracking_size) {
             size_type new_size = GetSize() + other.GetSize();
@@ -517,7 +484,7 @@ private:
         Algo::merge(GetNilPtr(), other.GetNilPtr(), node_comp);
     }
 
-    template<class BinaryPredicate>
+    template <class BinaryPredicate>
     size_type Unique(BinaryPredicate &&predicate) noexcept {
         std::size_t n = 0;
         const_iterator current = cbegin();
@@ -533,7 +500,7 @@ private:
         return size_type(n);
     }
 
-    template<class UnaryPredicate>
+    template <class UnaryPredicate>
     size_type RemoveIf(UnaryPredicate &&predicate) noexcept {
         std::size_t n = 0;
         const_iterator prev = cbefore_begin();
@@ -552,15 +519,13 @@ private:
     }
 
 public:
-    template<class Iterator>
+    template <class Iterator>
     void assign(Iterator first, Iterator last) noexcept {
         clear();
         insert_after(cbefore_begin(), first, last);
     }
 
-    void reverse() noexcept {
-        Algo::reverse(GetNilPtr());
-    }
+    void reverse() noexcept { Algo::reverse(GetNilPtr()); }
 
     reference front() noexcept {
         const value_traits &_value_traits = lu::get<ValueTraits>(data_);
@@ -577,9 +542,7 @@ public:
         InsertAfter(GetNilPtr(), _value_traits.to_node_ptr(value));
     }
 
-    void pop_front() noexcept {
-        EraseAfter(GetNilPtr());
-    }
+    void pop_front() noexcept { EraseAfter(GetNilPtr()); }
 
     iterator insert_after(const_iterator before, reference value) noexcept {
         const value_traits &_value_traits = lu::get<ValueTraits>(data_);
@@ -589,7 +552,7 @@ public:
         return iterator(new_node, GetValueTraitsPtr());
     }
 
-    template<class Iterator>
+    template <class Iterator>
     void insert_after(const_iterator before, Iterator first, Iterator last) noexcept {
         const_iterator current = before;
         for (; first != last; ++first) {
@@ -610,13 +573,9 @@ public:
         return iterator(result, GetValueTraitsPtr());
     }
 
-    void clear() noexcept {
-        EraseAfter(GetNilPtr(), GetEnd());
-    }
+    void clear() noexcept { EraseAfter(GetNilPtr(), GetEnd()); }
 
-    void swap(IntrusiveSlist &other) noexcept {
-        data_.swap(other.data_);
-    }
+    void swap(IntrusiveSlist &other) noexcept { data_.swap(other.data_); }
 
     void splice_after(const_iterator position, IntrusiveSlist &other) noexcept {
         node_ptr where_node = position.current_node_;
@@ -651,107 +610,72 @@ public:
     }
 
     size_type remove(const_reference value) noexcept {
-        return remove_if([&value](const_reference other) { return std::equal_to<value_type>()(value, other); });
+        return remove_if(
+                [&value](const_reference other) { return std::equal_to<value_type>()(value, other); });
     }
 
-    template<class UnaryPredicate>
+    template <class UnaryPredicate>
     size_type remove_if(UnaryPredicate &&pred) noexcept {
         return RemoveIf(std::forward<UnaryPredicate>(pred));
     }
 
-    size_type unique() noexcept {
-        return unique(std::equal_to<value_type>());
-    }
+    size_type unique() noexcept { return unique(std::equal_to<value_type>()); }
 
-    template<class BinaryPredicate>
+    template <class BinaryPredicate>
     size_type unique(BinaryPredicate &&pred) noexcept {
         return Unique(std::forward<BinaryPredicate>(pred));
     }
 
-    void merge(IntrusiveSlist &other) noexcept {
-        Merge(other, std::less<value_type>());
-    }
+    void merge(IntrusiveSlist &other) noexcept { Merge(other, std::less<value_type>()); }
 
-    void merge(IntrusiveSlist &&other) noexcept {
-        merge(other);
-    }
+    void merge(IntrusiveSlist &&other) noexcept { merge(other); }
 
-    template<class Compare>
+    template <class Compare>
     void merge(IntrusiveSlist &other, Compare &&comp) noexcept {
         Merge(other, std::forward<Compare>(comp));
     }
 
-    template<class Compare>
+    template <class Compare>
     void merge(IntrusiveSlist &&other, Compare &&comp) noexcept {
         merge(other, std::forward<Compare>(comp));
     }
 
-    void sort() noexcept {
-        sort(std::less<value_type>());
-    }
+    void sort() noexcept { sort(std::less<value_type>()); }
 
-    template<class Compare>
+    template <class Compare>
     void sort(Compare &&comp) noexcept {
         Sort(std::forward<Compare>(comp));
     }
 
 public:
-    iterator before_begin() noexcept {
-        return iterator(GetNilPtr(), GetValueTraitsPtr());
-    }
+    iterator before_begin() noexcept { return iterator(GetNilPtr(), GetValueTraitsPtr()); }
 
-    iterator last() noexcept {
-        return iterator(GetLast(), GetValueTraitsPtr());
-    }
+    iterator last() noexcept { return iterator(GetLast(), GetValueTraitsPtr()); }
 
-    iterator begin() noexcept {
-        return iterator(GetFirst(), GetValueTraitsPtr());
-    }
+    iterator begin() noexcept { return iterator(GetFirst(), GetValueTraitsPtr()); }
 
-    iterator end() noexcept {
-        return iterator(GetEnd(), GetValueTraitsPtr());
-    }
+    iterator end() noexcept { return iterator(GetEnd(), GetValueTraitsPtr()); }
 
-    const_iterator before_begin() const noexcept {
-        return const_iterator(GetNilPtr(), GetValueTraitsPtr());
-    }
+    const_iterator before_begin() const noexcept { return const_iterator(GetNilPtr(), GetValueTraitsPtr()); }
 
-    const_iterator last() const noexcept {
-        return const_iterator(GetLast(), GetValueTraitsPtr());
-    }
+    const_iterator last() const noexcept { return const_iterator(GetLast(), GetValueTraitsPtr()); }
 
-    const_iterator begin() const noexcept {
-        return const_iterator(GetFirst(), GetValueTraitsPtr());
-    }
+    const_iterator begin() const noexcept { return const_iterator(GetFirst(), GetValueTraitsPtr()); }
 
-    const_iterator end() const noexcept {
-        return const_iterator(GetEnd(), GetValueTraitsPtr());
-    }
+    const_iterator end() const noexcept { return const_iterator(GetEnd(), GetValueTraitsPtr()); }
 
-    const_iterator cbefore_begin() const noexcept {
-        return const_iterator(GetNilPtr(), GetValueTraitsPtr());
-    }
+    const_iterator cbefore_begin() const noexcept { return const_iterator(GetNilPtr(), GetValueTraitsPtr()); }
 
-    const_iterator clast() const noexcept {
-        return const_iterator(GetLast(), GetValueTraitsPtr());
-    }
+    const_iterator clast() const noexcept { return const_iterator(GetLast(), GetValueTraitsPtr()); }
 
-    const_iterator cbegin() const noexcept {
-        return const_iterator(GetFirst(), GetValueTraitsPtr());
-    }
+    const_iterator cbegin() const noexcept { return const_iterator(GetFirst(), GetValueTraitsPtr()); }
 
-    const_iterator cend() const noexcept {
-        return const_iterator(GetEnd(), GetValueTraitsPtr());
-    }
+    const_iterator cend() const noexcept { return const_iterator(GetEnd(), GetValueTraitsPtr()); }
 
 public:
-    bool empty() const noexcept {
-        return Algo::unique(GetNilPtr());
-    }
+    bool empty() const noexcept { return Algo::unique(GetNilPtr()); }
 
-    size_type size() const noexcept {
-        return GetSize();
-    }
+    size_type size() const noexcept { return GetSize(); }
 
 public:
     friend bool operator==(const IntrusiveSlist &left, const IntrusiveSlist &right) noexcept {
@@ -778,30 +702,28 @@ public:
         return !(left < right);
     }
 
-    friend void swap(IntrusiveSlist &left, IntrusiveSlist &right) noexcept {
-        left.swap(right);
-    }
+    friend void swap(IntrusiveSlist &left, IntrusiveSlist &right) noexcept { left.swap(right); }
 
 private:
     lu::compressed_tuple<NilNodeHolder, ValueTraits, size_traits> data_;
 };
 
-template<class HookType>
+template <class HookType>
 struct SlistDefaultHook {
     using slist_default_hook_type = HookType;
 };
 
-template<class VoidPointer, class Tag, bool IsAutoUnlink>
-class SlistBaseHook
-    : public GenericHook<CircularSlistAlgo<SlistNodeTraits<VoidPointer>>, SlistNodeTraits<VoidPointer>, Tag,
-                         IsAutoUnlink>,
-      public std::conditional_t<std::is_same_v<Tag, DefaultHookTag>,
-                                SlistDefaultHook<GenericHook<CircularSlistAlgo<SlistNodeTraits<VoidPointer>>,
-                                                             SlistNodeTraits<VoidPointer>, Tag, IsAutoUnlink>>,
-                                NotDefaultHook> {};
+template <class VoidPointer, class Tag, bool IsAutoUnlink>
+class SlistBaseHook : public GenericHook<CircularSlistAlgo<SlistNodeTraits<VoidPointer>>,
+                                         SlistNodeTraits<VoidPointer>, Tag, IsAutoUnlink>,
+                      public std::conditional_t<
+                              std::is_same_v<Tag, DefaultHookTag>,
+                              SlistDefaultHook<GenericHook<CircularSlistAlgo<SlistNodeTraits<VoidPointer>>,
+                                                           SlistNodeTraits<VoidPointer>, Tag, IsAutoUnlink>>,
+                              NotDefaultHook> {};
 
 struct DefaultSlistHook {
-    template<class ValueType>
+    template <class ValueType>
     struct GetDefaultHook {
         using type = typename ValueType::slist_default_hook_type;
     };

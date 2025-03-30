@@ -13,15 +13,15 @@
 namespace lu {
 namespace detail {
 
-template<std::size_t argument, std::size_t base = 2, bool = (argument < base)>
+template <std::size_t argument, std::size_t base = 2, bool = (argument < base)>
 constexpr std::size_t log = 1 + log<argument / base, base>;
 
-template<std::size_t argument, std::size_t base>
+template <std::size_t argument, std::size_t base>
 constexpr std::size_t log<argument, base, true> = 0;
 
 
 struct PointerHash {
-    template<class T>
+    template <class T>
     std::size_t operator()(T *p) const noexcept {
         std::uintptr_t ptr = reinterpret_cast<std::uintptr_t>(p);
         std::uintptr_t hash = ptr >> log<std::max(sizeof(T), alignof(T))>;
@@ -29,7 +29,7 @@ struct PointerHash {
     }
 };
 
-template<class ValueType>
+template <class ValueType>
 class AlignedStorage {
 public:
     using reference = ValueType &;
@@ -39,38 +39,32 @@ public:
 public:
     AlignedStorage() = default;
 
-    template<class... Args>
+    template <class... Args>
     AlignedStorage(Args &&...args) noexcept(std::is_nothrow_constructible_v<ValueType, Args...>) {
         emplace(std::forward<Args>(args)...);
     }
 
 public:
-    template<class... Args>
+    template <class... Args>
     void emplace(Args &&...args) noexcept(std::is_nothrow_constructible_v<ValueType, Args...>) {
         ::new (data_) ValueType(std::forward<Args>(args)...);
     }
 
-    void destroy() noexcept {
-        reinterpret_cast<ValueType *>(data_)->~ValueType();
-    }
+    void destroy() noexcept { reinterpret_cast<ValueType *>(data_)->~ValueType(); }
 
-    reference operator*() noexcept {
-        return *reinterpret_cast<pointer>(data_);
-    }
+    reference operator*() noexcept { return *reinterpret_cast<pointer>(data_); }
 
     pointer operator->() const noexcept {
         return const_cast<pointer>(reinterpret_cast<const_pointer>(data_));
     }
 
-    void *get_ptr() const noexcept {
-        return reinterpret_cast<void *>(this->operator->());
-    }
+    void *get_ptr() const noexcept { return reinterpret_cast<void *>(this->operator->()); }
 
 private:
     alignas(alignof(ValueType)) unsigned char data_[sizeof(ValueType)]{};
 };
 
-template<class Allocator>
+template <class Allocator>
 class AllocateGuard {
     using allocator_traits = std::allocator_traits<Allocator>;
     using pointer = typename std::allocator_traits<Allocator>::pointer;
@@ -90,16 +84,14 @@ public:
         return ptr_;
     }
 
-    pointer release() noexcept {
-        return std::exchange(ptr_, pointer{});
-    }
+    pointer release() noexcept { return std::exchange(ptr_, pointer{}); }
 
 private:
     Allocator &allocator_;
     pointer ptr_{};
 };
 
-template<class Ptr, class Deleter>
+template <class Ptr, class Deleter>
 class DeleterGuard {
 public:
     DeleterGuard(Ptr ptr, Deleter &deleter) noexcept
@@ -112,9 +104,7 @@ public:
         }
     }
 
-    Ptr release() noexcept {
-        return std::exchange(ptr_, Ptr{});
-    }
+    Ptr release() noexcept { return std::exchange(ptr_, Ptr{}); }
 
 private:
     Ptr ptr_;

@@ -10,7 +10,7 @@
 namespace lu {
 namespace detail {
 
-template<class... Options>
+template <class... Options>
 struct make_unordered_set_base_hook {
     using pack_options = typename GetPackOptions<HashtableHookDefaults, Options...>::type;
 
@@ -18,7 +18,7 @@ struct make_unordered_set_base_hook {
                                    pack_options::store_hash, pack_options::is_auto_unlink>;
 };
 
-template<class ValueType, class... Options>
+template <class ValueType, class... Options>
 struct make_unordered_set {
     using pack_options = typename GetPackOptions<HashtableDefaults, Options...>::type;
 
@@ -31,13 +31,13 @@ struct make_unordered_set {
     using flags = HashtableFlags<pack_options::is_power_2_buckets, false>;
 
     using value_traits = typename GetValueTraits<ValueType, typename pack_options::proto_value_traits>::type;
-    using bucket_traits =
-            typename GetBucketTraits<typename pack_options::proto_bucket_traits, value_traits, size_type>::type;
+    using bucket_traits = typename GetBucketTraits<typename pack_options::proto_bucket_traits, value_traits,
+                                                   size_type>::type;
 
     using type = IntrusiveHashtable<value_traits, bucket_traits, key_of_value, hash, equal, size_type, flags>;
 };
 
-template<class ValueType, class... Options>
+template <class ValueType, class... Options>
 struct make_unordered_multiset {
     using pack_options = typename GetPackOptions<HashtableDefaults, Options...>::type;
 
@@ -50,13 +50,13 @@ struct make_unordered_multiset {
     using flags = HashtableFlags<pack_options::is_power_2_buckets, true>;
 
     using value_traits = typename GetValueTraits<ValueType, typename pack_options::proto_value_traits>::type;
-    using bucket_traits =
-            typename GetBucketTraits<typename pack_options::proto_bucket_traits, value_traits, size_type>::type;
+    using bucket_traits = typename GetBucketTraits<typename pack_options::proto_bucket_traits, value_traits,
+                                                   size_type>::type;
 
     using type = IntrusiveHashtable<value_traits, bucket_traits, key_of_value, hash, equal, size_type, flags>;
 };
 
-template<class... Options>
+template <class... Options>
 struct make_unordered_bucket_type {
     struct empty {};
     using pack_options = typename GetPackOptions<empty, Options...>::type;
@@ -66,16 +66,16 @@ struct make_unordered_bucket_type {
 
 }// namespace detail
 
-template<class... Options>
+template <class... Options>
 using unordered_set_base_hook = typename detail::make_unordered_set_base_hook<Options...>::type;
 
-template<class ValueType, class... Options>
+template <class ValueType, class... Options>
 using unordered_set = typename detail::make_unordered_set<ValueType, Options...>::type;
 
-template<class ValueType, class... Options>
+template <class ValueType, class... Options>
 using unordered_multiset = typename detail::make_unordered_multiset<ValueType, Options...>::type;
 
-template<class... Options>
+template <class... Options>
 using unordered_bucket_type = typename detail::make_unordered_bucket_type<Options...>::type;
 
 }// namespace lu

@@ -16,9 +16,9 @@
 namespace lu {
 namespace detail {
 
-template<class VoidPointer>
+template <class VoidPointer>
 class SharedFreeListNode {
-    template<class>
+    template <class>
     friend struct SharedFreeListNodeTraits;
 
     using pointer = std::pointer_traits<VoidPointer>::template rebind<SharedFreeListNode>;
@@ -27,22 +27,18 @@ class SharedFreeListNode {
     pointer next{};
 };
 
-template<class VoidPointer>
+template <class VoidPointer>
 struct SharedFreeListNodeTraits {
     using node = SharedFreeListNode<VoidPointer>;
     using node_ptr = typename node::pointer;
     using const_node_ptr = typename node::const_pointer;
 
-    static void set_next(node_ptr this_node, node_ptr next) noexcept {
-        this_node->next = next;
-    }
+    static void set_next(node_ptr this_node, node_ptr next) noexcept { this_node->next = next; }
 
-    static node_ptr get_next(const_node_ptr this_node) noexcept {
-        return this_node->next;
-    }
+    static node_ptr get_next(const_node_ptr this_node) noexcept { return this_node->next; }
 };
 
-template<class ValueTraits>
+template <class ValueTraits>
 class SharedFreeList : private ValueTraits {
 public:
     using value_traits = ValueTraits;
@@ -105,24 +101,24 @@ private:
     node_ptr local_head_{};
 };
 
-template<class VoidPointer, class Tag>
+template <class VoidPointer, class Tag>
 struct SharedFreeListHook : public NodeHolder<SharedFreeListNode<VoidPointer>, Tag> {
     using hook_tags = HookTags<SharedFreeListNodeTraits<VoidPointer>, Tag, false>;
 };
 
-template<class HookType>
+template <class HookType>
 struct SharedFreeListDefaultHook {
     using free_list_default_hook = HookType;
 };
 
-template<class VoidPointer, class Tag>
+template <class VoidPointer, class Tag>
 struct SharedFreeListBaseHook
     : public SharedFreeListHook<VoidPointer, Tag>,
       std::conditional_t<std::is_same_v<Tag, DefaultHookTag>,
                          SharedFreeListDefaultHook<SharedFreeListHook<VoidPointer, Tag>>, NotDefaultHook> {};
 
 struct DefaultSharedFreeListHook {
-    template<class ValueType>
+    template <class ValueType>
     struct GetDefaultHook {
         using type = typename ValueType::free_list_default_hook;
     };
@@ -145,7 +141,7 @@ struct SharedFreeListHookDefaults {
 namespace lu {
 namespace detail {
 
-template<class... Options>
+template <class... Options>
 struct make_shared_free_list_base_hook {
     using pack_options = typename GetPackOptions<SharedFreeListHookDefaults, Options...>::type;
 
@@ -155,7 +151,7 @@ struct make_shared_free_list_base_hook {
     using type = SharedFreeListBaseHook<void_pointer, tag>;
 };
 
-template<class ValueType, class... Options>
+template <class ValueType, class... Options>
 struct make_shared_free_list {
     using pack_options = typename GetPackOptions<SharedFreeListDefaults, Options...>::type;
     using value_traits = typename GetValueTraits<ValueType, typename pack_options::proto_value_traits>::type;
@@ -165,10 +161,10 @@ struct make_shared_free_list {
 
 }// namespace detail
 
-template<class... Options>
+template <class... Options>
 using shared_free_list_base_hook = typename detail::make_shared_free_list_base_hook<Options...>::type;
 
-template<class ValueType, class... Options>
+template <class ValueType, class... Options>
 using shared_free_list = typename detail::make_shared_free_list<ValueType, Options...>::type;
 
 }// namespace lu

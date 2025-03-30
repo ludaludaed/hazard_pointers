@@ -6,7 +6,7 @@
 
 namespace lu_adl {
 
-template<class ValueType>
+template <class ValueType>
 std::size_t hash_value(const ValueType &value) noexcept {
     return std::hash<ValueType>()(value);
 }
@@ -16,7 +16,7 @@ std::size_t hash_value(const ValueType &value) noexcept {
 namespace lu {
 namespace detail {
 
-template<class ValueType>
+template <class ValueType>
 struct hash {
     std::size_t operator()(const ValueType &value) const noexcept {
         using lu_adl::hash_value;

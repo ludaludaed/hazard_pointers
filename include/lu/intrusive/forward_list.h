@@ -9,7 +9,7 @@
 namespace lu {
 namespace detail {
 
-template<class... Options>
+template <class... Options>
 struct make_forward_list_base_hook {
     using pack_options = typename GetPackOptions<SlistHookDefaults, Options...>::type;
 
@@ -17,7 +17,7 @@ struct make_forward_list_base_hook {
                                pack_options::is_auto_unlink>;
 };
 
-template<class ValueType, class... Options>
+template <class ValueType, class... Options>
 struct make_forward_list {
     using pack_options = typename GetPackOptions<SlistDefaults, Options...>::type;
 
@@ -29,10 +29,10 @@ struct make_forward_list {
 
 }// namespace detail
 
-template<class... Options>
+template <class... Options>
 using forward_list_base_hook = typename detail::make_forward_list_base_hook<Options...>::type;
 
-template<class ValueType, class... Options>
+template <class ValueType, class... Options>
 using forward_list = typename detail::make_forward_list<ValueType, Options...>::type;
 
 }// namespace lu

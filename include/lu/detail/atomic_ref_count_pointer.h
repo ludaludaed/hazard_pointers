@@ -8,7 +8,7 @@
 namespace lu {
 namespace detail {
 
-template<class RefCountTraits>
+template <class RefCountTraits>
 class AtomicRefCountPointer {
     using control_block_ptr = typename RefCountTraits::control_block_ptr;
     using ref_count_ptr = typename RefCountTraits::ref_count_ptr;
@@ -50,9 +50,7 @@ public:
         return *this;
     }
 
-    [[nodiscard]] bool is_lock_free() const noexcept {
-        return true;
-    }
+    [[nodiscard]] bool is_lock_free() const noexcept { return true; }
 
     void store(ref_count_ptr desired, std::memory_order order = std::memory_order_seq_cst) noexcept {
         auto desired_ptr = RefCountTraits::release_pointer(desired);
@@ -74,7 +72,8 @@ public:
         return {};
     }
 
-    ref_count_ptr exchange(ref_count_ptr desired, std::memory_order order = std::memory_order_seq_cst) noexcept {
+    ref_count_ptr exchange(ref_count_ptr desired,
+                           std::memory_order order = std::memory_order_seq_cst) noexcept {
         auto desired_ptr = RefCountTraits::release_pointer(desired);
         auto old_ptr = control_block_.exchange(desired_ptr, order);
         return RefCountTraits::make_pointer(old_ptr);

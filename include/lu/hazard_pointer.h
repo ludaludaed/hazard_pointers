@@ -25,66 +25,53 @@ namespace lu {
 
 class hazard_pointer_domain;
 
-template<class, class>
+template <class, class>
 class hazard_pointer_obj_base;
 
+}// namespace lu
+
+namespace lu {
 namespace detail {
 
 class HazardPointerTag;
 
-using HazardRetiresHook
-        = lu::unordered_set_base_hook<lu::tag<HazardPointerTag>, lu::store_hash<false>, lu::is_auto_unlink<false>>;
+using HazardRetiresHook = lu::unordered_set_base_hook<lu::tag<HazardPointerTag>, lu::store_hash<false>,
+                                                      lu::is_auto_unlink<false>>;
 
 class HazardObject : public HazardRetiresHook {
     friend class lu::hazard_pointer_domain;
-    template<class, class>
-    friend class lu::hazard_pointer_obj_base;
-
-    friend class HazardThreadData;
     friend struct HazardKeyOfValue;
 
     using ReclaimFuncPtr = void (*)(HazardObject *value);
 
-private:
+protected:
     explicit HazardObject(ReclaimFuncPtr reclaimer) noexcept
-        : reclaim_func_(reclaimer)
-        , key_(this) {}
+        : reclaim_func_(reclaimer) {}
 
-    HazardObject(const HazardObject &other)
-        : reclaim_func_(other.reclaim_func_)
-        , key_(this) {}
+    HazardObject(const HazardObject &other) = default;
 
-    ~HazardObject() {
-        assert(!this->is_linked());
-    }
+    HazardObject &operator=(const HazardObject &) { return *this; }
 
-    void reclaim() {
-        reclaim_func_(this);
-    }
-
-    bool is_protected() const noexcept {
-        return key_.is_marked();
-    }
-
-    void set_protection(bool value) noexcept {
-        key_.set_mark(value);
-    }
-
-    const void *get_key() const noexcept {
-        return key_.get();
-    }
+    ~HazardObject() { assert(!this->is_linked()); }
 
 private:
-    ReclaimFuncPtr reclaim_func_;
-    lu::marked_ptr<const void> key_;
+    void reclaim() { reclaim_func_(this); }
+
+    bool is_protected() const noexcept { return protected_; }
+
+    void set_protection(bool value) noexcept { protected_ = value; }
+
+    const void *get_key() const noexcept { return this; }
+
+private:
+    ReclaimFuncPtr reclaim_func_{};
+    bool protected_{};
 };
 
 struct HazardKeyOfValue {
     using type = const void *;
 
-    const void *operator()(const HazardObject &value) const noexcept {
-        return value.get_key();
-    }
+    const void *operator()(const HazardObject &value) const noexcept { return value.get_key(); }
 };
 
 struct HazardHash {
@@ -93,8 +80,9 @@ struct HazardHash {
     }
 };
 
-using HazardRetiresSet = lu::unordered_set<HazardObject, lu::base_hook<HazardRetiresHook>, lu::is_power_2_buckets<true>,
-                                           lu::key_of_value<HazardKeyOfValue>, lu::hash<HazardHash>>;
+using HazardRetiresSet
+        = lu::unordered_set<HazardObject, lu::base_hook<HazardRetiresHook>, lu::is_power_2_buckets<true>,
+                            lu::key_of_value<HazardKeyOfValue>, lu::hash<HazardHash>>;
 
 class HazardRetires : public HazardRetiresSet {
     using Base = HazardRetiresSet;
@@ -125,21 +113,13 @@ public:
 
     HazardRecord(HazardRecord &&) = delete;
 
-    inline void reset(const void *ptr = {}) {
-        protected_.store(ptr, std::memory_order_release);
-    }
+    inline void reset(const void *ptr = {}) { protected_.store(ptr, std::memory_order_release); }
 
-    inline const void *get() const noexcept {
-        return protected_.load(std::memory_order_acquire);
-    }
+    inline const void *get() const noexcept { return protected_.load(std::memory_order_acquire); }
 
-    inline bool empty() const noexcept {
-        return !protected_.load(std::memory_order_acquire);
-    }
+    inline bool empty() const noexcept { return !protected_.load(std::memory_order_acquire); }
 
-    inline HazardRecords *get_owner() const noexcept {
-        return owner_;
-    }
+    inline HazardRecords *get_owner() const noexcept { return owner_; }
 
 private:
     std::atomic<const void *> protected_{};
@@ -176,21 +156,13 @@ public:
     HazardRecords(HazardRecords &&) = delete;
 
 public:
-    iterator begin() noexcept {
-        return data_.data();
-    }
+    iterator begin() noexcept { return data_.data(); }
 
-    iterator end() noexcept {
-        return data_.data() + data_.size();
-    }
+    iterator end() noexcept { return data_.data() + data_.size(); }
 
-    const_iterator begin() const noexcept {
-        return data_.data();
-    }
+    const_iterator begin() const noexcept { return data_.data(); }
 
-    const_iterator end() const noexcept {
-        return data_.data() + data_.size();
-    }
+    const_iterator end() const noexcept { return data_.data() + data_.size(); }
 
 private:
     resource data_;
@@ -199,7 +171,7 @@ private:
 }// namespace detail
 
 class hazard_pointer_domain {
-    template<class, class>
+    template <class, class>
     friend class hazard_pointer_obj_base;
     friend class hazard_pointer;
 
@@ -217,8 +189,8 @@ class hazard_pointer_domain {
         using retires_resource = typename HazardRetires::resource;
 
     public:
-        HazardThreadData(hazard_pointer_domain *domain, std::size_t scan_threshold, records_resource records_resource,
-                         retires_resource retires_resource) noexcept
+        HazardThreadData(hazard_pointer_domain *domain, std::size_t scan_threshold,
+                         records_resource records_resource, retires_resource retires_resource) noexcept
             : domain_(domain)
             , scan_threshold_(scan_threshold)
             , records_(records_resource)
@@ -228,9 +200,7 @@ class hazard_pointer_domain {
 
         HazardThreadData(HazardThreadData &&) = delete;
 
-        ~HazardThreadData() {
-            clear();
-        }
+        ~HazardThreadData() { clear(); }
 
         void clear() noexcept {
             auto current = retires_.begin();
@@ -252,13 +222,9 @@ class hazard_pointer_domain {
             return retires_.size() >= scan_threshold_;
         }
 
-        void merge(HazardThreadData &other) noexcept {
-            retires_.merge(other.retires_);
-        }
+        void merge(HazardThreadData &other) noexcept { retires_.merge(other.retires_); }
 
-        HazardRecord *acquire_record() noexcept {
-            return records_.pop();
-        }
+        HazardRecord *acquire_record() noexcept { return records_.pop(); }
 
         void release_record(HazardRecord *record) noexcept {
             auto owner = record->get_owner();
@@ -269,9 +235,7 @@ class hazard_pointer_domain {
             }
         }
 
-        void on_detach() noexcept {
-            domain_->help_scan();
-        }
+        void on_detach() noexcept { domain_->help_scan(); }
 
     private:
         hazard_pointer_domain *domain_;
@@ -306,7 +270,8 @@ class hazard_pointer_domain {
 
             auto blob = new std::uint8_t[size];
             auto records = reinterpret_cast<records_element_type *>(blob + header_size);
-            auto retires = reinterpret_cast<retires_element_type *>(blob + header_size + records_resource_size);
+            auto retires
+                    = reinterpret_cast<retires_element_type *>(blob + header_size + records_resource_size);
 
             records_resource _records_resource(records, num_of_records_);
             retires_resource _retires_resource(retires, num_of_retires_);
@@ -344,13 +309,9 @@ public:
 
     hazard_pointer_domain(hazard_pointer_domain &&) = delete;
 
-    void attach_thread() {
-        list_.attach_thread();
-    }
+    void attach_thread() { list_.attach_thread(); }
 
-    void detach_thread() noexcept {
-        list_.detach_thread();
-    }
+    void detach_thread() noexcept { list_.detach_thread(); }
 
     std::size_t num_of_retired() noexcept {
         std::size_t result{};
@@ -368,19 +329,15 @@ public:
         return result;
     }
 
-    template<class ValueType, class Deleter = std::default_delete<ValueType>,
-             class = std::enable_if_t<!std::is_base_of_v<detail::HazardObject, ValueType>>>
+    template <class ValueType, class Deleter = std::default_delete<ValueType>,
+              class = std::enable_if_t<!std::is_base_of_v<detail::HazardObject, ValueType>>>
     void retire(ValueType *value, Deleter deleter = {}) {
         struct NonIntrusiveHazardObj : public detail::HazardObject {
             NonIntrusiveHazardObj(ValueType *value, Deleter deleter) noexcept
                 : HazardObject(reclaim_func)
-                , obj_(value, std::move(deleter)) {
-                key_ = value;
-            }
+                , obj_(value, std::move(deleter)) {}
 
-            static void reclaim_func(HazardObject *obj) {
-                delete static_cast<NonIntrusiveHazardObj *>(obj);
-            }
+            static void reclaim_func(HazardObject *obj) { delete static_cast<NonIntrusiveHazardObj *>(obj); }
 
         private:
             std::unique_ptr<ValueType, Deleter> obj_;
@@ -390,7 +347,7 @@ public:
         retire(retired_obj);
     }
 
-    template<class ValueType, class = std::enable_if_t<std::is_base_of_v<detail::HazardObject, ValueType>>>
+    template <class ValueType, class = std::enable_if_t<std::is_base_of_v<detail::HazardObject, ValueType>>>
     void retire(ValueType *retired) {
         auto &thread_data = list_.get_thread_local();
         if (thread_data.retire(*retired)) [[unlikely]] {
@@ -499,20 +456,16 @@ public:
     }
 
 public:
-    bool empty() const noexcept {
-        return !record_;
-    }
+    bool empty() const noexcept { return !record_; }
 
-    explicit operator bool() const noexcept {
-        return !empty();
-    }
+    explicit operator bool() const noexcept { return !empty(); }
 
-    template<class Ptr>
+    template <class Ptr>
     Ptr protect(const std::atomic<Ptr> &src) noexcept {
         return protect(src, [](auto &&p) { return std::forward<decltype(p)>(p); });
     }
 
-    template<class Ptr, class Func>
+    template <class Ptr, class Func>
     Ptr protect(const std::atomic<Ptr> &src, Func &&func) noexcept {
         auto ptr = src.load(std::memory_order_relaxed);
         while (!try_protect(ptr, src, std::forward<Func>(func))) {
@@ -520,12 +473,12 @@ public:
         return ptr;
     }
 
-    template<class Ptr>
+    template <class Ptr>
     bool try_protect(Ptr &ptr, const std::atomic<Ptr> &src) noexcept {
         return try_protect(ptr, src, [](auto &&p) { return std::forward<decltype(p)>(p); });
     }
 
-    template<class Ptr, class Func>
+    template <class Ptr, class Func>
     bool try_protect(Ptr &ptr, const std::atomic<Ptr> &src, Func &&func) noexcept {
         assert(!empty() && "hazard_ptr must be initialized");
         auto old = ptr;
@@ -538,12 +491,12 @@ public:
         return true;
     }
 
-    template<class Ptr>
+    template <class Ptr>
     void reset_protection(const Ptr ptr) noexcept {
         assert(!empty() && "hazard_ptr must be initialized");
         if constexpr (std::is_base_of_v<HazardObject, typename std::pointer_traits<Ptr>::element_type>) {
             record_->reset(static_cast<const HazardObject *>(to_raw_pointer(ptr)));
-        } else { // if non intrusive hazard obj
+        } else {// if non intrusive hazard obj
             record_->reset(to_raw_pointer(ptr));
         }
         std::atomic_thread_fence(std::memory_order_seq_cst);
@@ -559,9 +512,7 @@ public:
         std::swap(record_, other.record_);
     }
 
-    friend void swap(hazard_pointer &left, hazard_pointer &right) noexcept {
-        left.swap(right);
-    }
+    friend void swap(hazard_pointer &left, hazard_pointer &right) noexcept { left.swap(right); }
 
 private:
     hazard_pointer_domain *domain_{};
@@ -572,7 +523,7 @@ inline hazard_pointer make_hazard_pointer(hazard_pointer_domain &domain = get_de
     return hazard_pointer(&domain);
 }
 
-template<class ValueType>
+template <class ValueType>
 class guarded_ptr {
 public:
     using element_type = ValueType;
@@ -592,25 +543,15 @@ public:
 
     guarded_ptr &operator=(const guarded_ptr &) = delete;
 
-    pointer operator->() const noexcept {
-        return ptr_;
-    }
+    pointer operator->() const noexcept { return ptr_; }
 
-    reference operator*() noexcept {
-        return *ptr_;
-    }
+    reference operator*() noexcept { return *ptr_; }
 
-    const_reference operator*() const noexcept {
-        return *ptr_;
-    }
+    const_reference operator*() const noexcept { return *ptr_; }
 
-    explicit operator bool() const noexcept {
-        return ptr_;
-    }
+    explicit operator bool() const noexcept { return ptr_; }
 
-    std::pair<hazard_pointer, pointer> unpack() && noexcept {
-        return {std::move(guard_), ptr_};
-    }
+    std::pair<hazard_pointer, pointer> unpack() && noexcept { return {std::move(guard_), ptr_}; }
 
 private:
     hazard_pointer guard_{};
@@ -619,40 +560,37 @@ private:
 
 namespace detail {
 
-template<class ValueType, class Deleter, bool = std::is_empty_v<Deleter> && !std::is_final_v<Deleter>>
+template <class ValueType, class Deleter, bool = std::is_empty_v<Deleter> && !std::is_final_v<Deleter>>
 class HazardPointerDeleter;
 
-template<class ValueType, class Deleter>
+template <class ValueType, class Deleter>
 class HazardPointerDeleter<ValueType, Deleter, false> {
 protected:
     void set_deleter(Deleter deleter) noexcept(std::is_nothrow_move_assignable_v<Deleter>) {
         deleter_ = std::move(deleter);
     }
 
-    void do_delete(ValueType *value) noexcept {
-        deleter_(value);
-    }
+    void do_delete(ValueType *value) noexcept { deleter_(value); }
 
 private:
     Deleter deleter_;
 };
 
-template<class ValueType, class Deleter>
+template <class ValueType, class Deleter>
 class HazardPointerDeleter<ValueType, Deleter, true> : private Deleter {
 protected:
     void set_deleter(Deleter deleter) noexcept(std::is_nothrow_move_assignable_v<Deleter>) {
         Deleter::operator=(std::move(deleter));
     }
 
-    void do_delete(ValueType *value) noexcept {
-        Deleter::operator()(value);
-    }
+    void do_delete(ValueType *value) noexcept { Deleter::operator()(value); }
 };
 
 }// namespace detail
 
-template<class ValueType, class Deleter = std::default_delete<ValueType>>
-class hazard_pointer_obj_base : public detail::HazardObject, private detail::HazardPointerDeleter<ValueType, Deleter> {
+template <class ValueType, class Deleter = std::default_delete<ValueType>>
+class hazard_pointer_obj_base : public detail::HazardObject,
+                                private detail::HazardPointerDeleter<ValueType, Deleter> {
 protected:
     hazard_pointer_obj_base()
         : HazardObject(reclaim_func) {}
@@ -662,11 +600,13 @@ protected:
     hazard_pointer_obj_base(hazard_pointer_obj_base &&) noexcept = default;
 
 public:
-    void retire(Deleter deleter = Deleter(), hazard_pointer_domain &domain = get_default_domain()) noexcept {
+    void retire(Deleter deleter, hazard_pointer_domain &domain = get_default_domain()) noexcept {
         assert(!retired_.exchange(true, std::memory_order_relaxed) && "Double retire is not allowed");
         this->set_deleter(std::move(deleter));
         domain.retire(this);
     }
+
+    void retire(hazard_pointer_domain &domain = get_default_domain()) noexcept { retire({}, domain); }
 
 private:
     static void reclaim_func(HazardObject *obj) noexcept {

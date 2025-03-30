@@ -9,44 +9,34 @@
 namespace lu {
 namespace detail {
 
-template<class ValueType>
+template <class ValueType>
 struct MarkedSharedPointerTraits {
     using ref_count_ptr = marked_shared_ptr<ValueType>;
     using control_block_ptr = typename ref_count_ptr::control_block_ptr;
     using guard = lu::hazard_pointer;
 
-    static control_block_ptr get_control_block(ref_count_ptr &ptr) noexcept {
-        return ptr.GetControlBlock();
-    }
+    static control_block_ptr get_control_block(ref_count_ptr &ptr) noexcept { return ptr.GetControlBlock(); }
 
-    static control_block_ptr release_pointer(ref_count_ptr &ptr) noexcept {
-        return ptr.Release();
-    }
+    static control_block_ptr release_pointer(ref_count_ptr &ptr) noexcept { return ptr.Release(); }
 
     static ref_count_ptr make_pointer(control_block_ptr control_block) noexcept {
         return ref_count_ptr(control_block);
     }
 
-    static void dec_ref(control_block_ptr control_block) noexcept {
-        control_block->DecRef();
-    }
+    static void dec_ref(control_block_ptr control_block) noexcept { control_block->DecRef(); }
 
-    static void inc_ref(control_block_ptr control_block) noexcept {
-        control_block->IncRef();
-    }
+    static void inc_ref(control_block_ptr control_block) noexcept { control_block->IncRef(); }
 
     static bool inc_ref_if_not_zero(control_block_ptr control_block) noexcept {
         return control_block->IncRefIfNotZero();
     }
 
-    static guard make_guard() noexcept {
-        return lu::make_hazard_pointer(get_ref_count_domain());
-    }
+    static guard make_guard() noexcept { return lu::make_hazard_pointer(get_ref_count_domain()); }
 };
 
 }// namespace detail
 
-template<class ValueType>
+template <class ValueType>
 using atomic_marked_shared_ptr = detail::AtomicRefCountPointer<detail::MarkedSharedPointerTraits<ValueType>>;
 
 }// namespace lu

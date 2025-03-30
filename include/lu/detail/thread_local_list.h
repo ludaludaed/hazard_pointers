@@ -16,14 +16,14 @@ namespace lu {
 namespace detail {
 
 struct DefaultCreator {
-    template<class ValueType>
+    template <class ValueType>
     ValueType *operator()() const noexcept {
         return new ValueType();
     }
 };
 
 struct DefaultDeleter {
-    template<class ValueType>
+    template <class ValueType>
     void operator()(ValueType *value) const noexcept {
         delete value;
     }
@@ -31,10 +31,10 @@ struct DefaultDeleter {
 
 }// namespace detail
 
-template<class ValueType>
+template <class ValueType>
 class thread_local_list_base_hook : public lu::unordered_set_base_hook<lu::is_auto_unlink<false>>,
                                     public lu::active_list_base_hook<> {
-    template<class>
+    template <class>
     friend class thread_local_list;
 
 public:
@@ -44,7 +44,7 @@ protected:
     thread_local_list_base_hook() = default;
 
 public:
-    template<class Deleter>
+    template <class Deleter>
     void set_deleter(Deleter deleter) noexcept {
         deleter_ = std::move(deleter);
     }
@@ -54,24 +54,18 @@ public:
     void on_detach() noexcept {}
 
 private:
-    void do_attach() noexcept {
-        static_cast<ValueType *>(this)->on_attach();
-    }
+    void do_attach() noexcept { static_cast<ValueType *>(this)->on_attach(); }
 
-    void do_detach() noexcept {
-        static_cast<ValueType *>(this)->on_detach();
-    }
+    void do_detach() noexcept { static_cast<ValueType *>(this)->on_detach(); }
 
-    void do_delete() noexcept {
-        deleter_(static_cast<ValueType *>(this));
-    }
+    void do_delete() noexcept { deleter_(static_cast<ValueType *>(this)); }
 
 private:
     void *key_{};
     lu::fixed_size_function<deleter_func, 64> deleter_{detail::DefaultDeleter()};
 };
 
-template<class ValueType>
+template <class ValueType>
 class thread_local_list : private lu::active_list<ValueType> {
     using Base = lu::active_list<ValueType>;
     using Hook = lu::thread_local_list_base_hook<ValueType>;
@@ -98,14 +92,14 @@ private:
         struct KeyOfValue {
             using type = const thread_local_list *;
 
-            type operator()(const Hook &value) const noexcept {
-                return reinterpret_cast<type>(value.key_);
-            }
+            type operator()(const Hook &value) const noexcept { return reinterpret_cast<type>(value.key_); }
         };
 
-        using BucketTraits = detail::StaticBucketTraits<8, unordered_bucket_type<base_hook<unordered_set_base_hook<>>>>;
-        using UnorderedSet = lu::unordered_set<value_type, lu::key_of_value<KeyOfValue>, lu::is_power_2_buckets<true>,
-                                               lu::hash<detail::PointerHash>, lu::bucket_traits<BucketTraits>>;
+        using BucketTraits
+                = detail::StaticBucketTraits<8, unordered_bucket_type<base_hook<unordered_set_base_hook<>>>>;
+        using UnorderedSet
+                = lu::unordered_set<value_type, lu::key_of_value<KeyOfValue>, lu::is_power_2_buckets<true>,
+                                    lu::hash<detail::PointerHash>, lu::bucket_traits<BucketTraits>>;
 
     public:
         ThreadLocalOwner() noexcept = default;
@@ -150,7 +144,7 @@ private:
     };
 
 public:
-    template<class Creator = detail::DefaultCreator>
+    template <class Creator = detail::DefaultCreator>
     explicit thread_local_list(Creator creator = {}) noexcept
         : creator_(std::move(creator)) {}
 

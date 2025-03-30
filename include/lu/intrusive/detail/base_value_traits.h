@@ -10,7 +10,7 @@
 namespace lu {
 namespace detail {
 
-template<class ValueType, class NodeTraits, class Tag, bool IsAutoUnlink>
+template <class ValueType, class NodeTraits, class Tag, bool IsAutoUnlink>
 struct BaseValueTraits {
     using node_traits = NodeTraits;
 
@@ -31,7 +31,8 @@ struct BaseValueTraits {
     using node_holder = NodeHolder<node, Tag>;
 
     using node_holder_ptr = typename std::pointer_traits<node_ptr>::template rebind<node_holder>;
-    using const_node_holder_ptr = typename std::pointer_traits<const_node_ptr>::template rebind<const node_holder>;
+    using const_node_holder_ptr =
+            typename std::pointer_traits<const_node_ptr>::template rebind<const node_holder>;
 
     using node_holder_reference = node_holder &;
     using const_node_holder_reference = const node_holder &;

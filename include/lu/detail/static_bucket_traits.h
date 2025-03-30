@@ -6,7 +6,7 @@
 namespace lu {
 namespace detail {
 
-template<std::size_t Size, class BucketType>
+template <std::size_t Size, class BucketType>
 class StaticBucketTraits {
     using Buckets = std::array<BucketType, Size>;
 
@@ -15,21 +15,13 @@ public:
     using size_type = std::size_t;
 
 public:
-    size_type size() const noexcept {
-        return data_.size();
-    }
+    size_type size() const noexcept { return data_.size(); }
 
-    bucket_ptr data() const noexcept {
-        return const_cast<bucket_ptr>(data_.data());
-    }
+    bucket_ptr data() const noexcept { return const_cast<bucket_ptr>(data_.data()); }
 
-    void swap(StaticBucketTraits &other) noexcept {
-        std::swap(data_, other.data_);
-    }
+    void swap(StaticBucketTraits &other) noexcept { std::swap(data_, other.data_); }
 
-    friend void swap(StaticBucketTraits &left, StaticBucketTraits &right) noexcept {
-        left.swap(right);
-    }
+    friend void swap(StaticBucketTraits &left, StaticBucketTraits &right) noexcept { left.swap(right); }
 
 private:
     Buckets data_{};

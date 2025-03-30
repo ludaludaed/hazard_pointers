@@ -15,9 +15,9 @@
 namespace lu {
 namespace detail {
 
-template<class ValueType>
+template <class ValueType>
 struct OrderedListNode : public lu::hazard_pointer_obj_base<OrderedListNode<ValueType>> {
-    template<class... Args>
+    template <class... Args>
     explicit OrderedListNode(Args &&...args)
         : value(std::forward<Args>(args)...) {}
 
@@ -25,14 +25,14 @@ struct OrderedListNode : public lu::hazard_pointer_obj_base<OrderedListNode<Valu
     std::atomic<lu::marked_ptr<OrderedListNode>> next{};
 };
 
-template<class ValueType>
+template <class ValueType>
 struct OrderedListNodeTraits {
     using node = OrderedListNode<ValueType>;
     using node_ptr = node *;
     using node_marked_ptr = lu::marked_ptr<node>;
 };
 
-template<class NodeTraits>
+template <class NodeTraits>
 struct OrderedListAlgo {
     using node = typename NodeTraits::node;
     using node_ptr = typename NodeTraits::node_ptr;
@@ -71,7 +71,7 @@ struct OrderedListAlgo {
         }
     }
 
-    template<class KeyType, class Backoff, class KeyCompare, class KeySelect>
+    template <class KeyType, class Backoff, class KeyCompare, class KeySelect>
     static bool find(std::atomic<node_marked_ptr> *head, const KeyType &key, position &pos, Backoff &backoff,
                      KeyCompare &&comp, KeySelect &&key_select) {
     try_again:
@@ -112,7 +112,7 @@ struct OrderedListAlgo {
     }
 };
 
-template<class ValueType, class KeyCompare, class KeySelect, class Backoff>
+template <class ValueType, class KeyCompare, class KeySelect, class Backoff>
 class OrderedList {
     using node_traits = OrderedListNodeTraits<ValueType>;
     using node = typename node_traits::node;
@@ -122,13 +122,14 @@ class OrderedList {
     using Algo = OrderedListAlgo<node_traits>;
     using position = typename Algo::position;
 
-    template<class Types, bool IsConst>
+    template <class Types, bool IsConst>
     class OrderedListIterator {
-        template<class, class, class, class>
+        template <class, class, class, class>
         friend class OrderedList;
 
         class DummyNonConstIter;
-        using NonConstIter = std::conditional_t<IsConst, OrderedListIterator<Types, false>, DummyNonConstIter>;
+        using NonConstIter
+                = std::conditional_t<IsConst, OrderedListIterator<Types, false>, DummyNonConstIter>;
 
         using node_ptr = typename Types::node_ptr;
         using node_marked_ptr = typename Types::node_marked_ptr;
@@ -138,7 +139,8 @@ class OrderedList {
         using value_type = typename Types::value_type;
         using difference_type = typename Types::difference_type;
         using pointer = std::conditional_t<IsConst, typename Types::const_pointer, typename Types::pointer>;
-        using reference = std::conditional_t<IsConst, typename Types::const_reference, typename Types::reference>;
+        using reference
+                = std::conditional_t<IsConst, typename Types::const_reference, typename Types::reference>;
         using iterator_category = std::forward_iterator_tag;
 
     private:
@@ -164,13 +166,9 @@ class OrderedList {
             guard_.reset_protection(current_);
         }
 
-        OrderedListIterator(OrderedListIterator &&other) noexcept {
-            swap(other);
-        }
+        OrderedListIterator(OrderedListIterator &&other) noexcept { swap(other); }
 
-        OrderedListIterator(NonConstIter &&other) noexcept {
-            swap(other);
-        }
+        OrderedListIterator(NonConstIter &&other) noexcept { swap(other); }
 
         OrderedListIterator &operator=(const OrderedListIterator &other) noexcept {
             OrderedListIterator temp(other);
@@ -207,13 +205,9 @@ class OrderedList {
             return copy;
         }
 
-        reference operator*() const noexcept {
-            return *this->operator->();
-        }
+        reference operator*() const noexcept { return *this->operator->(); }
 
-        pointer operator->() const noexcept {
-            return &current_->value;
-        }
+        pointer operator->() const noexcept { return &current_->value; }
 
         friend bool operator==(const OrderedListIterator &left, const OrderedListIterator &right) {
             return left.current_ == right.current_;
@@ -268,7 +262,8 @@ public:
 
     static constexpr bool is_key_value = !std::is_same_v<value_type, key_type>;
 
-    using guarded_ptr = std::conditional_t<is_key_value, lu::guarded_ptr<ValueType>, lu::guarded_ptr<const ValueType>>;
+    using guarded_ptr
+            = std::conditional_t<is_key_value, lu::guarded_ptr<ValueType>, lu::guarded_ptr<const ValueType>>;
 
     using iterator = OrderedListIterator<OrderedList, !is_key_value>;
     using const_iterator = OrderedListIterator<OrderedList, true>;
@@ -324,15 +319,11 @@ private:
     }
 
 public:
-    bool insert(const value_type &value) {
-        return emplace(value);
-    }
+    bool insert(const value_type &value) { return emplace(value); }
 
-    bool insert(value_type &&value) {
-        return emplace(std::move(value));
-    }
+    bool insert(value_type &&value) { return emplace(std::move(value)); }
 
-    template<class... Args>
+    template <class... Args>
     bool emplace(Args &&...args) {
         node_ptr new_node = new node(std::forward<Args>(args)...);
         if (!insert_node(new_node)) {
@@ -421,9 +412,7 @@ public:
         return find(key, pos);
     }
 
-    bool empty() const {
-        return !lu::get<0>(data_).load();
-    }
+    bool empty() const { return !lu::get<0>(data_).load(); }
 
     iterator begin() {
         auto head_guard = lu::make_hazard_pointer();
@@ -431,9 +420,7 @@ public:
         return iterator(std::move(head_guard), head, this);
     }
 
-    iterator end() {
-        return iterator();
-    }
+    iterator end() { return iterator(); }
 
     const_iterator cbegin() const {
         auto head_guard = lu::make_hazard_pointer();
@@ -441,36 +428,28 @@ public:
         return const_iterator(std::move(head_guard), head, this);
     }
 
-    const_iterator cend() const {
-        return const_iterator();
-    }
+    const_iterator cend() const { return const_iterator(); }
 
-    const_iterator begin() const {
-        return cbegin();
-    }
+    const_iterator begin() const { return cbegin(); }
 
-    const_iterator end() const {
-        return cend();
-    }
+    const_iterator end() const { return cend(); }
 
 private:
     lu::compressed_tuple<std::atomic<node_marked_ptr>, KeyCompare, KeySelect> data_;
 };
 
-template<class KeyType, class ValueType>
+template <class KeyType, class ValueType>
 struct MapKeySelect {
     using type = KeyType;
 
-    const KeyType &operator()(const std::pair<KeyType, ValueType> &value) const {
-        return value.first;
-    }
+    const KeyType &operator()(const std::pair<KeyType, ValueType> &value) const { return value.first; }
 };
 
-template<class KeyType>
+template <class KeyType>
 struct SetKeySelect {
     using type = KeyType;
 
-    template<class T, class = std::enable_if_t<std::is_same_v<std::remove_cvref_t<T>, KeyType>>>
+    template <class T, class = std::enable_if_t<std::is_same_v<std::remove_cvref_t<T>, KeyType>>>
     T &&operator()(T &&value) const {
         return std::forward<T>(value);
     }
@@ -487,7 +466,7 @@ struct OrderedListDefaults {
 namespace lu {
 namespace detail {
 
-template<class ValueType, class... Options>
+template <class ValueType, class... Options>
 struct make_ordered_list_set {
     using pack_options = typename GetPackOptions<OrderedListDefaults, Options...>::type;
 
@@ -498,7 +477,7 @@ struct make_ordered_list_set {
     using type = OrderedList<ValueType, compare, key_select, backoff>;
 };
 
-template<class KeyType, class ValueType, class... Options>
+template <class KeyType, class ValueType, class... Options>
 struct make_ordered_list_map {
     using pack_options = typename GetPackOptions<OrderedListDefaults, Options...>::type;
 
@@ -511,10 +490,10 @@ struct make_ordered_list_map {
 
 }// namespace detail
 
-template<class ValueType, class... Options>
+template <class ValueType, class... Options>
 using ordered_list_set = typename detail::make_ordered_list_set<ValueType, Options...>::type;
 
-template<class KeyType, class ValueType, class... Options>
+template <class KeyType, class ValueType, class... Options>
 using ordered_list_map = typename detail::make_ordered_list_map<KeyType, ValueType, Options...>::type;
 
 }// namespace lu

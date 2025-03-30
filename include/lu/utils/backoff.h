@@ -10,14 +10,12 @@ struct none_backoff {
 };
 
 struct yield_backoff {
-    void operator()() const noexcept {
-        std::this_thread::yield();
-    }
+    void operator()() const noexcept { std::this_thread::yield(); }
 };
 
-template<class Backoff>
+template <class Backoff>
 struct backoff {
-    template<class Base>
+    template <class Base>
     struct pack : public Base {
         using backoff = Backoff;
     };

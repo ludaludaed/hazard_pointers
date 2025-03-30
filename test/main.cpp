@@ -29,7 +29,7 @@
 #include <vector>
 
 
-template<class Container>
+template <class Container>
 void stressTest(int actions, int threads) {
     std::vector<std::thread> workers;
     workers.reserve(threads);
@@ -91,7 +91,7 @@ void stressTest(int actions, int threads) {
     }
 }
 
-template<class Func>
+template <class Func>
 void abstractStressTest(Func &&func) {
     std::size_t num_of_threads = std::thread::hardware_concurrency();
     for (int i = 1; i <= num_of_threads; i++) {
@@ -117,7 +117,7 @@ void abstractStressTest(Func &&func) {
     }
 }
 
-template<class Set>
+template <class Set>
 class SetFixture {
     enum class OperationType : std::uint8_t { insert, erase, find };
 
@@ -129,7 +129,7 @@ class SetFixture {
 
     class Worker {
     public:
-        template<class KeyGen>
+        template <class KeyGen>
         Worker(operations_view operations, std::size_t actions, KeyGen &&key_gen)
             : operations_(operations)
             , num_of_actions_(actions)

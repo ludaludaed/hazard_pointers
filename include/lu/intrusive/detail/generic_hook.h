@@ -13,14 +13,14 @@ class DefaultHookTag {};
 
 class NotDefaultHook {};
 
-template<class NodeTraits, class Tag, bool IsAutoUnlink>
+template <class NodeTraits, class Tag, bool IsAutoUnlink>
 struct HookTags {
     using node_traits = NodeTraits;
     using tag = Tag;
     static constexpr bool is_auto_unlink = IsAutoUnlink;
 };
 
-template<class NodeAlgo, class NodeTraits, class Tag, bool IsAutoUnlink>
+template <class NodeAlgo, class NodeTraits, class Tag, bool IsAutoUnlink>
 class GenericHook : public NodeHolder<typename NodeTraits::node, Tag> {
 public:
     using node_traits = NodeTraits;
@@ -34,17 +34,11 @@ public:
     using hook_tags = HookTags<NodeTraits, Tag, IsAutoUnlink>;
 
 public:
-    GenericHook() noexcept {
-        NodeAlgo::init(as_node_ptr());
-    }
+    GenericHook() noexcept { NodeAlgo::init(as_node_ptr()); }
 
-    GenericHook(const GenericHook &) noexcept {
-        NodeAlgo::init(as_node_ptr());
-    }
+    GenericHook(const GenericHook &) noexcept { NodeAlgo::init(as_node_ptr()); }
 
-    GenericHook &operator=(const GenericHook &) noexcept {
-        return *this;
-    }
+    GenericHook &operator=(const GenericHook &) noexcept { return *this; }
 
     ~GenericHook() {
         if constexpr (IsAutoUnlink) {
@@ -60,9 +54,7 @@ public:
         return std::pointer_traits<const_node_ptr>::pointer_to(static_cast<const node &>(*this));
     }
 
-    bool is_linked() const noexcept {
-        return NodeAlgo::is_linked(as_node_ptr());
-    }
+    bool is_linked() const noexcept { return NodeAlgo::is_linked(as_node_ptr()); }
 
     void unlink() noexcept {
         static_assert(is_auto_unlink, "for unlinking the hook, there must be an auto unlink.");

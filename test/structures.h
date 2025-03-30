@@ -9,13 +9,13 @@
 namespace lu {
 namespace asp {
 
-template<class ValueType, class BackOff>
+template <class ValueType, class BackOff>
 class TreiberStack {
     struct Node {
         ValueType value{};
         lu::shared_ptr<Node> next{};
 
-        template<class... Args>
+        template <class... Args>
         Node(Args &&...args)
             : value(std::forward<Args>(args)...) {}
     };
@@ -52,7 +52,7 @@ private:
     lu::atomic_shared_ptr<Node> head_{};
 };
 
-template<class ValueType, class BackOff>
+template <class ValueType, class BackOff>
 class MSQueue {
     struct Node {
         ValueType value{};
@@ -60,7 +60,7 @@ class MSQueue {
 
         Node() = default;
 
-        template<class... Args>
+        template <class... Args>
         Node(Args &&...args)
             : value(std::forward<Args>(args)...) {}
     };
@@ -113,10 +113,10 @@ private:
 }// namespace asp
 
 namespace hp {
-template<class ValueType, class BackOff>
+template <class ValueType, class BackOff>
 class TreiberStack {
     struct Node : public lu::hazard_pointer_obj_base<Node> {
-        template<class... Args>
+        template <class... Args>
         Node(Args &&...args)
             : value(std::forward<Args>(args)...) {}
 
@@ -168,7 +168,7 @@ private:
     std::atomic<Node *> head_{nullptr};
 };
 
-template<class ValueType, class BackOff>
+template <class ValueType, class BackOff>
 class MSQueue {
     struct Node : lu::hazard_pointer_obj_base<Node> {
         ValueType value{};
@@ -176,7 +176,7 @@ class MSQueue {
 
         Node() = default;
 
-        template<class... Args>
+        template <class... Args>
         Node(Args &&...args)
             : value(std::forward<Args>(args)...) {}
     };
@@ -197,7 +197,7 @@ public:
         }
     }
 
-    template<class... Args>
+    template <class... Args>
     void push(Args &&...args) {
         BackOff back_off;
 

@@ -6,23 +6,23 @@
 namespace lu {
 namespace detail {
 
-template<class Typelist>
+template <class Typelist>
 struct DoPack;
 
-template<>
+template <>
 struct DoPack<typelist<>>;
 
-template<class Head>
+template <class Head>
 struct DoPack<typelist<Head>> {
     using type = Head;
 };
 
-template<class Head, class... Tail>
+template <class Head, class... Tail>
 struct DoPack<typelist<Head, Tail...>> {
     using type = typename Head::template pack<typename DoPack<typelist<Tail...>>::type>;
 };
 
-template<class Defaults, class... Types>
+template <class Defaults, class... Types>
 struct GetPackOptions {
     using type = typename DoPack<typelist<Types..., Defaults>>::type;
 };
