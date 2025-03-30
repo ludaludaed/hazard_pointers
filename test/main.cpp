@@ -25,6 +25,7 @@
 #include <stdexcept>
 #include <string>
 #include <thread>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -283,6 +284,8 @@ private:
 };
 
 int main() {
+    auto p = std::pair(10, 20);
+    static_assert(std::is_convertible_v<const void *, const void *>, "ADSAD");
     for (int i = 0; i < 1000; ++i) {
         std::cout << "iteration: #" << i << std::endl;
         abstractStressTest(SetFixture<lu::ordered_list_set<int, lu::backoff<lu::none_backoff>>>({}));

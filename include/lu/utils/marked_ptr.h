@@ -20,22 +20,18 @@ public:
     marked_ptr(std::nullptr_t) noexcept {}
 
     template <class _ValueType, class = std::enable_if_t<std::is_convertible_v<_ValueType *, ValueType *>>>
-    marked_ptr(_ValueType *other) noexcept
-        : ptr_(make_marked_ptr(other, false)) {}
-
-    template <class _ValueType, class = std::enable_if_t<std::is_convertible_v<_ValueType *, ValueType *>>>
-    marked_ptr(_ValueType *other, bool marked) noexcept
+    marked_ptr(_ValueType *other, bool marked = false) noexcept
         : ptr_(make_marked_ptr(other, marked)) {}
 
     template <class _ValueType, class = std::enable_if_t<std::is_convertible_v<_ValueType *, ValueType *>>>
     marked_ptr(const marked_ptr<_ValueType> &other, bool marked) noexcept
         : ptr_(make_marked_ptr(other.get(), marked)) {}
 
-    marked_ptr(const marked_ptr &other) = default;
-
     template <class _ValueType, class = std::enable_if_t<std::is_convertible_v<_ValueType *, ValueType *>>>
     marked_ptr(const marked_ptr<_ValueType> &other) noexcept
         : ptr_(make_marked_ptr(other.get(), other.is_marked())) {}
+
+    marked_ptr(const marked_ptr &other) = default;
 
     std::add_lvalue_reference_t<element_type> operator*() const noexcept { return *get(); }
 

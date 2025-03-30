@@ -40,15 +40,17 @@ using HazardRetiresHook = lu::unordered_set_base_hook<lu::tag<HazardPointerTag>,
 
 class HazardObject : public HazardRetiresHook {
     friend class lu::hazard_pointer_domain;
+    template <class, class>
+    friend class lu::hazard_pointer_obj_base;
+
     friend struct HazardKeyOfValue;
 
     using ReclaimFuncPtr = void (*)(HazardObject *value);
 
 protected:
-    explicit HazardObject(ReclaimFuncPtr reclaimer) noexcept
-        : reclaim_func_(reclaimer) {}
+    HazardObject() noexcept = default;
 
-    HazardObject(const HazardObject &other) = default;
+    HazardObject(const HazardObject &other) noexcept {};
 
     HazardObject &operator=(const HazardObject &) { return *this; }
 
@@ -57,15 +59,19 @@ protected:
 private:
     void reclaim() { reclaim_func_(this); }
 
-    bool is_protected() const noexcept { return protected_; }
-
-    void set_protection(bool value) noexcept { protected_ = value; }
+    void set_reclaim(ReclaimFuncPtr reclaim) noexcept { reclaim_func_ = reclaim; }
 
     const void *get_key() const noexcept { return this; }
 
+    void set_key(const void *key) noexcept { key_ = marked_ptr<const void>(key, key_.is_marked()); }
+
+    bool is_protected() const noexcept { return key_.is_marked(); }
+
+    void set_protection(bool value) noexcept { key_.set_mark(value); }
+
 private:
     ReclaimFuncPtr reclaim_func_{};
-    bool protected_{};
+    marked_ptr<const void> key_{};
 };
 
 struct HazardKeyOfValue {
@@ -179,7 +185,7 @@ class hazard_pointer_domain {
     using HazardRecord = detail::HazardRecord;
 
     class HazardThreadData : public lu::thread_local_list_base_hook<HazardThreadData> {
-        friend class lu::hazard_pointer_domain;
+        friend class hazard_pointer_domain;
 
         using HazardRecords = detail::HazardRecords;
         using HazardRetires = detail::HazardRetires;
@@ -334,8 +340,10 @@ public:
     void retire(ValueType *value, Deleter deleter = {}) {
         struct NonIntrusiveHazardObj : public detail::HazardObject {
             NonIntrusiveHazardObj(ValueType *value, Deleter deleter) noexcept
-                : HazardObject(reclaim_func)
-                , obj_(value, std::move(deleter)) {}
+                : obj_(value, std::move(deleter)) {
+                this->set_reclaim(reclaim_func);
+                this->set_key(value);
+            }
 
             static void reclaim_func(HazardObject *obj) { delete static_cast<NonIntrusiveHazardObj *>(obj); }
 
@@ -347,15 +355,14 @@ public:
         retire(retired_obj);
     }
 
-    template <class ValueType, class = std::enable_if_t<std::is_base_of_v<detail::HazardObject, ValueType>>>
-    void retire(ValueType *retired) {
+private:
+    void retire(HazardObject *retired) {
         auto &thread_data = list_.get_thread_local();
         if (thread_data.retire(*retired)) [[unlikely]] {
             scan();
         }
     }
 
-private:
     HazardRecord *acquire_record() {
         auto &thread_data = list_.get_thread_local();
         return thread_data.acquire_record();
@@ -592,8 +599,7 @@ template <class ValueType, class Deleter = std::default_delete<ValueType>>
 class hazard_pointer_obj_base : public detail::HazardObject,
                                 private detail::HazardPointerDeleter<ValueType, Deleter> {
 protected:
-    hazard_pointer_obj_base()
-        : HazardObject(reclaim_func) {}
+    hazard_pointer_obj_base() noexcept = default;
 
     hazard_pointer_obj_base(const hazard_pointer_obj_base &) noexcept = default;
 
@@ -603,6 +609,8 @@ public:
     void retire(Deleter deleter, hazard_pointer_domain &domain = get_default_domain()) noexcept {
         assert(!retired_.exchange(true, std::memory_order_relaxed) && "Double retire is not allowed");
         this->set_deleter(std::move(deleter));
+        this->set_reclaim(reclaim_func);
+        this->set_key(static_cast<HazardObject *>(this));
         domain.retire(this);
     }
 
