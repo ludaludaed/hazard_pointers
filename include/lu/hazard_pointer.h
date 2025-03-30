@@ -61,7 +61,7 @@ private:
 
     void set_reclaim(ReclaimFuncPtr reclaim) noexcept { reclaim_func_ = reclaim; }
 
-    const void *get_key() const noexcept { return this; }
+    const void *get_key() const noexcept { return key_.get(); }
 
     void set_key(const void *key) noexcept { key_ = marked_ptr<const void>(key, key_.is_marked()); }
 
