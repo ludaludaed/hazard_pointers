@@ -98,7 +98,6 @@ void abstractStressTest(Func &&func) {
     for (int i = 1; i <= num_of_threads; i++) {
         std::cout << "\t" << i;
     }
-    // num_of_threads = 1;
     std::cout << std::endl;
     for (int i = 500000; i <= 6000000; i += 500000) {
         std::cout << i << "\t";
@@ -284,9 +283,7 @@ private:
 };
 
 int main() {
-    auto p = std::pair(10, 20);
-    static_assert(std::is_convertible_v<const void *, const void *>, "ADSAD");
-    for (int i = 0; i < 1000; ++i) {
+    for (int i = 0; i < 1; ++i) {
         std::cout << "iteration: #" << i << std::endl;
         abstractStressTest(SetFixture<lu::ordered_list_set<int, lu::backoff<lu::none_backoff>>>({}));
         // abstractStressTest(stressTest<lu::asp::TreiberStack<int, lu::yield_backoff>>);
