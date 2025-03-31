@@ -111,9 +111,10 @@ void abstractStressTest(Func &&func) {
         lu::detach_thread();
     }
     if (lu::get_default_domain().num_of_reclaimed() != lu::get_default_domain().num_of_retired()) {
-        throw std::runtime_error("the number of reclaimed and retired must be equal: "
-                                 + std::to_string(lu::get_default_domain().num_of_reclaimed()) + ", "
-                                 + std::to_string(lu::get_default_domain().num_of_retired()));
+        std::string error = "the number of reclaimed and retired must be equal: "
+                            + std::to_string(lu::get_default_domain().num_of_reclaimed()) + ", "
+                            + std::to_string(lu::get_default_domain().num_of_retired());
+        throw std::runtime_error(error);
     }
 }
 
@@ -283,7 +284,7 @@ private:
 };
 
 int main() {
-    for (int i = 0; i < 1; ++i) {
+    for (int i = 0; i < 1000; ++i) {
         std::cout << "iteration: #" << i << std::endl;
         abstractStressTest(SetFixture<lu::ordered_list_set<int, lu::backoff<lu::none_backoff>>>({}));
         // abstractStressTest(stressTest<lu::asp::TreiberStack<int, lu::yield_backoff>>);

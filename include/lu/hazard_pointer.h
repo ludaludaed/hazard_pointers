@@ -458,6 +458,7 @@ public:
 
     ~hazard_pointer() {
         if (record_) [[likely]] {
+            record_->reset();
             domain_->release_record(record_);
         }
     }
