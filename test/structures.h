@@ -2,7 +2,9 @@
 #define __STRUCTURES_H__
 
 #include <lu/atomic_shared_ptr.h>
+#include <lu/hazard_pointer.h>
 
+#include <atomic>
 #include <optional>
 
 
@@ -137,11 +139,10 @@ public:
     void push(ValueType value) {
         BackOff back_off;
         auto new_node = new Node(value);
-        auto head = head_.load();
+        auto head = head_.load(std::memory_order_acquire);
         new_node->next = head;
         while (true) {
-            if (head_.compare_exchange_weak(new_node->next, new_node, std::memory_order_release,
-                                            std::memory_order_relaxed)) {
+            if (head_.compare_exchange_weak(new_node->next, new_node, std::memory_order_release)) {
                 return;
             }
             back_off();
@@ -206,12 +207,12 @@ public:
 
         while (true) {
             auto tail = tail_guard.protect(tail_);
-            auto tail_next = tail->next.load();
+            auto tail_next = tail->next.load(std::memory_order_acquire);
             if (tail_next) {
-                tail_.compare_exchange_weak(tail, tail_next);
+                tail_.compare_exchange_weak(tail, tail_next, std::memory_order_release);
             } else {
-                if (tail->next.compare_exchange_weak(tail_next, new_node)) {
-                    tail_.compare_exchange_weak(tail, new_node);
+                if (tail->next.compare_exchange_weak(tail_next, new_node, std::memory_order_release)) {
+                    tail_.compare_exchange_weak(tail, new_node, std::memory_order_release);
                     return;
                 }
             }
@@ -229,7 +230,7 @@ public:
             if (!head_next) {
                 return std::nullopt;
             }
-            if (head_.compare_exchange_weak(head, head_next)) {
+            if (head_.compare_exchange_weak(head, head_next, std::memory_order_release)) {
                 head->retire();
                 return {std::move(head_next->value)};
             }

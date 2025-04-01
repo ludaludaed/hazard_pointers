@@ -378,9 +378,6 @@ private:
         auto &retires = thread_data.retires_;
         std::atomic_thread_fence(std::memory_order_seq_cst);
         for (auto current = list_.begin(); current != list_.end(); ++current) {
-            if (!current->is_acquired()) {
-                continue;
-            }
             auto &records = current->records_;
             for (auto record = records.begin(); record != records.end(); ++record) {
                 auto found = retires.find(record->get());
@@ -425,7 +422,7 @@ inline void attach_thread(hazard_pointer_domain &domain = get_default_domain()) 
     domain.attach_thread();
 }
 
-inline void detach_thread(hazard_pointer_domain &domain = get_default_domain()) noexcept {
+inline void detach_thread(hazard_pointer_domain &domain = get_default_domain()) {
     domain.detach_thread();
 }
 

@@ -61,7 +61,7 @@ private:
     void do_delete() noexcept { deleter_(static_cast<ValueType *>(this)); }
 
 private:
-    void *key_{};
+    const void *key_{};
     lu::fixed_size_function<deleter_func, 64> deleter_{detail::DefaultDeleter()};
 };
 
@@ -92,7 +92,7 @@ private:
         struct KeyOfValue {
             using type = const thread_local_list *;
 
-            type operator()(const Hook &value) const noexcept { return reinterpret_cast<type>(value.key_); }
+            type operator()(const Hook &value) const noexcept { return static_cast<type>(value.key_); }
         };
 
         using BucketTraits
