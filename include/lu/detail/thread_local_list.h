@@ -10,6 +10,8 @@
 
 #include <atomic>
 #include <cassert>
+#include <memory>
+#include <type_traits>
 
 
 namespace lu {
@@ -17,15 +19,8 @@ namespace detail {
 
 struct DefaultCreator {
     template <class ValueType>
-    ValueType *operator()() const noexcept {
+    ValueType *operator()() const {
         return new ValueType();
-    }
-};
-
-struct DefaultDeleter {
-    template <class ValueType>
-    void operator()(ValueType *value) const noexcept {
-        delete value;
     }
 };
 
@@ -45,24 +40,24 @@ protected:
 
 public:
     template <class Deleter>
-    void set_deleter(Deleter deleter) noexcept {
+    void set_deleter(Deleter deleter) noexcept(std::is_nothrow_move_assignable_v<Deleter>) {
         deleter_ = std::move(deleter);
     }
 
-    void on_attach() noexcept {}
+    void on_attach() {}
 
-    void on_detach() noexcept {}
+    void on_detach() {}
 
 private:
-    void do_attach() noexcept { static_cast<ValueType *>(this)->on_attach(); }
+    void do_attach() { static_cast<ValueType *>(this)->on_attach(); }
 
-    void do_detach() noexcept { static_cast<ValueType *>(this)->on_detach(); }
+    void do_detach() { static_cast<ValueType *>(this)->on_detach(); }
 
-    void do_delete() noexcept { deleter_(static_cast<ValueType *>(this)); }
+    void do_delete() { deleter_(static_cast<ValueType *>(this)); }
 
 private:
     const void *key_{};
-    lu::fixed_size_function<deleter_func, 64> deleter_{detail::DefaultDeleter()};
+    lu::fixed_size_function<deleter_func, 64> deleter_{std::default_delete<ValueType>()};
 };
 
 template <class ValueType>
@@ -120,12 +115,12 @@ private:
             return found.operator->();
         }
 
-        void attach(reference value) noexcept {
+        void attach(reference value) {
             set_.insert(value);
             value.do_attach();
         }
 
-        void detach(const thread_local_list *list) noexcept {
+        void detach(const thread_local_list *list) {
             auto found = set_.find(list);
             if (found != set_.end()) [[likely]] {
                 detach(*found);
@@ -133,7 +128,7 @@ private:
         }
 
     private:
-        void detach(reference value) noexcept {
+        void detach(reference value) {
             value.do_detach();
             set_.erase(set_.iterator_to(value));
             value.release();
@@ -169,7 +164,7 @@ private:
         return owner;
     }
 
-    pointer find_or_create() noexcept {
+    pointer find_or_create() {
         auto found = this->acquire_free();
         if (found != end()) {
             return found.operator->();
@@ -182,7 +177,7 @@ private:
     }
 
 public:
-    void attach_thread() noexcept {
+    void attach_thread() {
         auto &owner = get_owner();
         auto result = owner.get_entry(this);
         if (!result) [[likely]] {
@@ -191,12 +186,12 @@ public:
         }
     }
 
-    void detach_thread() noexcept {
+    void detach_thread() {
         auto &owner = get_owner();
         owner.detach(this);
     }
 
-    reference get_thread_local() noexcept {
+    reference get_thread_local() {
         auto &owner = get_owner();
         auto result = owner.get_entry(this);
         if (!result) [[unlikely]] {

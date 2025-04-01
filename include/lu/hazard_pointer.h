@@ -208,7 +208,7 @@ class hazard_pointer_domain {
 
         ~HazardThreadData() { clear(); }
 
-        void clear() noexcept {
+        void clear() {
             auto current = retires_.begin();
             while (current != retires_.end()) {
                 auto prev = current++;
@@ -216,7 +216,7 @@ class hazard_pointer_domain {
             }
         }
 
-        void reclaim(HazardObject &retired) noexcept {
+        void reclaim(HazardObject &retired) {
             retires_.erase(retires_.iterator_to(retired));
             retired.reclaim();
             num_of_reclaimed.fetch_add(1, std::memory_order_relaxed);
@@ -241,7 +241,7 @@ class hazard_pointer_domain {
             }
         }
 
-        void on_detach() noexcept { domain_->help_scan(); }
+        void on_detach() { domain_->help_scan(); }
 
     private:
         hazard_pointer_domain *domain_;
@@ -317,7 +317,7 @@ public:
 
     void attach_thread() { list_.attach_thread(); }
 
-    void detach_thread() noexcept { list_.detach_thread(); }
+    void detach_thread() { list_.detach_thread(); }
 
     std::size_t num_of_retired() noexcept {
         std::size_t result{};
