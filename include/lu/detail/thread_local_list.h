@@ -76,6 +76,8 @@ public:
     using iterator = typename Base::iterator;
     using const_iterator = typename Base::const_iterator;
 
+    using creator_func = pointer();
+
     using Base::begin;
     using Base::end;
 
@@ -165,7 +167,7 @@ private:
     }
 
     pointer find_or_create() {
-        auto found = this->acquire_free();
+        auto found = this->try_acquire_free();
         if (found != end()) {
             return found.operator->();
         } else {
@@ -202,7 +204,7 @@ public:
     }
 
 private:
-    lu::fixed_size_function<pointer(), 64> creator_;
+    lu::fixed_size_function<creator_func, 64> creator_;
 };
 
 }// namespace lu

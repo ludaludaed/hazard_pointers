@@ -52,7 +52,7 @@ public:
 
     [[nodiscard]] bool is_lock_free() const noexcept { return true; }
 
-    void store(ref_count_ptr desired, std::memory_order order = std::memory_order_seq_cst) noexcept {
+    void store(ref_count_ptr desired, std::memory_order order = std::memory_order_seq_cst) {
         auto desired_ptr = RefCountTraits::release_pointer(desired);
         auto old_ptr = control_block_.exchange(desired_ptr, order);
         if (old_ptr) {
@@ -80,7 +80,7 @@ public:
     }
 
     bool compare_exchange_weak(ref_count_ptr &expected, ref_count_ptr desired, std::memory_order success,
-                               std::memory_order failure) noexcept {
+                               std::memory_order failure) {
         auto expected_ptr = RefCountTraits::get_control_block(expected);
         auto desired_ptr = RefCountTraits::get_control_block(desired);
         if (control_block_.compare_exchange_weak(expected_ptr, desired_ptr, success, failure)) {
@@ -96,7 +96,7 @@ public:
     }
 
     bool compare_exchange_strong(ref_count_ptr &expected, ref_count_ptr desired, std::memory_order success,
-                                 std::memory_order failure) noexcept {
+                                 std::memory_order failure) {
         auto expected_ptr = RefCountTraits::get_control_block(expected);
         auto desired_ptr = RefCountTraits::get_control_block(desired);
         if (control_block_.compare_exchange_strong(expected_ptr, desired_ptr, success, failure)) {
@@ -112,12 +112,12 @@ public:
     }
 
     bool compare_exchange_weak(ref_count_ptr &expected, ref_count_ptr desired,
-                               std::memory_order success = std::memory_order_seq_cst) noexcept {
+                               std::memory_order success = std::memory_order_seq_cst) {
         return compare_exchange_weak(expected, desired, success, get_default_failure(success));
     }
 
     bool compare_exchange_strong(ref_count_ptr &expected, ref_count_ptr desired,
-                                 std::memory_order success = std::memory_order_seq_cst) noexcept {
+                                 std::memory_order success = std::memory_order_seq_cst) {
         return compare_exchange_strong(expected, desired, success, get_default_failure(success));
     }
 

@@ -139,7 +139,7 @@ public:
     void push(ValueType value) {
         BackOff back_off;
         auto new_node = new Node(value);
-        auto head = head_.load(std::memory_order_acquire);
+        auto head = head_.load(std::memory_order_relaxed);
         new_node->next = head;
         while (true) {
             if (head_.compare_exchange_weak(new_node->next, new_node, std::memory_order_release)) {

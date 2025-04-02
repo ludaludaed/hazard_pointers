@@ -22,9 +22,9 @@ struct ActiveListAlgo {
     using node_ptr = typename node_traits::node_ptr;
     using const_node_ptr = typename node_traits::const_node_ptr;
 
-    static void init(node_ptr this_node) {
+    static void init(node_ptr this_node) noexcept {
         node_traits::set_next(this_node, node_ptr{});
-        node_traits::store_active(this_node, false, std::memory_order_release);
+        node_traits::store_active(this_node, false, std::memory_order_relaxed);
     }
 
     static bool is_acquired(node_ptr this_node,
@@ -33,6 +33,9 @@ struct ActiveListAlgo {
     }
 
     static bool try_acquire(node_ptr this_node) noexcept {
+        if (node_traits::load_active(this_node, std::memory_order_relaxed)) {
+            return false;
+        }
         return !node_traits::exchange_active(this_node, true, std::memory_order_acquire);
     }
 
@@ -40,7 +43,7 @@ struct ActiveListAlgo {
         node_traits::store_active(this_node, false, std::memory_order_release);
     }
 
-    static node_ptr acquire_free(std::atomic<node_ptr> &head) noexcept {
+    static node_ptr try_acquire_free(std::atomic<node_ptr> &head) noexcept {
         node_ptr current = head.load(std::memory_order_acquire);
         while (current) {
             if (try_acquire(current)) {
@@ -52,12 +55,11 @@ struct ActiveListAlgo {
     }
 
     static void push_front(std::atomic<node_ptr> &head, node_ptr new_node) noexcept {
-        node_traits::exchange_active(new_node, true, std::memory_order_acquire);
+        node_traits::store_active(new_node, true, std::memory_order_relaxed);
         node_ptr current = head.load(std::memory_order_relaxed);
         do {
             node_traits::set_next(new_node, current);
-        } while (!head.compare_exchange_weak(current, new_node, std::memory_order_release,
-                                             std::memory_order_relaxed));
+        } while (!head.compare_exchange_weak(current, new_node, std::memory_order_release));
     }
 };
 
@@ -258,8 +260,8 @@ public:
         Algo::push_front(head_, ValueTraits::to_node_ptr(new_element));
     }
 
-    iterator acquire_free() noexcept {
-        auto found = Algo::acquire_free(head_);
+    iterator try_acquire_free() noexcept {
+        auto found = Algo::try_acquire_free(head_);
         return iterator(found, GetValueTraitsPtr());
     }
 
