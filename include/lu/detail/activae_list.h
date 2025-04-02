@@ -43,7 +43,7 @@ struct ActiveListAlgo {
         node_traits::store_active(this_node, false, std::memory_order_release);
     }
 
-    static node_ptr try_acquire_free(std::atomic<node_ptr> &head) noexcept {
+    static node_ptr acquire_free(std::atomic<node_ptr> &head) noexcept {
         node_ptr current = head.load(std::memory_order_acquire);
         while (current) {
             if (try_acquire(current)) {
@@ -260,8 +260,8 @@ public:
         Algo::push_front(head_, ValueTraits::to_node_ptr(new_element));
     }
 
-    iterator try_acquire_free() noexcept {
-        auto found = Algo::try_acquire_free(head_);
+    iterator acquire_free() noexcept {
+        auto found = Algo::acquire_free(head_);
         return iterator(found, GetValueTraitsPtr());
     }
 
