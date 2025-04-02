@@ -17,8 +17,8 @@
 namespace lu {
 namespace detail {
 
+template <class ValueType>
 struct DefaultCreator {
-    template <class ValueType>
     ValueType *operator()() const {
         return new ValueType();
     }
@@ -141,7 +141,7 @@ private:
     };
 
 public:
-    template <class Creator = detail::DefaultCreator>
+    template <class Creator = detail::DefaultCreator<value_type>>
     explicit thread_local_list(Creator creator = {}) noexcept
         : creator_(std::move(creator)) {}
 
