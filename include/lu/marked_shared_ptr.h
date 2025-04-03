@@ -34,7 +34,7 @@ public:
 
 private:
     explicit marked_shared_ptr(control_block_ptr control_block) noexcept {
-        this->set_data(reinterpret_cast<element_ptr>(control_block->get()), control_block);
+        this->set_data(static_cast<element_ptr>(control_block->get()), control_block);
     }
 
 public:
@@ -122,6 +122,13 @@ public:
         marked_shared_ptr temp(value_ptr, std::move(deleter), allocator);
         this->swap(temp);
     }
+
+    void swap(marked_shared_ptr &other) noexcept {
+        std::swap(this->value_, other.value_);
+        std::swap(this->control_block_, other.control_block_);
+    }
+
+    friend void swap(marked_shared_ptr &left, marked_shared_ptr &right) noexcept { left.swap(right); }
 
     void mark() noexcept { this->control_block_.mark(); }
 

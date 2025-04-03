@@ -67,7 +67,7 @@ public:
 
     inline void dec_ref(std::int64_t num = 1) {
         if (ref_count_.fetch_sub(num, std::memory_order_acq_rel) <= num) {
-            DestroyControlBlock();
+            destroy_control_block();
         }
     }
 
@@ -86,7 +86,7 @@ private:
 
     virtual void delete_control_block() = 0;
 
-    void DestroyControlBlock() {
+    void destroy_control_block() {
         thread_local lu::forward_list<ControlBlock> list{};
         thread_local bool in_progress{false};
 
@@ -235,13 +235,6 @@ public:
 
     ~StrongPointer() = default;
 
-    void swap(StrongPointer &other) noexcept {
-        std::swap(value_, other.value_);
-        std::swap(control_block_, other.control_block_);
-    }
-
-    friend void swap(StrongPointer &left, StrongPointer &right) noexcept { left.swap(right); }
-
     [[nodiscard]] long use_count() const noexcept {
         if (control_block_) {
             return control_block_->use_count();
@@ -381,13 +374,6 @@ public:
 
     ~WeakPointer() = default;
 
-    void swap(WeakPointer &other) noexcept {
-        std::swap(value_, other.value_);
-        std::swap(control_block_, other.control_block_);
-    }
-
-    friend void swap(WeakPointer &left, WeakPointer &right) noexcept { left.swap(right); }
-
     [[nodiscard]] long use_count() const noexcept {
         if (control_block_) {
             return control_block_->use_count();
@@ -523,7 +509,7 @@ public:
 
 private:
     explicit shared_ptr(control_block_ptr control_block) {
-        this->set_data(reinterpret_cast<element_ptr>(control_block->get()), control_block);
+        this->set_data(static_cast<element_ptr>(control_block->get()), control_block);
     }
 
 public:
@@ -603,6 +589,13 @@ public:
         this->swap(temp);
     }
 
+    void swap(shared_ptr &other) noexcept {
+        std::swap(this->value_, other.value_);
+        std::swap(this->control_block_, other.control_block_);
+    }
+
+    friend void swap(shared_ptr &left, shared_ptr &right) noexcept { left.swap(right); }
+
 private:
     template <class _ValueType, class Deleter = std::default_delete<_ValueType>,
               class Allocator = std::allocator<_ValueType>>
@@ -630,7 +623,7 @@ public:
 
 private:
     explicit weak_ptr(control_block_ptr control_block) noexcept {
-        this->set_data(reinterpret_cast<element_ptr>(control_block->get()), control_block);
+        this->set_data(static_cast<element_ptr>(control_block->get()), control_block);
     }
 
 public:
@@ -708,6 +701,13 @@ public:
         weak_ptr temp;
         this->swap(temp);
     }
+
+    void swap(weak_ptr &other) noexcept {
+        std::swap(this->value_, other.value_);
+        std::swap(this->control_block_, other.control_block_);
+    }
+
+    friend void swap(weak_ptr &left, weak_ptr &right) noexcept { left.swap(right); }
 
     [[nodiscard]] bool expired() const noexcept { return !this->use_count(); }
 
