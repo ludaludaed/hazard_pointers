@@ -65,11 +65,13 @@ class thread_local_list : private lu::active_list<ValueType> {
 
 public:
     using value_type = typename Base::value_type;
+
     using pointer = typename Base::pointer;
     using const_pointer = typename Base::const_pointer;
+    using difference_type = typename Base::difference_type;
+
     using reference = typename Base::reference;
     using const_reference = typename Base::const_reference;
-    using difference_type = typename Base::difference_type;
 
     using iterator = typename Base::iterator;
     using const_iterator = typename Base::const_iterator;
@@ -90,8 +92,8 @@ private:
             type operator()(const Hook &value) const noexcept { return static_cast<type>(value.key_); }
         };
 
-        using BucketTraits
-                = detail::StaticBucketTraits<8, unordered_bucket_type<base_hook<unordered_set_base_hook<>>>>;
+        using BucketTraits = detail::StaticBucketTraits<
+                8, lu::unordered_bucket_type<lu::base_hook<lu::unordered_set_base_hook<>>>>;
         using UnorderedSet
                 = lu::unordered_set<value_type, lu::key_of_value<KeyOfValue>, lu::is_power_2_buckets<true>,
                                     lu::hash<detail::PointerHash>, lu::bucket_traits<BucketTraits>>;

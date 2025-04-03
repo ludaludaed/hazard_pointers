@@ -63,7 +63,7 @@ private:
 
     const void *get_key() const noexcept { return key_.get(); }
 
-    void set_key(const void *key) noexcept { key_ = marked_ptr<const void>(key, key_.is_marked()); }
+    void set_key(const void *key) noexcept { key_ = lu::marked_ptr<const void>(key, key_.is_marked()); }
 
     bool is_protected() const noexcept { return key_.is_marked(); }
 
@@ -71,7 +71,7 @@ private:
 
 private:
     ReclaimFuncPtr reclaim_func_{};
-    marked_ptr<const void> key_{};
+    lu::marked_ptr<const void> key_{};
 };
 
 struct HazardKeyOfValue {

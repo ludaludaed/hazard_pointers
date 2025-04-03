@@ -243,7 +243,7 @@ public:
     ActiveList(ActiveList &&) = delete;
 
 private:
-    inline value_traits_ptr GetValueTraitsPtr() const noexcept {
+    inline value_traits_ptr get_value_traits_ptr() const noexcept {
         return std::pointer_traits<value_traits_ptr>::pointer_to(static_cast<const ValueTraits &>(*this));
     }
 
@@ -262,22 +262,22 @@ public:
 
     iterator acquire_free() noexcept {
         auto found = Algo::acquire_free(head_);
-        return iterator(found, GetValueTraitsPtr());
+        return iterator(found, get_value_traits_ptr());
     }
 
     iterator begin() noexcept {
         auto head = head_.load(std::memory_order_acquire);
-        return iterator(head, GetValueTraitsPtr());
+        return iterator(head, get_value_traits_ptr());
     }
 
-    iterator end() noexcept { return iterator({}, GetValueTraitsPtr()); }
+    iterator end() noexcept { return iterator({}, get_value_traits_ptr()); }
 
     const_iterator cbegin() const noexcept {
         auto head = head_.load(std::memory_order_acquire);
-        return const_iterator(head, GetValueTraitsPtr());
+        return const_iterator(head, get_value_traits_ptr());
     }
 
-    const_iterator cend() const noexcept { return const_iterator({}, GetValueTraitsPtr()); }
+    const_iterator cend() const noexcept { return const_iterator({}, get_value_traits_ptr()); }
 
     const_iterator begin() const noexcept { return cbegin(); }
 
