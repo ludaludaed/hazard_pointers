@@ -48,8 +48,12 @@ public:
     using node_ptr = typename node_traits::node_ptr;
     using const_node_ptr = typename node_traits::const_node_ptr;
 
+    using value_type = typename value_traits::value_type;
+
     using pointer = typename value_traits::pointer;
     using const_pointer = typename value_traits::const_pointer;
+    using difference_type = typename value_traits::difference_type;
+
     using reference = typename value_traits::reference;
     using const_reference = typename value_traits::const_reference;
 
@@ -117,13 +121,11 @@ struct SharedFreeListBaseHook
       std::conditional_t<std::is_same_v<Tag, DefaultHookTag>,
                          SharedFreeListDefaultHook<SharedFreeListHook<VoidPointer, Tag>>, NotDefaultHook> {};
 
-struct DefaultSharedFreeListHook {
+struct DefaultSharedFreeListHook : public UseDefaultHookTag {
     template <class ValueType>
     struct GetDefaultHook {
         using type = typename ValueType::free_list_default_hook;
     };
-
-    struct is_default_hook_tag;
 };
 
 struct SharedFreeListDefaults {

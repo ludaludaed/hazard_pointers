@@ -43,36 +43,36 @@ public:
 
     template <class Functor, class = std::enable_if_t<sizeof(Functor) <= BufferLen>>
     fixed_size_function(Functor &&func) {
-        Construct(std::forward<Functor>(func));
+        construct(std::forward<Functor>(func));
     }
 
-    fixed_size_function(const fixed_size_function &other) { Copy(other); }
+    fixed_size_function(const fixed_size_function &other) { copy(other); }
 
-    fixed_size_function(fixed_size_function &&other) { Move(std::move(other)); }
+    fixed_size_function(fixed_size_function &&other) { move(std::move(other)); }
 
-    ~fixed_size_function() { Destruct(); }
+    ~fixed_size_function() { destruct(); }
 
     fixed_size_function &operator=(const fixed_size_function &other) {
-        Destruct();
-        Copy(other);
+        destruct();
+        copy(other);
         return *this;
     }
 
     fixed_size_function &operator=(fixed_size_function &&other) {
-        Destruct();
-        Move(std::move(other));
+        destruct();
+        move(std::move(other));
         return *this;
     }
 
     fixed_size_function &operator=(std::nullptr_t) {
-        Destruct();
+        destruct();
         return *this;
     }
 
     template <class Functor, class = std::enable_if_t<sizeof(Functor) <= BufferLen>>
     fixed_size_function &operator=(Functor &&func) {
-        Destruct();
-        Construct(std::forward<Functor>(func));
+        destruct();
+        construct(std::forward<Functor>(func));
         return *this;
     }
 
@@ -107,38 +107,38 @@ public:
 
 private:
     template <class Functor, class = std::enable_if_t<sizeof(Functor) <= BufferLen>>
-    void Construct(Functor &&func) {
+    void construct(Functor &&func) {
         using functor_type = typename std::decay_t<Functor>;
         new (&data_) functor_type(std::forward<Functor>(func));
 
-        table_.call = Call<functor_type>;
-        table_.destruct = Destruct<functor_type>;
+        table_.call = call<functor_type>;
+        table_.destruct = destruct<functor_type>;
         if constexpr (std::is_copy_constructible_v<functor_type>) {
-            table_.copy = CopyConstruct<functor_type>;
+            table_.copy = copy_construct<functor_type>;
         }
         if constexpr (std::is_move_constructible_v<functor_type>) {
-            table_.move = MoveConstruct<functor_type>;
+            table_.move = move_construct<functor_type>;
         }
     }
 
-    void Copy(const fixed_size_function &other) {
+    void copy(const fixed_size_function &other) {
         if (other.table_.copy) {
             other.table_.copy(&data_, &other);
             table_ = other.table_;
         }
     }
 
-    void Move(fixed_size_function &&other) {
+    void move(fixed_size_function &&other) {
         if (other.table_.move) {
             other.table_.move(&data_, &other);
             table_ = other.table_;
-            other.Destruct();
+            other.destruct();
         } else if (other.table_.copy) {
-            Copy(other);
+            copy(other);
         }
     }
 
-    void Destruct() {
+    void destruct() {
         if (table_.destruct) {
             table_.destruct(&data_);
             table_ = vtable();
@@ -146,22 +146,22 @@ private:
     }
 
     template <class Functor>
-    static void CopyConstruct(void *this_ptr, const void *other) {
+    static void copy_construct(void *this_ptr, const void *other) {
         new (this_ptr) Functor(*reinterpret_cast<const Functor *>(other));
     }
 
     template <class Functor>
-    static void MoveConstruct(void *this_ptr, void *other) {
+    static void move_construct(void *this_ptr, void *other) {
         new (this_ptr) Functor(std::move(*reinterpret_cast<Functor *>(other)));
     }
 
     template <class Functor>
-    static void Destruct(void *this_ptr) {
+    static void destruct(void *this_ptr) {
         reinterpret_cast<Functor *>(this_ptr)->~Functor();
     }
 
     template <class Functor>
-    static ResultType Call(void *this_ptr, Args &&...args) {
+    static ResultType call(void *this_ptr, Args &&...args) {
         return reinterpret_cast<Functor *>(this_ptr)->operator()(std::forward<Args>(args)...);
     }
 

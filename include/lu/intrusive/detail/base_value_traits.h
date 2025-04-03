@@ -24,7 +24,7 @@ struct BaseValueTraits {
     using value_type = ValueType;
     using pointer = typename std::pointer_traits<node_ptr>::template rebind<value_type>;
     using const_pointer = typename std::pointer_traits<const_node_ptr>::template rebind<const value_type>;
-
+    using difference_type = typename std::pointer_traits<pointer>::difference_type;
     using reference = value_type &;
     using const_reference = const value_type &;
 

@@ -3,6 +3,7 @@
 
 #include <lu/intrusive/detail/compressed_tuple.h>
 #include <lu/intrusive/detail/generic_hook.h>
+#include <lu/intrusive/detail/get_traits.h>
 #include <lu/intrusive/detail/size_traits.h>
 
 #include <cassert>
@@ -362,13 +363,13 @@ public:
     }
 
     HashIterator &operator++() noexcept {
-        Increment();
+        increment();
         return *this;
     }
 
     HashIterator operator++(int) noexcept {
         HashIterator result(*this);
-        Increment();
+        increment();
         return result;
     }
 
@@ -385,7 +386,7 @@ public:
     }
 
 private:
-    void Increment() noexcept { current_node_ = node_traits::get_next(current_node_); }
+    void increment() noexcept { current_node_ = node_traits::get_next(current_node_); }
 
 private:
     node_ptr current_node_{};
@@ -435,13 +436,13 @@ public:
     }
 
     HashLocalIterator &operator++() noexcept {
-        Increment();
+        increment();
         return *this;
     }
 
     HashLocalIterator operator++(int) noexcept {
         HashLocalIterator result(*this);
-        Increment();
+        increment();
         return result;
     }
 
@@ -458,7 +459,7 @@ public:
     }
 
 private:
-    void Increment() noexcept {
+    void increment() noexcept {
         if (Algo::last_in_bucket(current_node_)) {
             current_node_ = node_ptr{};
         } else {
@@ -499,7 +500,7 @@ public:
     using const_pointer = typename value_traits::const_pointer;
     using reference = typename value_traits::reference;
     using const_reference = typename value_traits::const_reference;
-    using difference_type = typename std::pointer_traits<pointer>::difference_type;
+    using difference_type = typename value_traits::difference_type;
     using size_type = SizeType;
 
     using node = typename node_traits::node;
@@ -532,7 +533,7 @@ public:
     explicit IntrusiveHashtable(const bucket_traits &buckets = {}, const hasher &hash = {},
                                 const key_equal &equal = {}, const value_traits &value_traits = {}) noexcept
         : data_(NilNodeHolder{}, value_traits, buckets, KeyOfValue{}, hash, equal, size_traits{}) {
-        Construct();
+        construct();
     }
 
     template <class Iterator>
@@ -540,7 +541,7 @@ public:
                        const hasher &hash = {}, const key_equal &equal = {},
                        const value_traits &value_traits = {}) noexcept
         : data_(NilNodeHolder{}, value_traits, buckets, KeyOfValue{}, hash, equal, size_traits{}) {
-        Construct();
+        construct();
         insert(begin, end);
     }
 
@@ -549,7 +550,7 @@ public:
     IntrusiveHashtable(const IntrusiveHashtable &other) = delete;
 
     IntrusiveHashtable(IntrusiveHashtable &&other) noexcept {
-        Construct();
+        construct();
         swap(other);
     }
 
@@ -562,7 +563,7 @@ public:
     }
 
 private:
-    void Construct() noexcept { Algo::init(GetNilPtr()); }
+    void construct() noexcept { Algo::init(GetNilPtr()); }
 
     inline value_traits_ptr GetValueTraitsPtr() const noexcept {
         return std::pointer_traits<value_traits_ptr>::pointer_to(lu::get<ValueTraits>(data_));
@@ -635,7 +636,6 @@ private:
         return bucket->get_bucket_begin();
     }
 
-private:
     node_ptr Find(const key_type &key, std::size_t hash) const noexcept {
         const key_equal &_key_equal = lu::get<KeyEqual>(data_);
 
@@ -785,11 +785,6 @@ private:
         return result;
     }
 
-    size_type Count(const key_type &key) const noexcept {
-        std::pair<node_ptr, node_ptr> range = EqualRange(key);
-        return Algo::distance(range.first, range.second);
-    }
-
 public:
     auto insert(reference value) noexcept {
         bool v = Flags::is_multi;
@@ -877,7 +872,10 @@ public:
         return const_iterator(Find(key), GetValueTraitsPtr());
     }
 
-    size_type count(const key_type &key) const { return Count(key); }
+    size_type count(const key_type &key) const noexcept {
+        std::pair<node_ptr, node_ptr> range = EqualRange(key);
+        return Algo::distance(range.first, range.second);
+    }
 
     bool contains(const key_type &key) const noexcept { return Find(key); }
 
@@ -1048,13 +1046,11 @@ struct DefaultKeyOfValue {
     }
 };
 
-struct DefaultHashTableHook {
+struct DefaultHashTableHook : public UseDefaultHookTag {
     template <class ValueType>
     struct GetDefaultHook {
         using type = typename ValueType::hashtable_default_hook_type;
     };
-
-    struct is_default_hook_tag;
 };
 
 struct DefaultBucketTraits;

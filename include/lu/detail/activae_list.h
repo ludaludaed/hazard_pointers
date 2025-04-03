@@ -178,13 +178,13 @@ public:
     }
 
     ActiveListIterator &operator++() noexcept {
-        Increment();
+        increment();
         return *this;
     }
 
     ActiveListIterator operator++(int) noexcept {
         ActiveListIterator result(*this);
-        Increment();
+        increment();
         return result;
     }
 
@@ -201,7 +201,7 @@ public:
     }
 
 private:
-    void Increment() noexcept { current_node_ = node_traits::get_next(current_node_); }
+    void increment() noexcept { current_node_ = node_traits::get_next(current_node_); }
 
 private:
     node_ptr current_node_{};
@@ -220,7 +220,7 @@ public:
 
     using pointer = typename value_traits::pointer;
     using const_pointer = typename value_traits::const_pointer;
-    using difference_type = typename std::pointer_traits<pointer>::difference_type;
+    using difference_type = typename value_traits::difference_type;
 
     using reference = value_type &;
     using const_reference = const value_type &;
@@ -298,13 +298,11 @@ struct ActiveListBaseHook
       public std::conditional_t<std::is_same_v<Tag, DefaultHookTag>,
                                 ActiveListDefaultHook<ActiveListHook<VoidPointer, Tag>>, NotDefaultHook> {};
 
-struct DefaultActiveListHook {
+struct DefaultActiveListHook : public UseDefaultHookTag {
     template <class ValueType>
     struct GetDefaultHook {
         using type = typename ValueType::active_list_default_hook;
     };
-
-    struct is_default_hook_tag;
 };
 
 struct ActiveListDefaults {

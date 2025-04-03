@@ -34,7 +34,7 @@ public:
 
 private:
     explicit marked_shared_ptr(control_block_ptr control_block) noexcept {
-        this->SetData(reinterpret_cast<element_ptr>(control_block->get()), control_block);
+        this->set_data(reinterpret_cast<element_ptr>(control_block->get()), control_block);
     }
 
 public:
@@ -46,16 +46,16 @@ public:
               class Allocator = std::allocator<_ValueType>,
               class = std::enable_if_t<std::is_convertible_v<_ValueType *, ValueType *>>>
     explicit marked_shared_ptr(_ValueType *value_ptr, Deleter deleter = {}, const Allocator &allocator = {}) {
-        Construct(value_ptr, std::move(deleter), allocator);
+        construct(value_ptr, std::move(deleter), allocator);
     }
 
-    marked_shared_ptr(const marked_shared_ptr &other) noexcept { this->CopyConstruct(other); }
+    marked_shared_ptr(const marked_shared_ptr &other) noexcept { this->copy_construct(other); }
 
     template <class _ValuePtr, class _ControlBlockPtr,
               class = std::enable_if_t<std::is_convertible_v<_ValuePtr, element_ptr>
                                        && std::is_convertible_v<_ControlBlockPtr, control_block_ptr>>>
     marked_shared_ptr(const detail::StrongPointer<_ValuePtr, _ControlBlockPtr> &other) noexcept {
-        this->CopyConstruct(other);
+        this->copy_construct(other);
     }
 
     template <class _ValuePtr, class _ControlBlockPtr,
@@ -63,27 +63,27 @@ public:
                                        && std::is_convertible_v<_ControlBlockPtr, control_block_ptr>>>
     marked_shared_ptr(const detail::StrongPointer<_ValuePtr, _ControlBlockPtr> &other,
                       bool bit_value) noexcept {
-        this->CopyConstruct(other);
+        this->copy_construct(other);
         this->control_block_ = control_block_ptr(this->control_block_.get(), bit_value);
     }
 
-    marked_shared_ptr(marked_shared_ptr &&other) noexcept { this->MoveConstruct(std::move(other)); }
+    marked_shared_ptr(marked_shared_ptr &&other) noexcept { this->move_construct(std::move(other)); }
 
     template <class _ValuePtr, class _ControlBlockPtr,
               class = std::enable_if_t<std::is_convertible_v<_ValuePtr, element_ptr>
                                        && std::is_convertible_v<_ControlBlockPtr, control_block_ptr>>>
     marked_shared_ptr(detail::StrongPointer<_ValuePtr, _ControlBlockPtr> &&other) noexcept {
-        this->MoveConstruct(std::move(other));
+        this->move_construct(std::move(other));
     }
 
     template <class _ValuePtr, class _ControlBlockPtr,
               class = std::enable_if_t<std::is_convertible_v<_ValuePtr, element_ptr>
                                        && std::is_convertible_v<_ControlBlockPtr, control_block_ptr>>>
     explicit marked_shared_ptr(const detail::WeakPointer<_ValuePtr, _ControlBlockPtr> &other) noexcept {
-        this->ConstructFromWeak(other);
+        this->construct_from_weak(other);
     }
 
-    ~marked_shared_ptr() { this->DecRef(); }
+    ~marked_shared_ptr() { this->dec_ref(); }
 
     marked_shared_ptr &operator=(const marked_shared_ptr &other) noexcept {
         marked_shared_ptr temp(other);
@@ -140,10 +140,10 @@ public:
 private:
     template <class _ValueType, class Deleter = std::default_delete<_ValueType>,
               class Allocator = std::allocator<_ValueType>>
-    void Construct(_ValueType *value_ptr, Deleter deleter = {}, const Allocator &allocator = {}) {
+    void construct(_ValueType *value_ptr, Deleter deleter = {}, const Allocator &allocator = {}) {
         auto control_block
                 = make_outplace_control_block<_ValueType>(value_ptr, std::move(deleter), allocator);
-        this->SetData(value_ptr, control_block);
+        this->set_data(value_ptr, control_block);
     }
 };
 

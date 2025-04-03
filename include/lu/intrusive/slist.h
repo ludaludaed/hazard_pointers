@@ -3,6 +3,7 @@
 
 #include <lu/intrusive/detail/compressed_tuple.h>
 #include <lu/intrusive/detail/generic_hook.h>
+#include <lu/intrusive/detail/get_traits.h>
 #include <lu/intrusive/detail/size_traits.h>
 
 #include <algorithm>
@@ -296,13 +297,13 @@ public:
     }
 
     SlistIterator &operator++() noexcept {
-        Increment();
+        increment();
         return *this;
     }
 
     SlistIterator operator++(int) noexcept {
         SlistIterator result(*this);
-        Increment();
+        increment();
         return result;
     }
 
@@ -319,7 +320,7 @@ public:
     }
 
 private:
-    void Increment() noexcept { current_node_ = node_traits::get_next(current_node_); }
+    void increment() noexcept { current_node_ = node_traits::get_next(current_node_); }
 
 private:
     node_ptr current_node_{};
@@ -342,7 +343,7 @@ public:
     using reference = typename value_traits::reference;
     using const_reference = typename value_traits::const_reference;
 
-    using difference_type = typename std::pointer_traits<pointer>::difference_type;
+    using difference_type = typename value_traits::difference_type;
     using size_type = SizeType;
 
     using node = typename node_traits::node;
@@ -368,20 +369,20 @@ private:
 public:
     explicit IntrusiveSlist(const value_traits &value_traits = {}) noexcept
         : data_(NilNodeHolder{}, value_traits, size_traits{}) {
-        Construct();
+        construct();
     }
 
     template <class Iterator>
     IntrusiveSlist(Iterator begin, Iterator end, const value_traits &value_traits = {}) noexcept
         : data_(NilNodeHolder{}, value_traits, size_traits{}) {
-        Construct();
+        construct();
         insert_after(before_begin(), begin, end);
     }
 
     IntrusiveSlist(const IntrusiveSlist &other) = delete;
 
     IntrusiveSlist(IntrusiveSlist &&other) noexcept {
-        Construct();
+        construct();
         swap(other);
     }
 
@@ -396,7 +397,7 @@ public:
     ~IntrusiveSlist() { clear(); }
 
 private:
-    void Construct() noexcept { Algo::init_head(GetNilPtr()); }
+    void construct() noexcept { Algo::init_head(GetNilPtr()); }
 
     inline value_traits_ptr GetValueTraitsPtr() const noexcept {
         return std::pointer_traits<value_traits_ptr>::pointer_to(lu::get<ValueTraits>(data_));
@@ -722,13 +723,11 @@ class SlistBaseHook : public GenericHook<CircularSlistAlgo<SlistNodeTraits<VoidP
                                                            SlistNodeTraits<VoidPointer>, Tag, IsAutoUnlink>>,
                               NotDefaultHook> {};
 
-struct DefaultSlistHook {
+struct DefaultSlistHook : public UseDefaultHookTag {
     template <class ValueType>
     struct GetDefaultHook {
         using type = typename ValueType::slist_default_hook_type;
     };
-
-    struct is_default_hook_tag;
 };
 
 struct SlistDefaults {

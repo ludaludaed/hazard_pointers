@@ -19,9 +19,7 @@ namespace detail {
 
 template <class ValueType>
 struct DefaultCreator {
-    ValueType *operator()() const {
-        return new ValueType();
-    }
+    ValueType *operator()() const { return new ValueType(); }
 };
 
 }// namespace detail
@@ -66,12 +64,12 @@ class thread_local_list : private lu::active_list<ValueType> {
     using Hook = lu::thread_local_list_base_hook<ValueType>;
 
 public:
-    using value_type = ValueType;
-
+    using value_type = typename Base::value_type;
     using pointer = typename Base::pointer;
     using const_pointer = typename Base::const_pointer;
     using reference = typename Base::reference;
     using const_reference = typename Base::const_reference;
+    using difference_type = typename Base::difference_type;
 
     using iterator = typename Base::iterator;
     using const_iterator = typename Base::const_iterator;

@@ -10,6 +10,10 @@
 namespace lu {
 namespace detail {
 
+struct UseDefaultHookTag {
+    struct is_default_hook_tag;
+};
+
 HAS_DEFINE(is_hook, hook_tags)
 HAS_DEFINE(is_default_hook, is_default_hook_tag)
 
