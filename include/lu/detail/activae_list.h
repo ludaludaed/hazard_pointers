@@ -244,7 +244,7 @@ public:
 
 private:
     inline value_traits_ptr get_value_traits_ptr() const noexcept {
-        return std::pointer_traits<value_traits_ptr>::pointer_to(static_cast<const ValueTraits &>(*this));
+        return static_cast<const ValueTraits *>(this);
     }
 
 public:

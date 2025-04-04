@@ -39,9 +39,9 @@ using HazardRetiresHook = lu::unordered_set_base_hook<lu::tag<HazardPointerTag>,
                                                       lu::is_auto_unlink<false>>;
 
 class HazardObject : public HazardRetiresHook {
-    friend class lu::hazard_pointer_domain;
     template <class, class>
     friend class lu::hazard_pointer_obj_base;
+    friend class lu::hazard_pointer_domain;
 
     friend struct HazardKeyOfValue;
 

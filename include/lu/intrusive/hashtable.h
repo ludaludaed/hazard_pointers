@@ -533,7 +533,7 @@ public:
     explicit IntrusiveHashtable(const bucket_traits &buckets = {}, const hasher &hash = {},
                                 const key_equal &equal = {}, const value_traits &value_traits = {}) noexcept
         : data_(NilNodeHolder{}, value_traits, buckets, KeyOfValue{}, hash, equal, size_traits{}) {
-        construct();
+        Construct();
     }
 
     template <class Iterator>
@@ -541,7 +541,7 @@ public:
                        const hasher &hash = {}, const key_equal &equal = {},
                        const value_traits &value_traits = {}) noexcept
         : data_(NilNodeHolder{}, value_traits, buckets, KeyOfValue{}, hash, equal, size_traits{}) {
-        construct();
+        Construct();
         insert(begin, end);
     }
 
@@ -550,7 +550,7 @@ public:
     IntrusiveHashtable(const IntrusiveHashtable &other) = delete;
 
     IntrusiveHashtable(IntrusiveHashtable &&other) noexcept {
-        construct();
+        Construct();
         swap(other);
     }
 
@@ -563,7 +563,7 @@ public:
     }
 
 private:
-    void construct() noexcept { Algo::init(GetNilPtr()); }
+    void Construct() noexcept { Algo::init(GetNilPtr()); }
 
     inline value_traits_ptr GetValueTraitsPtr() const noexcept {
         return std::pointer_traits<value_traits_ptr>::pointer_to(lu::get<ValueTraits>(data_));
@@ -636,7 +636,7 @@ private:
         return bucket->get_bucket_begin();
     }
 
-    node_ptr Find(const key_type &key, std::size_t hash) const noexcept {
+    node_ptr FindImpl(const key_type &key, std::size_t hash) const noexcept {
         const key_equal &_key_equal = lu::get<KeyEqual>(data_);
 
         size_type bucket_index = GetBucketIdx(hash);
@@ -657,13 +657,13 @@ private:
         return node_ptr{};
     }
 
-    node_ptr Find(const key_type &key) const noexcept {
+    node_ptr FindImpl(const key_type &key) const noexcept {
         const hasher &_key_hash = lu::get<KeyHash>(data_);
         std::size_t hash = _key_hash(key);
-        return Find(key, hash);
+        return FindImpl(key, hash);
     }
 
-    std::pair<node_ptr, node_ptr> EqualRange(const key_type &key) const noexcept {
+    std::pair<node_ptr, node_ptr> EqualRangeImpl(const key_type &key) const noexcept {
         const hasher &_key_hash = lu::get<KeyHash>(data_);
         const key_equal &_key_equal = lu::get<KeyEqual>(data_);
 
@@ -693,7 +693,7 @@ private:
         node_ptr new_node = _value_traits.to_node_ptr(value);
         std::size_t hash = GetHash(new_node);
 
-        node_ptr position = Find(GetKey(value), hash);
+        node_ptr position = FindImpl(GetKey(value), hash);
 
         if (position) {
             Algo::link_after(position, new_node);
@@ -713,7 +713,7 @@ private:
 
         node_ptr new_node = _value_traits.to_node_ptr(value);
         assert(!Algo::is_linked(new_node));
-        node_ptr position = Find(GetKey(value), hash);
+        node_ptr position = FindImpl(GetKey(value), hash);
         SetHash(new_node, hash);
 
         if (position) {
@@ -737,7 +737,7 @@ private:
 
         node_ptr new_node = _value_traits.to_node_ptr(value);
         assert(!Algo::is_linked(new_node));
-        node_ptr position = Find(GetKey(value), hash);
+        node_ptr position = FindImpl(GetKey(value), hash);
         SetHash(new_node, hash);
 
         lu::get<size_traits>(data_).increment();
@@ -754,12 +754,12 @@ private:
         }
     }
 
-    void Erase(node_ptr node) noexcept {
+    void EraseNode(node_ptr node) noexcept {
         lu::get<size_traits>(data_).decrement();
         Algo::unlink(node);
     }
 
-    size_type Erase(const key_type &key) noexcept {
+    size_type EraseImpl(const key_type &key) noexcept {
         const value_traits &_value_traits = lu::get<ValueTraits>(data_);
         const hasher &_key_hash = lu::get<KeyHash>(data_);
         const key_equal &_key_equal = lu::get<KeyEqual>(data_);
@@ -774,7 +774,7 @@ private:
             node_ptr next = node_traits::get_next(current);
             if (hash == GetHash(current) && _key_equal(GetKey(current), key)) {
                 result++;
-                Erase(current);
+                EraseNode(current);
             }
             if (next && !Algo::first_in_bucket(next)) {
                 current = next;
@@ -802,13 +802,13 @@ public:
         }
     }
 
-    size_type erase(const key_type &key) noexcept { return Erase(key); }
+    size_type erase(const key_type &key) noexcept { return EraseImpl(key); }
 
-    void erase(const_iterator position) noexcept { Erase(position.current_node_); }
+    void erase(const_iterator position) noexcept { EraseNode(position.current_node_); }
 
     void erase(const_iterator begin, const_iterator end) noexcept {
         for (; begin != end; ++begin) {
-            Erase(begin.current_node_);
+            EraseNode(begin.current_node_);
         }
     }
 
@@ -819,7 +819,7 @@ public:
         current = node_traits::get_next(current);
         while (current) {
             node_ptr next = node_traits::get_next(current);
-            Erase(current);
+            EraseNode(current);
             current = next;
         }
     }
@@ -866,26 +866,26 @@ public:
     }
 
 public:
-    iterator find(const key_type &key) noexcept { return iterator(Find(key), GetValueTraitsPtr()); }
+    iterator find(const key_type &key) noexcept { return iterator(FindImpl(key), GetValueTraitsPtr()); }
 
     const_iterator find(const key_type &key) const noexcept {
-        return const_iterator(Find(key), GetValueTraitsPtr());
+        return const_iterator(FindImpl(key), GetValueTraitsPtr());
     }
 
     size_type count(const key_type &key) const noexcept {
-        std::pair<node_ptr, node_ptr> range = EqualRange(key);
+        std::pair<node_ptr, node_ptr> range = EqualRangeImpl(key);
         return Algo::distance(range.first, range.second);
     }
 
-    bool contains(const key_type &key) const noexcept { return Find(key); }
+    bool contains(const key_type &key) const noexcept { return FindImpl(key); }
 
     std::pair<iterator, iterator> equal_range(const key_type &key) noexcept {
-        std::pair<node_ptr, node_ptr> res = EqualRange(key);
+        std::pair<node_ptr, node_ptr> res = EqualRangeImpl(key);
         return {iterator(res.first, GetValueTraitsPtr()), iterator(res.second, GetValueTraitsPtr())};
     }
 
     std::pair<const_iterator, const_iterator> equal_range(const key_type &key) const noexcept {
-        std::pair<node_ptr, node_ptr> res = EqualRange(key);
+        std::pair<node_ptr, node_ptr> res = EqualRangeImpl(key);
         return {const_iterator(res.first, GetValueTraitsPtr()),
                 const_iterator(res.second, GetValueTraitsPtr())};
     }

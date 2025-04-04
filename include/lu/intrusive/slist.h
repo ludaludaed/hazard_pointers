@@ -369,20 +369,20 @@ private:
 public:
     explicit IntrusiveSlist(const value_traits &value_traits = {}) noexcept
         : data_(NilNodeHolder{}, value_traits, size_traits{}) {
-        construct();
+        Construct();
     }
 
     template <class Iterator>
     IntrusiveSlist(Iterator begin, Iterator end, const value_traits &value_traits = {}) noexcept
         : data_(NilNodeHolder{}, value_traits, size_traits{}) {
-        construct();
+        Construct();
         insert_after(before_begin(), begin, end);
     }
 
     IntrusiveSlist(const IntrusiveSlist &other) = delete;
 
     IntrusiveSlist(IntrusiveSlist &&other) noexcept {
-        construct();
+        Construct();
         swap(other);
     }
 
@@ -397,7 +397,7 @@ public:
     ~IntrusiveSlist() { clear(); }
 
 private:
-    void construct() noexcept { Algo::init_head(GetNilPtr()); }
+    void Construct() noexcept { Algo::init_head(GetNilPtr()); }
 
     inline value_traits_ptr GetValueTraitsPtr() const noexcept {
         return std::pointer_traits<value_traits_ptr>::pointer_to(lu::get<ValueTraits>(data_));
