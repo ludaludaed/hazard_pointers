@@ -154,8 +154,8 @@ public:
         while (current != end()) {
             auto prev = current++;
             bool acquired = prev->is_acquired(std::memory_order_acquire);
-            UNUSED(acquired);
             assert(!acquired && "Can't clear while all threads aren't detached");
+            UNUSED(acquired);
             prev->do_delete();
         }
     }

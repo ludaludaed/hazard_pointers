@@ -8,22 +8,6 @@
 
 
 namespace lu {
-namespace detail {
-
-template <class ResultType, class... Args>
-struct FixedSizeFunctionVTable {
-    using call_func_ptr = ResultType (*)(void *, Args &&...);
-    using destruct_func_ptr = void (*)(void *);
-    using copy_func_ptr = void (*)(void *, const void *);
-    using move_func_ptr = void (*)(void *, void *);
-
-    call_func_ptr call{};
-    destruct_func_ptr destruct{};
-    copy_func_ptr copy{};
-    move_func_ptr move{};
-};
-
-}// namespace detail
 
 template <class, std::size_t>
 class fixed_size_function;
@@ -31,7 +15,18 @@ class fixed_size_function;
 template <class ResultType, class... Args, std::size_t BufferLen>
 class fixed_size_function<ResultType(Args...), BufferLen> {
     using storage = unsigned char[BufferLen];
-    using vtable = detail::FixedSizeFunctionVTable<ResultType, Args...>;
+
+    struct vtable {
+        using call_func_ptr = ResultType (*)(void *, Args &&...);
+        using destruct_func_ptr = void (*)(void *);
+        using copy_func_ptr = void (*)(void *, const void *);
+        using move_func_ptr = void (*)(void *, void *);
+
+        call_func_ptr call{};
+        destruct_func_ptr destruct{};
+        copy_func_ptr copy{};
+        move_func_ptr move{};
+    };
 
 public:
     using result_type = ResultType;

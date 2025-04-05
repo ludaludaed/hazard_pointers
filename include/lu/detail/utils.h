@@ -10,6 +10,8 @@
 
 #define UNUSED(expr) (void) (expr)
 
+#define CACHE_LINE_ALIGNAS alignas(64)
+
 namespace lu {
 namespace detail {
 

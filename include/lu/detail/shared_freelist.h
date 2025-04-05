@@ -1,6 +1,7 @@
 #ifndef __SHARED_FREE_LIST_H__
 #define __SHARED_FREE_LIST_H__
 
+#include <lu/detail/utils.h>
 #include <lu/intrusive/detail/compressed_tuple.h>
 #include <lu/intrusive/detail/generic_hook.h>
 #include <lu/intrusive/detail/get_traits.h>
@@ -11,6 +12,7 @@
 #include <cassert>
 #include <memory>
 #include <type_traits>
+
 
 
 namespace lu {
@@ -101,7 +103,7 @@ public:
     }
 
 private:
-    std::atomic<node_ptr> global_head_{};
+    CACHE_LINE_ALIGNAS std::atomic<node_ptr> global_head_{};
     node_ptr local_head_{};
 };
 

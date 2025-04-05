@@ -8,11 +8,13 @@
 #include <lu/utils/backoff.h>
 #include <lu/utils/marked_ptr.h>
 
+#include "lu/detail/shared_freelist.h"
 #include "ordered_list.h"
 #include "structures.h"
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>

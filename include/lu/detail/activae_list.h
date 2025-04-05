@@ -6,6 +6,7 @@
 #include <lu/intrusive/detail/get_traits.h>
 #include <lu/intrusive/detail/node_holder.h>
 #include <lu/intrusive/detail/pack_options.h>
+#include "lu/detail/utils.h"
 
 #include <atomic>
 #include <cassert>
@@ -284,7 +285,7 @@ public:
     const_iterator end() const noexcept { return cend(); }
 
 private:
-    std::atomic<node_ptr> head_;
+    CACHE_LINE_ALIGNAS std::atomic<node_ptr> head_;
 };
 
 template <class HookType>
