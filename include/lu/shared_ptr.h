@@ -263,7 +263,7 @@ public:
 
     std::add_lvalue_reference_t<element_type> operator*() const noexcept { return *this->value_; }
 
-    element_type *operator->() const noexcept { return this->value_; }
+    element_ptr operator->() const noexcept { return this->value_; }
 
     friend bool operator==(const StrongPointer &left, const StrongPointer &right) noexcept {
         return left.get() == right.get();
