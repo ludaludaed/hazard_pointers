@@ -1,7 +1,6 @@
 #ifndef __INTRUSIVE_SLIST_H__
 #define __INTRUSIVE_SLIST_H__
 
-#include <lu/intrusive/detail/compressed_tuple.h>
 #include <lu/intrusive/detail/generic_hook.h>
 #include <lu/intrusive/detail/get_traits.h>
 #include <lu/intrusive/detail/size_traits.h>
@@ -307,9 +306,9 @@ public:
         return result;
     }
 
-    inline reference operator*() const noexcept { return *operator->(); }
+    reference operator*() const noexcept { return *operator->(); }
 
-    inline pointer operator->() const noexcept { return value_traits_->to_value_ptr(current_node_); }
+    pointer operator->() const noexcept { return value_traits_->to_value_ptr(current_node_); }
 
     friend bool operator==(const SlistIterator &left, const SlistIterator &right) noexcept {
         return left.current_node_ == right.current_node_ && left.value_traits_ == right.value_traits_;
@@ -355,26 +354,15 @@ public:
 
     using value_traits_ptr = const value_traits *;
 
-private:
-    struct NilNodeHolder {
-        friend void swap(NilNodeHolder &left, NilNodeHolder &right) noexcept {
-            auto left_node = std::pointer_traits<node_ptr>::pointer_to(left.node_);
-            auto right_node = std::pointer_traits<node_ptr>::pointer_to(right.node_);
-            Algo::swap_nodes(left_node, right_node);
-        }
-
-        node node_;
-    };
-
 public:
     explicit IntrusiveSlist(const value_traits &value_traits = {}) noexcept
-        : data_(NilNodeHolder{}, value_traits, size_traits{}) {
+        : value_traits_(value_traits) {
         Construct();
     }
 
     template <class Iterator>
     IntrusiveSlist(Iterator begin, Iterator end, const value_traits &value_traits = {}) noexcept
-        : data_(NilNodeHolder{}, value_traits, size_traits{}) {
+        : value_traits_(value_traits) {
         Construct();
         insert_after(before_begin(), begin, end);
     }
@@ -399,13 +387,12 @@ public:
 private:
     void Construct() noexcept { Algo::init_head(GetNilPtr()); }
 
-    inline value_traits_ptr GetValueTraitsPtr() const noexcept {
-        return std::pointer_traits<value_traits_ptr>::pointer_to(lu::get<ValueTraits>(data_));
+    value_traits_ptr GetValueTraitsPtr() const noexcept {
+        return std::pointer_traits<value_traits_ptr>::pointer_to(value_traits_);
     }
 
     node_ptr GetNilPtr() const noexcept {
-        return Algo::get_end(
-                std::pointer_traits<const_node_ptr>::pointer_to(lu::get<NilNodeHolder>(data_).node_));
+        return Algo::get_end(std::pointer_traits<const_node_ptr>::pointer_to(nil_node_));
     }
 
     node_ptr GetEnd() const noexcept { return Algo::get_end(GetNilPtr()); }
@@ -416,29 +403,29 @@ private:
 
     size_type GetSize() const noexcept {
         if constexpr (size_traits::is_tracking_size) {
-            return lu::get<size_traits>(data_).get_size();
+            return size_traits_.get_size();
         } else {
             return Algo::distance(GetFirst(), GetEnd());
         }
     }
 
-    void SetSize(size_type new_size) noexcept { return lu::get<size_traits>(data_).set_size(new_size); }
+    void SetSize(size_type new_size) noexcept { return size_traits_.set_size(new_size); }
 
     node_ptr InsertAfter(node_ptr prev, node_ptr new_node) noexcept {
         Algo::link_after(prev, new_node);
-        lu::get<size_traits>(data_).increment();
+        size_traits_.increment();
         return new_node;
     }
 
     node_ptr EraseAfter(node_ptr prev) noexcept {
         Algo::unlink_after(prev);
-        lu::get<size_traits>(data_).decrement();
+        size_traits_.decrement();
         return node_traits::get_next(prev);
     }
 
     node_ptr EraseAfter(node_ptr before_first, node_ptr last) noexcept {
         size_t count = Algo::unlink_after(before_first, last);
-        lu::get<size_traits>(data_).decrease(count);
+        size_traits_.decrease(count);
         return last;
     }
 
@@ -448,8 +435,8 @@ private:
             size_type distance(
                     Algo::distance(node_traits::get_next(before_first), node_traits::get_next(before_last)));
 
-            lu::get<size_traits>(other.data_).decrease(distance);
-            lu::get<size_traits>(data_).increase(distance);
+            other.size_traits_.decrease(distance);
+            size_traits_.increase(distance);
         }
         Algo::transfer_after(where, before_first, before_last);
     }
@@ -464,9 +451,8 @@ private:
 
     template <class Comp>
     void Sort(Comp &&comp) noexcept {
-        const value_traits &_value_traits = lu::get<ValueTraits>(data_);
-        auto node_comp = [&_value_traits, &comp](node_ptr left, node_ptr right) {
-            return comp(*_value_traits.to_value_ptr(left), *_value_traits.to_value_ptr(right));
+        auto node_comp = [&value_traits = value_traits_, &comp](node_ptr left, node_ptr right) {
+            return comp(*value_traits.to_value_ptr(left), *value_traits.to_value_ptr(right));
         };
         Algo::sort(GetNilPtr(), node_comp);
     }
@@ -478,9 +464,8 @@ private:
             SetSize(new_size);
             other.SetSize(0);
         }
-        const value_traits &_value_traits = lu::get<ValueTraits>(data_);
-        auto node_comp = [&_value_traits, &comp](node_ptr left, node_ptr right) {
-            return comp(*_value_traits.to_value_ptr(left), *_value_traits.to_value_ptr(right));
+        auto node_comp = [&value_traits = value_traits_, &comp](node_ptr left, node_ptr right) {
+            return comp(*value_traits.to_value_ptr(left), *value_traits.to_value_ptr(right));
         };
         Algo::merge(GetNilPtr(), other.GetNilPtr(), node_comp);
     }
@@ -528,27 +513,17 @@ public:
 
     void reverse() noexcept { Algo::reverse(GetNilPtr()); }
 
-    reference front() noexcept {
-        const value_traits &_value_traits = lu::get<ValueTraits>(data_);
-        return *_value_traits.to_value_ptr(GetFirst());
-    }
+    reference front() noexcept { return *value_traits_.to_value_ptr(GetFirst()); }
 
-    const_reference front() const noexcept {
-        const value_traits &_value_traits = lu::get<ValueTraits>(data_);
-        return *_value_traits.to_value_ptr(GetFirst());
-    }
+    const_reference front() const noexcept { return *value_traits_.to_value_ptr(GetFirst()); }
 
-    void push_front(reference value) noexcept {
-        const value_traits &_value_traits = lu::get<ValueTraits>(data_);
-        InsertAfter(GetNilPtr(), _value_traits.to_node_ptr(value));
-    }
+    void push_front(reference value) noexcept { InsertAfter(GetNilPtr(), value_traits_.to_node_ptr(value)); }
 
     void pop_front() noexcept { EraseAfter(GetNilPtr()); }
 
     iterator insert_after(const_iterator before, reference value) noexcept {
-        const value_traits &_value_traits = lu::get<ValueTraits>(data_);
         node_ptr position = before.current_node_;
-        node_ptr new_node = _value_traits.to_node_ptr(value);
+        node_ptr new_node = value_traits_.to_node_ptr(value);
         InsertAfter(position, new_node);
         return iterator(new_node, GetValueTraitsPtr());
     }
@@ -576,7 +551,12 @@ public:
 
     void clear() noexcept { EraseAfter(GetNilPtr(), GetEnd()); }
 
-    void swap(IntrusiveSlist &other) noexcept { data_.swap(other.data_); }
+    void swap(IntrusiveSlist &other) noexcept {
+        using std::swap;
+        Algo::swap_nodes(GetNilPtr(), other.GetNilPtr());
+        swap(value_traits_, other.value_traits_);
+        swap(size_traits_, other.size_traits_);
+    }
 
     void splice_after(const_iterator position, IntrusiveSlist &other) noexcept {
         node_ptr where_node = position.current_node_;
@@ -648,7 +628,6 @@ public:
         Sort(std::forward<Compare>(comp));
     }
 
-public:
     iterator before_begin() noexcept { return iterator(GetNilPtr(), GetValueTraitsPtr()); }
 
     iterator last() noexcept { return iterator(GetLast(), GetValueTraitsPtr()); }
@@ -673,12 +652,10 @@ public:
 
     const_iterator cend() const noexcept { return const_iterator(GetEnd(), GetValueTraitsPtr()); }
 
-public:
     bool empty() const noexcept { return Algo::unique(GetNilPtr()); }
 
     size_type size() const noexcept { return GetSize(); }
 
-public:
     friend bool operator==(const IntrusiveSlist &left, const IntrusiveSlist &right) noexcept {
         return std::equal(left.begin(), left.end(), right.begin(), right.end());
     }
@@ -706,7 +683,9 @@ public:
     friend void swap(IntrusiveSlist &left, IntrusiveSlist &right) noexcept { left.swap(right); }
 
 private:
-    lu::compressed_tuple<NilNodeHolder, ValueTraits, size_traits> data_;
+    node nil_node_;
+    NO_UNIQUE_ADDRESS value_traits value_traits_;
+    NO_UNIQUE_ADDRESS size_traits size_traits_;
 };
 
 template <class HookType>

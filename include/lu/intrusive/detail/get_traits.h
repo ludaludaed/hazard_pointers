@@ -14,8 +14,8 @@ struct UseDefaultHookTag {
     struct is_default_hook_tag;
 };
 
-HAS_DEFINE(is_hook, hook_tags)
-HAS_DEFINE(is_default_hook, is_default_hook_tag)
+HAS_TYPE_DEFINE(is_hook, hook_tags)
+HAS_TYPE_DEFINE(is_default_hook, is_default_hook_tag)
 
 template <class Option, class DefaultOption>
 using GetOrDefault = std::conditional_t<!std::is_void_v<Option>, Option, DefaultOption>;

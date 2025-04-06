@@ -2,7 +2,6 @@
 #define __SHARED_FREE_LIST_H__
 
 #include <lu/detail/utils.h>
-#include <lu/intrusive/detail/compressed_tuple.h>
 #include <lu/intrusive/detail/generic_hook.h>
 #include <lu/intrusive/detail/get_traits.h>
 #include <lu/intrusive/detail/node_holder.h>
@@ -12,7 +11,6 @@
 #include <cassert>
 #include <memory>
 #include <type_traits>
-
 
 
 namespace lu {

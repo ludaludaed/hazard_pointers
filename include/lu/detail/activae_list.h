@@ -1,12 +1,11 @@
 #ifndef __ACTIVE_LIST_H__
 #define __ACTIVE_LIST_H__
 
-#include <lu/intrusive/detail/compressed_tuple.h>
 #include <lu/intrusive/detail/generic_hook.h>
 #include <lu/intrusive/detail/get_traits.h>
 #include <lu/intrusive/detail/node_holder.h>
 #include <lu/intrusive/detail/pack_options.h>
-#include "lu/detail/utils.h"
+#include <lu/detail/utils.h>
 
 #include <atomic>
 #include <cassert>

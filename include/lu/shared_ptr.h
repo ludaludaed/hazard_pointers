@@ -110,22 +110,17 @@ private:
 
 template <class ValueType, class Deleter, class Allocator>
 class OutplaceControlBlock : public ControlBlock {
-public:
-    using value_type = ValueType;
-    using pointer = ValueType *;
-
-    using deleter_type = Deleter;
     using allocator_type = typename std::allocator_traits<Allocator>::template rebind_alloc<
-            OutplaceControlBlock<value_type, Deleter, Allocator>>;
+            OutplaceControlBlock<ValueType, Deleter, Allocator>>;
     using allocator_traits = std::allocator_traits<allocator_type>;
 
 public:
-    OutplaceControlBlock(pointer value_ptr, deleter_type deleter, const Allocator &allocator) noexcept
+    OutplaceControlBlock(ValueType *value_ptr, Deleter deleter, const Allocator &allocator) noexcept
         : value_ptr_(value_ptr)
         , deleter_(std::move(deleter))
         , allocator_(allocator) {}
 
-    void *get() const noexcept override { return reinterpret_cast<void *>(lu::to_raw_pointer(value_ptr_)); }
+    void *get() const noexcept override { return lu::to_raw_pointer(value_ptr_); }
 
 private:
     void delete_value() override { deleter_(value_ptr_); }
@@ -137,20 +132,16 @@ private:
     }
 
 private:
-    pointer value_ptr_;
-    deleter_type deleter_;
+    ValueType *value_ptr_;
+    Deleter deleter_;
     allocator_type allocator_;
 };
 
 template <class ValueType, class Allocator>
 class InplaceControlBlock : public ControlBlock {
-public:
     using allocator_type = typename std::allocator_traits<Allocator>::template rebind_alloc<
             InplaceControlBlock<ValueType, Allocator>>;
     using allocator_traits = std::allocator_traits<allocator_type>;
-
-    using value_type = ValueType;
-    using pointer = value_type *;
 
 public:
     template <class... Args>
@@ -211,19 +202,19 @@ InplaceControlBlock<ValueType, Allocator> *make_inplace_control_block(const Allo
 }
 
 template <class ValuePtr, class ControlBlockPtr>
-class StrongPointer;
+class SharedPtrBase;
 
 template <class ValuePtr, class ControlBlockPtr>
-class WeakPointer;
+class WeakPtrBase;
 
 template <class ValuePtr, class ControlBlockPtr>
-class StrongPointer {
+class SharedPtrBase {
 
     template <class, class>
-    friend class StrongPointer;
+    friend class SharedPtrBase;
 
     template <class, class>
-    friend class WeakPointer;
+    friend class WeakPtrBase;
 
 public:
     using element_type = typename std::pointer_traits<ValuePtr>::element_type;
@@ -231,9 +222,9 @@ public:
     using element_ptr = ValuePtr;
 
 public:
-    StrongPointer() noexcept = default;
+    SharedPtrBase() noexcept = default;
 
-    ~StrongPointer() = default;
+    ~SharedPtrBase() = default;
 
     [[nodiscard]] long use_count() const noexcept {
         if (control_block_) {
@@ -246,14 +237,14 @@ public:
     template <class _ValuePtr, class _ControlBlockPtr,
               class = std::enable_if_t<std::is_convertible_v<_ValuePtr, ValuePtr>
                                        && std::is_convertible_v<_ControlBlockPtr, ControlBlockPtr>>>
-    bool owner_before(const StrongPointer<_ValuePtr, _ControlBlockPtr> &other) noexcept {
+    bool owner_before(const SharedPtrBase<_ValuePtr, _ControlBlockPtr> &other) noexcept {
         return control_block_ < other.control_block_;
     }
 
     template <class _ValuePtr, class _ControlBlockPtr,
               class = std::enable_if_t<std::is_convertible_v<_ValuePtr, ValuePtr>
                                        && std::is_convertible_v<_ControlBlockPtr, ControlBlockPtr>>>
-    bool owner_before(const WeakPointer<_ValuePtr, _ControlBlockPtr> &other) noexcept {
+    bool owner_before(const WeakPtrBase<_ValuePtr, _ControlBlockPtr> &other) noexcept {
         return control_block_ < other.control_block_;
     }
 
@@ -265,27 +256,27 @@ public:
 
     element_ptr operator->() const noexcept { return this->value_; }
 
-    friend bool operator==(const StrongPointer &left, const StrongPointer &right) noexcept {
+    friend bool operator==(const SharedPtrBase &left, const SharedPtrBase &right) noexcept {
         return left.get() == right.get();
     }
 
-    friend bool operator!=(const StrongPointer &left, const StrongPointer &right) noexcept {
+    friend bool operator!=(const SharedPtrBase &left, const SharedPtrBase &right) noexcept {
         return !(left == right);
     }
 
-    friend bool operator<(const StrongPointer &left, const StrongPointer &right) noexcept {
+    friend bool operator<(const SharedPtrBase &left, const SharedPtrBase &right) noexcept {
         return left.get() < right.get();
     }
 
-    friend bool operator>(const StrongPointer &left, const StrongPointer &right) noexcept {
+    friend bool operator>(const SharedPtrBase &left, const SharedPtrBase &right) noexcept {
         return right < left;
     }
 
-    friend bool operator<=(const StrongPointer &left, const StrongPointer &right) noexcept {
+    friend bool operator<=(const SharedPtrBase &left, const SharedPtrBase &right) noexcept {
         return !(right < left);
     }
 
-    friend bool operator>=(const StrongPointer &left, const StrongPointer &right) noexcept {
+    friend bool operator>=(const SharedPtrBase &left, const SharedPtrBase &right) noexcept {
         return !(left < right);
     }
 
@@ -293,7 +284,7 @@ protected:
     template <class _ValuePtr, class _ControlBlockPtr,
               class = std::enable_if_t<std::is_convertible_v<_ValuePtr, ValuePtr>
                                        && std::is_convertible_v<_ControlBlockPtr, ControlBlockPtr>>>
-    void copy_construct(const StrongPointer<_ValuePtr, _ControlBlockPtr> &other) noexcept {
+    void copy_construct(const SharedPtrBase<_ValuePtr, _ControlBlockPtr> &other) noexcept {
         value_ = other.value_;
         control_block_ = other.control_block_;
 
@@ -303,7 +294,7 @@ protected:
     template <class _ValuePtr, class _ControlBlockPtr,
               class = std::enable_if_t<std::is_convertible_v<_ValuePtr, ValuePtr>
                                        && std::is_convertible_v<_ControlBlockPtr, ControlBlockPtr>>>
-    void move_construct(StrongPointer<_ValuePtr, _ControlBlockPtr> &&other) noexcept {
+    void move_construct(SharedPtrBase<_ValuePtr, _ControlBlockPtr> &&other) noexcept {
         value_ = other.value_;
         control_block_ = other.control_block_;
 
@@ -314,7 +305,7 @@ protected:
     template <class _ValuePtr, class _ControlBlockPtr,
               class = std::enable_if_t<std::is_convertible_v<_ValuePtr, ValuePtr>
                                        && std::is_convertible_v<_ControlBlockPtr, ControlBlockPtr>>>
-    void construct_from_weak(const WeakPointer<_ValuePtr, _ControlBlockPtr> &other) noexcept {
+    void construct_from_weak(const WeakPtrBase<_ValuePtr, _ControlBlockPtr> &other) noexcept {
         if (other.control_block_ && other.control_block_->inc_ref_if_not_zero()) {
             control_block_ = other.control_block_;
             value_ = other.value_;
@@ -356,13 +347,13 @@ protected:
 };
 
 template <class ValuePtr, class ControlBlockPtr>
-class WeakPointer {
+class WeakPtrBase {
 
     template <class, class>
-    friend class StrongPointer;
+    friend class SharedPtrBase;
 
     template <class, class>
-    friend class WeakPointer;
+    friend class WeakPtrBase;
 
 public:
     using element_type = typename std::pointer_traits<ValuePtr>::element_type;
@@ -370,9 +361,9 @@ public:
     using element_ptr = ValuePtr;
 
 public:
-    WeakPointer() noexcept = default;
+    WeakPtrBase() noexcept = default;
 
-    ~WeakPointer() = default;
+    ~WeakPtrBase() = default;
 
     [[nodiscard]] long use_count() const noexcept {
         if (control_block_) {
@@ -385,14 +376,14 @@ public:
     template <class _ValuePtr, class _ControlBlockPtr,
               class = std::enable_if_t<std::is_convertible_v<_ValuePtr, ValuePtr>
                                        && std::is_convertible_v<_ControlBlockPtr, ControlBlockPtr>>>
-    bool owner_before(const StrongPointer<_ValuePtr, _ControlBlockPtr> &other) noexcept {
+    bool owner_before(const SharedPtrBase<_ValuePtr, _ControlBlockPtr> &other) noexcept {
         return control_block_ < other.control_block_;
     }
 
     template <class _ValuePtr, class _ControlBlockPtr,
               class = std::enable_if_t<std::is_convertible_v<_ValuePtr, ValuePtr>
                                        && std::is_convertible_v<_ControlBlockPtr, ControlBlockPtr>>>
-    bool owner_before(const WeakPointer<_ValuePtr, _ControlBlockPtr> &other) noexcept {
+    bool owner_before(const WeakPtrBase<_ValuePtr, _ControlBlockPtr> &other) noexcept {
         return control_block_ < other.control_block_;
     }
 
@@ -402,7 +393,7 @@ protected:
     template <class _ValuePtr, class _ControlBlockPtr,
               class = std::enable_if_t<std::is_convertible_v<_ValuePtr, ValuePtr>
                                        && std::is_convertible_v<_ControlBlockPtr, ControlBlockPtr>>>
-    void copy_construct(const WeakPointer<_ValuePtr, _ControlBlockPtr> &other) noexcept {
+    void copy_construct(const WeakPtrBase<_ValuePtr, _ControlBlockPtr> &other) noexcept {
         if (other.control_block_) {
             control_block_ = other.control_block_;
             control_block_->inc_weak();
@@ -416,7 +407,7 @@ protected:
     template <class _ValuePtr, class _ControlBlockPtr,
               class = std::enable_if_t<std::is_convertible_v<_ValuePtr, ValuePtr>
                                        && std::is_convertible_v<_ControlBlockPtr, ControlBlockPtr>>>
-    void move_construct(WeakPointer<_ValuePtr, _ControlBlockPtr> &&other) noexcept {
+    void move_construct(WeakPtrBase<_ValuePtr, _ControlBlockPtr> &&other) noexcept {
         control_block_ = other.control_block_;
         other.control_block_ = {};
         if (control_block_->inc_ref_if_not_zero()) {// for virtual inheritance
@@ -429,7 +420,7 @@ protected:
     template <class _ValuePtr, class _ControlBlockPtr,
               class = std::enable_if_t<std::is_convertible_v<_ValuePtr, ValuePtr>
                                        && std::is_convertible_v<_ControlBlockPtr, ControlBlockPtr>>>
-    void construct_from_strong(const StrongPointer<_ValuePtr, _ControlBlockPtr> &other) noexcept {
+    void construct_from_strong(const SharedPtrBase<_ValuePtr, _ControlBlockPtr> &other) noexcept {
         if (other.control_block_) {
             value_ = other.value_;
             control_block_ = other.control_block_;
@@ -487,8 +478,8 @@ template <class ValueType>
 class weak_ptr;
 
 template <class ValueType>
-class shared_ptr : public detail::StrongPointer<ValueType *, detail::ControlBlock *> {
-    using Base = detail::StrongPointer<ValueType *, detail::ControlBlock *>;
+class shared_ptr : public detail::SharedPtrBase<ValueType *, detail::ControlBlock *> {
+    using Base = detail::SharedPtrBase<ValueType *, detail::ControlBlock *>;
 
     template <class _ValueType, class Allocator, class... Args>
     friend shared_ptr<_ValueType> alloc_shared(const Allocator &allocator, Args &&...args);
@@ -529,7 +520,7 @@ public:
     template <class _ValuePtr, class _ControlBlockPtr,
               class = std::enable_if_t<std::is_convertible_v<_ValuePtr, element_ptr>
                                        && std::is_convertible_v<_ControlBlockPtr, control_block_ptr>>>
-    shared_ptr(const detail::StrongPointer<_ValuePtr, _ControlBlockPtr> &other) noexcept {
+    shared_ptr(const detail::SharedPtrBase<_ValuePtr, _ControlBlockPtr> &other) noexcept {
         this->copy_construct(other);
     }
 
@@ -538,14 +529,14 @@ public:
     template <class _ValuePtr, class _ControlBlockPtr,
               class = std::enable_if_t<std::is_convertible_v<_ValuePtr, element_ptr>
                                        && std::is_convertible_v<_ControlBlockPtr, control_block_ptr>>>
-    shared_ptr(detail::StrongPointer<_ValuePtr, _ControlBlockPtr> &&other) noexcept {
+    shared_ptr(detail::SharedPtrBase<_ValuePtr, _ControlBlockPtr> &&other) noexcept {
         this->move_construct(std::move(other));
     }
 
     template <class _ValuePtr, class _ControlBlockPtr,
               class = std::enable_if_t<std::is_convertible_v<_ValuePtr, element_ptr>
                                        && std::is_convertible_v<_ControlBlockPtr, control_block_ptr>>>
-    explicit shared_ptr(const detail::WeakPointer<_ValuePtr, _ControlBlockPtr> &other) noexcept {
+    explicit shared_ptr(const detail::WeakPtrBase<_ValuePtr, _ControlBlockPtr> &other) noexcept {
         this->construct_from_weak(other);
     }
 
@@ -553,31 +544,31 @@ public:
 
     shared_ptr &operator=(const shared_ptr &other) noexcept {
         shared_ptr temp(other);
-        this->swap(temp);
+        swap(temp);
         return *this;
     }
 
     template <class _ValuePtr, class _ControlBlockPtr,
               class = std::enable_if_t<std::is_convertible_v<_ValuePtr, element_ptr>
                                        && std::is_convertible_v<_ControlBlockPtr, control_block_ptr>>>
-    shared_ptr &operator=(const detail::StrongPointer<_ValuePtr, _ControlBlockPtr> &other) noexcept {
+    shared_ptr &operator=(const detail::SharedPtrBase<_ValuePtr, _ControlBlockPtr> &other) noexcept {
         shared_ptr temp(other);
-        this->swap(temp);
+        swap(temp);
         return *this;
     }
 
     shared_ptr &operator=(shared_ptr &&other) noexcept {
         shared_ptr temp(std::move(other));
-        this->swap(temp);
+        swap(temp);
         return *this;
     }
 
     template <class _ValuePtr, class _ControlBlockPtr,
               class = std::enable_if_t<std::is_convertible_v<_ValuePtr, element_ptr>
                                        && std::is_convertible_v<_ControlBlockPtr, control_block_ptr>>>
-    shared_ptr &operator=(detail::StrongPointer<_ValuePtr, _ControlBlockPtr> &&other) noexcept {
+    shared_ptr &operator=(detail::SharedPtrBase<_ValuePtr, _ControlBlockPtr> &&other) noexcept {
         shared_ptr temp(std::move(other));
-        this->swap(temp);
+        swap(temp);
         return *this;
     }
 
@@ -586,7 +577,7 @@ public:
               class = std::enable_if_t<std::is_convertible_v<_ValueType *, ValueType *>>>
     void reset(_ValueType *value_ptr = {}, Deleter deleter = {}, const Allocator &allocator = {}) noexcept {
         shared_ptr temp(value_ptr, std::move(deleter), allocator);
-        this->swap(temp);
+        swap(temp);
     }
 
     void swap(shared_ptr &other) noexcept {
@@ -607,8 +598,8 @@ private:
 };
 
 template <class ValueType>
-class weak_ptr : public detail::WeakPointer<ValueType *, detail::ControlBlock *> {
-    using Base = detail::WeakPointer<ValueType *, detail::ControlBlock *>;
+class weak_ptr : public detail::WeakPtrBase<ValueType *, detail::ControlBlock *> {
+    using Base = detail::WeakPtrBase<ValueType *, detail::ControlBlock *>;
 
     template <class>
     friend class shared_ptr;
@@ -634,7 +625,7 @@ public:
     template <class _ValuePtr, class _ControlBlockPtr,
               class = std::enable_if_t<std::is_convertible_v<_ValuePtr, element_ptr>
                                        && std::is_convertible_v<_ControlBlockPtr, control_block_ptr>>>
-    explicit weak_ptr(const detail::StrongPointer<_ValuePtr, _ControlBlockPtr> &other) noexcept {
+    explicit weak_ptr(const detail::SharedPtrBase<_ValuePtr, _ControlBlockPtr> &other) noexcept {
         this->construct_from_strong(other);
     }
 
@@ -643,7 +634,7 @@ public:
     template <class _ValuePtr, class _ControlBlockPtr,
               class = std::enable_if_t<std::is_convertible_v<_ValuePtr, element_ptr>
                                        && std::is_convertible_v<_ControlBlockPtr, control_block_ptr>>>
-    weak_ptr(const detail::WeakPointer<_ValuePtr, _ControlBlockPtr> &other) noexcept {
+    weak_ptr(const detail::WeakPtrBase<_ValuePtr, _ControlBlockPtr> &other) noexcept {
         this->copy_construct(other);
     }
 
@@ -652,7 +643,7 @@ public:
     template <class _ValuePtr, class _ControlBlockPtr,
               class = std::enable_if_t<std::is_convertible_v<_ValuePtr, element_ptr>
                                        && std::is_convertible_v<_ControlBlockPtr, control_block_ptr>>>
-    weak_ptr(detail::WeakPointer<_ValuePtr, _ControlBlockPtr> &&other) noexcept {
+    weak_ptr(detail::WeakPtrBase<_ValuePtr, _ControlBlockPtr> &&other) noexcept {
         this->move_construct(std::move(other));
     }
 
@@ -660,46 +651,46 @@ public:
 
     weak_ptr &operator=(const weak_ptr &other) noexcept {
         weak_ptr temp(other);
-        this->swap(temp);
+        swap(temp);
         return *this;
     }
 
     template <class _ValuePtr, class _ControlBlockPtr,
               class = std::enable_if_t<std::is_convertible_v<_ValuePtr, element_ptr>
                                        && std::is_convertible_v<_ControlBlockPtr, control_block_ptr>>>
-    weak_ptr &operator=(const detail::WeakPointer<_ValuePtr, _ControlBlockPtr> &other) noexcept {
+    weak_ptr &operator=(const detail::WeakPtrBase<_ValuePtr, _ControlBlockPtr> &other) noexcept {
         weak_ptr temp(other);
-        this->swap(temp);
+        swap(temp);
         return *this;
     }
 
     weak_ptr &operator=(weak_ptr &&other) noexcept {
         weak_ptr temp(std::move(other));
-        this->swap(temp);
+        swap(temp);
         return *this;
     }
 
     template <class _ValuePtr, class _ControlBlockPtr,
               class = std::enable_if_t<std::is_convertible_v<_ValuePtr, element_ptr>
                                        && std::is_convertible_v<_ControlBlockPtr, control_block_ptr>>>
-    weak_ptr &operator=(detail::WeakPointer<_ValuePtr, _ControlBlockPtr> &&other) noexcept {
+    weak_ptr &operator=(detail::WeakPtrBase<_ValuePtr, _ControlBlockPtr> &&other) noexcept {
         weak_ptr temp(std::move(other));
-        this->swap(temp);
+        swap(temp);
         return *this;
     }
 
     template <class _ValuePtr, class _ControlBlockPtr,
               class = std::enable_if_t<std::is_convertible_v<_ValuePtr, element_ptr>
                                        && std::is_convertible_v<_ControlBlockPtr, control_block_ptr>>>
-    weak_ptr &operator=(const detail::StrongPointer<_ValuePtr, _ControlBlockPtr> &other) noexcept {
+    weak_ptr &operator=(const detail::SharedPtrBase<_ValuePtr, _ControlBlockPtr> &other) noexcept {
         weak_ptr temp(other);
-        this->swap(temp);
+        swap(temp);
         return *this;
     }
 
     void reset() noexcept {
         weak_ptr temp;
-        this->swap(temp);
+        swap(temp);
     }
 
     void swap(weak_ptr &other) noexcept {

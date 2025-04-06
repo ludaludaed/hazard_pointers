@@ -4,6 +4,18 @@
 #include <memory>
 #include <type_traits>
 
+#if defined(__has_cpp_attribute)
+#if __has_cpp_attribute(no_unique_address)
+#define NO_UNIQUE_ADDRESS [[no_unique_address]]
+#elif __has_cpp_attribute(msvc::no_unique_address)
+// MSVC-specific fallback
+#define NO_UNIQUE_ADDRESS [[msvc::no_unique_address]]
+#else
+#define NO_UNIQUE_ADDRESS
+#endif
+#else
+#define NO_UNIQUE_ADDRESS
+#endif
 
 #define HAS_METHOD(NAME, FUNC)                                                                               \
     template <class Type, class Signature>                                                                   \
@@ -28,7 +40,7 @@
     static constexpr bool NAME##_v = NAME<Type, Signature>::value;
 
 
-#define HAS_DEFINE(NAME, USING)                                                                              \
+#define HAS_TYPE_DEFINE(NAME, USING)                                                                         \
     template <class Type>                                                                                    \
     class NAME {                                                                                             \
         using yes = int;                                                                                     \
@@ -60,9 +72,13 @@ typename std::pointer_traits<Pointer>::element_type *to_raw_pointer(const Pointe
     return to_raw_pointer(ptr.operator->());
 }
 
+namespace detail {
+
 HAS_METHOD(has_static_cast_from, static_cast_from)
 HAS_METHOD(has_const_cast_from, const_cast_from)
 HAS_METHOD(has_dynamic_cast_from, dynamic_cast_from)
+
+}// namespace detail
 
 template <class TPtr>
 struct pointer_cast_traits {
@@ -72,8 +88,8 @@ struct pointer_cast_traits {
 
     template <class UPtr>
     static pointer static_cast_from(const UPtr &uptr) noexcept {
-        constexpr bool has_cast = has_static_cast_from<pointer, pointer (*)(UPtr)>::value
-                                  || has_static_cast_from<pointer, pointer (*)(const UPtr &)>::value;
+        constexpr bool has_cast = detail::has_static_cast_from<pointer, pointer (*)(UPtr)>::value
+                                  || detail::has_static_cast_from<pointer, pointer (*)(const UPtr &)>::value;
         if constexpr (has_cast) {
             return pointer::static_cast_from(uptr);
         } else {
@@ -86,8 +102,8 @@ struct pointer_cast_traits {
 
     template <class UPtr>
     static pointer const_cast_from(const UPtr &uptr) noexcept {
-        constexpr bool has_cast = has_const_cast_from<pointer, pointer (*)(UPtr)>::value
-                                  || has_const_cast_from<pointer, pointer (*)(const UPtr &)>::value;
+        constexpr bool has_cast = detail::has_const_cast_from<pointer, pointer (*)(UPtr)>::value
+                                  || detail::has_const_cast_from<pointer, pointer (*)(const UPtr &)>::value;
         if constexpr (has_cast) {
             return pointer::const_cast_from(uptr);
         } else {
@@ -100,8 +116,8 @@ struct pointer_cast_traits {
 
     template <class UPtr>
     static pointer dynamic_cast_from(const UPtr &uptr) noexcept {
-        constexpr bool has_cast = has_dynamic_cast_from<pointer, pointer (*)(UPtr)>::value
-                                  || has_dynamic_cast_from<pointer, pointer (*)(const UPtr &)>::value;
+        constexpr bool has_cast = detail::has_dynamic_cast_from<pointer, pointer (*)(UPtr)>::value
+                                  || detail::has_dynamic_cast_from<pointer, pointer (*)(const UPtr &)>::value;
         if constexpr (has_cast) {
             return pointer::dynamic_cast_from(uptr);
         } else {

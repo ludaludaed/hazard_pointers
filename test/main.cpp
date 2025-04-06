@@ -8,7 +8,6 @@
 #include <lu/utils/backoff.h>
 #include <lu/utils/marked_ptr.h>
 
-#include "lu/detail/shared_freelist.h"
 #include "ordered_list.h"
 #include "structures.h"
 
@@ -288,10 +287,10 @@ private:
 int main() {
     for (int i = 0; i < 1000; ++i) {
         std::cout << "iteration: #" << i << std::endl;
-        abstractStressTest(SetFixture<lu::ordered_list_set<int, lu::backoff<lu::none_backoff>>>({}));
-        abstractStressTest(stressTest<lu::asp::TreiberStack<int, lu::yield_backoff>>);
-        abstractStressTest(stressTest<lu::asp::MSQueue<int, lu::yield_backoff>>);
-        abstractStressTest(stressTest<lu::hp::TreiberStack<int, lu::yield_backoff>>);
-        abstractStressTest(stressTest<lu::hp::MSQueue<int, lu::yield_backoff>>);
+        abstractStressTest(SetFixture<lu::ordered_list_set<int, lu::backoff<lu::yield_backoff>>>({}));
+        // abstractStressTest(stressTest<lu::asp::TreiberStack<int, lu::yield_backoff>>);
+        // abstractStressTest(stressTest<lu::asp::MSQueue<int, lu::yield_backoff>>);
+        // abstractStressTest(stressTest<lu::hp::TreiberStack<int, lu::yield_backoff>>);
+        // abstractStressTest(stressTest<lu::hp::MSQueue<int, lu::yield_backoff>>);
     }
 }

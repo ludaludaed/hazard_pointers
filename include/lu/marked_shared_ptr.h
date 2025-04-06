@@ -18,8 +18,8 @@ class MarkedSharedPointerTraits;
 }// namespace detail
 
 template <class ValueType>
-class marked_shared_ptr : public detail::StrongPointer<ValueType *, marked_ptr<detail::ControlBlock>> {
-    using Base = detail::StrongPointer<ValueType *, marked_ptr<detail::ControlBlock>>;
+class marked_shared_ptr : public detail::SharedPtrBase<ValueType *, marked_ptr<detail::ControlBlock>> {
+    using Base = detail::SharedPtrBase<ValueType *, marked_ptr<detail::ControlBlock>>;
 
     template <class>
     friend class marked_shared_ptr;
@@ -54,14 +54,14 @@ public:
     template <class _ValuePtr, class _ControlBlockPtr,
               class = std::enable_if_t<std::is_convertible_v<_ValuePtr, element_ptr>
                                        && std::is_convertible_v<_ControlBlockPtr, control_block_ptr>>>
-    marked_shared_ptr(const detail::StrongPointer<_ValuePtr, _ControlBlockPtr> &other) noexcept {
+    marked_shared_ptr(const detail::SharedPtrBase<_ValuePtr, _ControlBlockPtr> &other) noexcept {
         this->copy_construct(other);
     }
 
     template <class _ValuePtr, class _ControlBlockPtr,
               class = std::enable_if_t<std::is_convertible_v<_ValuePtr, element_ptr>
                                        && std::is_convertible_v<_ControlBlockPtr, control_block_ptr>>>
-    marked_shared_ptr(const detail::StrongPointer<_ValuePtr, _ControlBlockPtr> &other,
+    marked_shared_ptr(const detail::SharedPtrBase<_ValuePtr, _ControlBlockPtr> &other,
                       bool bit_value) noexcept {
         this->copy_construct(other);
         this->control_block_ = control_block_ptr(this->control_block_.get(), bit_value);
@@ -72,14 +72,14 @@ public:
     template <class _ValuePtr, class _ControlBlockPtr,
               class = std::enable_if_t<std::is_convertible_v<_ValuePtr, element_ptr>
                                        && std::is_convertible_v<_ControlBlockPtr, control_block_ptr>>>
-    marked_shared_ptr(detail::StrongPointer<_ValuePtr, _ControlBlockPtr> &&other) noexcept {
+    marked_shared_ptr(detail::SharedPtrBase<_ValuePtr, _ControlBlockPtr> &&other) noexcept {
         this->move_construct(std::move(other));
     }
 
     template <class _ValuePtr, class _ControlBlockPtr,
               class = std::enable_if_t<std::is_convertible_v<_ValuePtr, element_ptr>
                                        && std::is_convertible_v<_ControlBlockPtr, control_block_ptr>>>
-    explicit marked_shared_ptr(const detail::WeakPointer<_ValuePtr, _ControlBlockPtr> &other) noexcept {
+    explicit marked_shared_ptr(const detail::WeakPtrBase<_ValuePtr, _ControlBlockPtr> &other) noexcept {
         this->construct_from_weak(other);
     }
 
@@ -87,31 +87,31 @@ public:
 
     marked_shared_ptr &operator=(const marked_shared_ptr &other) noexcept {
         marked_shared_ptr temp(other);
-        this->swap(temp);
+        swap(temp);
         return *this;
     }
 
     template <class _ValuePtr, class _ControlBlockPtr,
               class = std::enable_if_t<std::is_convertible_v<_ValuePtr, element_ptr>
                                        && std::is_convertible_v<_ControlBlockPtr, control_block_ptr>>>
-    marked_shared_ptr &operator=(const detail::StrongPointer<_ValuePtr, _ControlBlockPtr> &other) noexcept {
+    marked_shared_ptr &operator=(const detail::SharedPtrBase<_ValuePtr, _ControlBlockPtr> &other) noexcept {
         marked_shared_ptr temp(other);
-        this->swap(temp);
+        swap(temp);
         return *this;
     }
 
     marked_shared_ptr &operator=(marked_shared_ptr &&other) noexcept {
         marked_shared_ptr temp(std::move(other));
-        this->swap(temp);
+        swap(temp);
         return *this;
     }
 
     template <class _ValuePtr, class _ControlBlockPtr,
               class = std::enable_if_t<std::is_convertible_v<_ValuePtr, element_ptr>
                                        && std::is_convertible_v<_ControlBlockPtr, control_block_ptr>>>
-    marked_shared_ptr &operator=(detail::StrongPointer<_ValuePtr, _ControlBlockPtr> &&other) noexcept {
+    marked_shared_ptr &operator=(detail::SharedPtrBase<_ValuePtr, _ControlBlockPtr> &&other) noexcept {
         marked_shared_ptr temp(std::move(other));
-        this->swap(temp);
+        swap(temp);
         return *this;
     }
 
@@ -120,7 +120,7 @@ public:
               class = std::enable_if_t<std::is_convertible_v<_ValueType *, ValueType *>>>
     void reset(_ValueType *value_ptr = {}, Deleter deleter = {}, const Allocator &allocator = {}) noexcept {
         marked_shared_ptr temp(value_ptr, std::move(deleter), allocator);
-        this->swap(temp);
+        swap(temp);
     }
 
     void swap(marked_shared_ptr &other) noexcept {
