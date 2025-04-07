@@ -249,8 +249,8 @@ class hazard_pointer_domain {
         HazardRecords records_;
         HazardRetires retires_;
 
-        std::atomic<std::size_t> num_of_retired;
-        std::atomic<std::size_t> num_of_reclaimed;
+        CACHE_LINE_ALIGNAS std::atomic<std::size_t> num_of_retired;
+        CACHE_LINE_ALIGNAS std::atomic<std::size_t> num_of_reclaimed;
     };
 
     struct Creator {
@@ -460,7 +460,6 @@ public:
         }
     }
 
-public:
     bool empty() const noexcept { return !record_; }
 
     explicit operator bool() const noexcept { return !empty(); }
@@ -563,39 +562,8 @@ private:
     pointer ptr_{};
 };
 
-namespace detail {
-
-template <class ValueType, class Deleter, bool = std::is_empty_v<Deleter> && !std::is_final_v<Deleter>>
-class HazardPointerDeleter;
-
-template <class ValueType, class Deleter>
-class HazardPointerDeleter<ValueType, Deleter, false> {
-protected:
-    void set_deleter(Deleter deleter) noexcept(std::is_nothrow_move_assignable_v<Deleter>) {
-        deleter_ = std::move(deleter);
-    }
-
-    void do_delete(ValueType *value) noexcept { deleter_(value); }
-
-private:
-    Deleter deleter_;
-};
-
-template <class ValueType, class Deleter>
-class HazardPointerDeleter<ValueType, Deleter, true> : private Deleter {
-protected:
-    void set_deleter(Deleter deleter) noexcept(std::is_nothrow_move_assignable_v<Deleter>) {
-        Deleter::operator=(std::move(deleter));
-    }
-
-    void do_delete(ValueType *value) noexcept { Deleter::operator()(value); }
-};
-
-}// namespace detail
-
 template <class ValueType, class Deleter = std::default_delete<ValueType>>
-class hazard_pointer_obj_base : public detail::HazardObject,
-                                private detail::HazardPointerDeleter<ValueType, Deleter> {
+class hazard_pointer_obj_base : public detail::HazardObject {
 protected:
     hazard_pointer_obj_base() noexcept = default;
 
@@ -606,7 +574,7 @@ protected:
 public:
     void retire(Deleter deleter, hazard_pointer_domain &domain = get_default_domain()) noexcept {
         assert(!retired_.exchange(true, std::memory_order_relaxed) && "Double retire is not allowed");
-        this->set_deleter(std::move(deleter));
+        deleter_ = std::move(deleter);
         this->set_reclaim(reclaim_func);
         this->set_key(static_cast<HazardObject *>(this));
         domain.retire(this);
@@ -618,11 +586,12 @@ private:
     static void reclaim_func(HazardObject *obj) noexcept {
         auto obj_base = static_cast<hazard_pointer_obj_base *>(obj);
         auto value = static_cast<ValueType *>(obj);
-        obj_base->do_delete(value);
+        obj_base->deleter_(value);
     }
 
-#ifndef NDEBUG
 private:
+    NO_UNIQUE_ADDRESS Deleter deleter_;
+#ifndef NDEBUG
     std::atomic<bool> retired_{false};
 #endif
 };

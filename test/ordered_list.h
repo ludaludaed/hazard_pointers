@@ -1,6 +1,7 @@
 #ifndef __ORDERED_LIST_H__
 #define __ORDERED_LIST_H__
 
+#include <lu/detail/utils.h>
 #include <lu/hazard_pointer.h>
 #include <lu/intrusive/detail/compressed_tuple.h>
 #include <lu/intrusive/detail/utils.h>
@@ -270,14 +271,15 @@ public:
 
 public:
     explicit OrderedList(const compare &compare = {}, const key_select &key_select = {})
-        : data_(node_marked_ptr{}, compare, key_select) {}
+        : key_compare_(compare)
+        , key_select_(key_select) {}
 
     OrderedList(const OrderedList &other) = delete;
 
     OrderedList(OrderedList &&other) = delete;
 
     ~OrderedList() {
-        auto current = lu::get<0>(data_).load();
+        auto current = head_.load();
         while (current) {
             auto next = current->next.load();
             delete current.get();
@@ -286,10 +288,7 @@ public:
     }
 
 private:
-    decltype(auto) select_key(const value_type &value) const {
-        auto &key_select = lu::get<KeySelect>(data_);
-        return key_select(value);
-    }
+    decltype(auto) select_key(const value_type &value) const { return key_select_(value); }
 
     bool find(const key_type &key, position &pos) const {
         Backoff backoff;
@@ -297,18 +296,15 @@ private:
     }
 
     bool find(const key_type &key, position &pos, Backoff &backoff) const {
-        auto &comp = lu::get<KeyCompare>(data_);
-        auto &key_select = lu::get<KeySelect>(data_);
-        auto head_ptr = const_cast<std::atomic<node_marked_ptr> *>(&lu::get<0>(data_));
-        return Algo::find(head_ptr, key, pos, backoff, comp, key_select);
+        auto head_ptr = const_cast<std::atomic<node_marked_ptr> *>(&head_);
+        return Algo::find(head_ptr, key, pos, backoff, key_compare_, key_select_);
     }
 
     bool insert_node(node_ptr new_node) {
-        auto &key_select = lu::get<KeySelect>(data_);
         Backoff backoff;
         position pos;
         while (true) {
-            if (find(key_select(new_node->value), pos, backoff)) {
+            if (find(key_select_(new_node->value), pos, backoff)) {
                 return false;
             }
             if (Algo::link(pos, new_node)) {
@@ -359,15 +355,14 @@ public:
 
     void clear() {
         Backoff backoff;
-        auto &key_select = lu::get<KeySelect>(data_);
         lu::hazard_pointer head_guard = lu::make_hazard_pointer();
         position pos;
         while (true) {
-            auto head = head_guard.protect(lu::get<0>(data_), [](node_marked_ptr ptr) { return ptr.get(); });
+            auto head = head_guard.protect(head_, [](node_marked_ptr ptr) { return ptr.get(); });
             if (!head) {
                 break;
             }
-            if (find(key_select(head->value), pos, backoff) && pos.cur == head.get()) {
+            if (find(key_select_(head->value), pos, backoff) && pos.cur == head.get()) {
                 Algo::unlink(pos);
             }
         }
@@ -412,11 +407,11 @@ public:
         return find(key, pos);
     }
 
-    bool empty() const { return !lu::get<0>(data_).load(); }
+    bool empty() const { return !head_.load(); }
 
     iterator begin() {
         auto head_guard = lu::make_hazard_pointer();
-        auto head = head_guard.protect(lu::get<0>(data_), [](node_marked_ptr ptr) { return ptr.get(); });
+        auto head = head_guard.protect(head_, [](node_marked_ptr ptr) { return ptr.get(); });
         return iterator(std::move(head_guard), head, this);
     }
 
@@ -424,7 +419,7 @@ public:
 
     const_iterator cbegin() const {
         auto head_guard = lu::make_hazard_pointer();
-        auto head = head_guard.protect(lu::get<0>(data_), [](node_marked_ptr ptr) { return ptr.get(); });
+        auto head = head_guard.protect(head_, [](node_marked_ptr ptr) { return ptr.get(); });
         return const_iterator(std::move(head_guard), head, this);
     }
 
@@ -435,7 +430,9 @@ public:
     const_iterator end() const { return cend(); }
 
 private:
-    lu::compressed_tuple<std::atomic<node_marked_ptr>, KeyCompare, KeySelect> data_;
+    CACHE_LINE_ALIGNAS std::atomic<node_marked_ptr> head_{};
+    NO_UNIQUE_ADDRESS compare key_compare_;
+    NO_UNIQUE_ADDRESS key_select key_select_;
 };
 
 template <class KeyType, class ValueType>

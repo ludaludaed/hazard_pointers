@@ -1013,15 +1013,13 @@ struct DefaultHashTableHook : public UseDefaultHookTag {
     };
 };
 
-struct DefaultBucketTraits;
-
 struct HashtableDefaults {
     using proto_value_traits = DefaultHashTableHook;
     using size_type = std::size_t;
     using key_of_value = void;
     using equal = void;
     using hash = void;
-    using proto_bucket_traits = DefaultBucketTraits;
+    using proto_bucket_traits = void;
     static const bool is_power_2_buckets = false;
 };
 
@@ -1038,7 +1036,7 @@ struct GetBucketTraits {
 };
 
 template <class ValueTraits, class SizeType>
-struct GetBucketTraits<DefaultBucketTraits, ValueTraits, SizeType> {
+struct GetBucketTraits<void, ValueTraits, SizeType> {
     using bucket_type = BucketValue<typename ValueTraits::node_traits>;
     using bucket_pointer =
             typename std::pointer_traits<typename ValueTraits::pointer>::template rebind<bucket_type>;

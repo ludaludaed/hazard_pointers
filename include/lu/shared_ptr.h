@@ -24,10 +24,6 @@ inline lu::hazard_pointer_domain &get_ref_count_domain() noexcept {
     return domain;
 }
 
-// namespase hide for resolve this problem
-// error: 'ControlBlockDeleter' is a private member of 'lu::detail::ControlBlockDeleter'
-namespace hide {
-
 struct ControlBlockDeleter {
     template <class ControlBlock>
     void operator()(ControlBlock *ptr) {
@@ -35,11 +31,9 @@ struct ControlBlockDeleter {
     }
 };
 
-}// namespace hide
-
 class ControlBlock : public lu::forward_list_base_hook<lu::is_auto_unlink<false>>,
-                     public lu::hazard_pointer_obj_base<ControlBlock, hide::ControlBlockDeleter> {
-    friend struct hide::ControlBlockDeleter;
+                     public lu::hazard_pointer_obj_base<ControlBlock, ControlBlockDeleter> {
+    friend struct ControlBlockDeleter;
 
 public:
     ControlBlock() noexcept = default;
@@ -117,8 +111,8 @@ class OutplaceControlBlock : public ControlBlock {
 public:
     OutplaceControlBlock(ValueType *value_ptr, Deleter deleter, const Allocator &allocator) noexcept
         : value_ptr_(value_ptr)
-        , deleter_(std::move(deleter))
-        , allocator_(allocator) {}
+        , allocator_(allocator)
+        , deleter_(std::move(deleter)) {}
 
     void *get() const noexcept override { return lu::to_raw_pointer(value_ptr_); }
 
@@ -133,8 +127,8 @@ private:
 
 private:
     ValueType *value_ptr_;
-    Deleter deleter_;
     allocator_type allocator_;
+    NO_UNIQUE_ADDRESS Deleter deleter_;
 };
 
 template <class ValueType, class Allocator>
@@ -192,7 +186,6 @@ InplaceControlBlock<ValueType, Allocator> *make_inplace_control_block(const Allo
     using AllocatorTraits = std::allocator_traits<AllocatorType>;
 
     AllocatorType internal_allocator(allocator);
-
     AllocateGuard allocate_guard(internal_allocator);
 
     auto result = allocate_guard.allocate();

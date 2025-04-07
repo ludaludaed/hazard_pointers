@@ -1,6 +1,8 @@
 #ifndef __UTILS_H__
 #define __UTILS_H__
 
+#include <lu/intrusive/detail/utils.h>
+
 #include <algorithm>
 #include <cstdint>
 #include <memory>
