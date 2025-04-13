@@ -3,7 +3,6 @@
 
 #include <lu/detail/utils.h>
 #include <lu/hazard_pointer.h>
-#include <lu/intrusive/detail/compressed_tuple.h>
 #include <lu/intrusive/detail/utils.h>
 #include <lu/utils/backoff.h>
 #include <lu/utils/marked_ptr.h>

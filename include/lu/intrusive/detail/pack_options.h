@@ -1,10 +1,11 @@
 #ifndef __INTRUSIVE_PACK_OPTIONS_H__
 #define __INTRUSIVE_PACK_OPTIONS_H__
 
-#include <lu/intrusive/detail/typelist.h>
-
 namespace lu {
 namespace detail {
+
+template <class... Args>
+struct typelist;
 
 template <class Typelist>
 struct DoPack;
