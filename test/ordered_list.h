@@ -123,13 +123,12 @@ class OrderedList {
     using position = typename Algo::position;
 
     template <class Types, bool IsConst>
-    class OrderedListIterator {
-        template <class, class, class, class>
+    class Iterator {
         friend class OrderedList;
 
         class DummyNonConstIter;
         using NonConstIter
-                = std::conditional_t<IsConst, OrderedListIterator<Types, false>, DummyNonConstIter>;
+                = std::conditional_t<IsConst, Iterator<Types, false>, DummyNonConstIter>;
 
         using node_ptr = typename Types::node_ptr;
         using node_marked_ptr = typename Types::node_marked_ptr;
@@ -144,63 +143,63 @@ class OrderedList {
         using iterator_category = std::forward_iterator_tag;
 
     private:
-        OrderedListIterator(lu::hazard_pointer guard, node_ptr current, const OrderedList *list) noexcept
+        Iterator(lu::hazard_pointer guard, node_ptr current, const OrderedList *list) noexcept
             : guard_(std::move(guard))
             , current_(current)
             , list_(list) {}
 
     public:
-        OrderedListIterator() = default;
+        Iterator() = default;
 
-        OrderedListIterator(const OrderedListIterator &other) noexcept
+        Iterator(const Iterator &other) noexcept
             : guard_(lu::make_hazard_pointer())
             , current_(other.current_)
             , list_(other.list_) {
             guard_.reset_protection(current_);
         }
 
-        OrderedListIterator(const NonConstIter &other) noexcept
+        Iterator(const NonConstIter &other) noexcept
             : guard_(lu::make_hazard_pointer())
             , current_(other.current_)
             , list_(other.list_) {
             guard_.reset_protection(current_);
         }
 
-        OrderedListIterator(OrderedListIterator &&other) noexcept { swap(other); }
+        Iterator(Iterator &&other) noexcept { swap(other); }
 
-        OrderedListIterator(NonConstIter &&other) noexcept { swap(other); }
+        Iterator(NonConstIter &&other) noexcept { swap(other); }
 
-        OrderedListIterator &operator=(const OrderedListIterator &other) noexcept {
-            OrderedListIterator temp(other);
+        Iterator &operator=(const Iterator &other) noexcept {
+            Iterator temp(other);
             swap(temp);
             return *this;
         }
 
-        OrderedListIterator &operator=(const NonConstIter &other) noexcept {
-            OrderedListIterator temp(other);
+        Iterator &operator=(const NonConstIter &other) noexcept {
+            Iterator temp(other);
             swap(temp);
             return *this;
         }
 
-        OrderedListIterator &operator=(OrderedListIterator &&other) noexcept {
-            OrderedListIterator temp(std::move(other));
+        Iterator &operator=(Iterator &&other) noexcept {
+            Iterator temp(std::move(other));
             swap(temp);
             return *this;
         }
 
-        OrderedListIterator &operator=(NonConstIter &&other) noexcept {
-            OrderedListIterator temp(std::move(other));
+        Iterator &operator=(NonConstIter &&other) noexcept {
+            Iterator temp(std::move(other));
             swap(temp);
             return *this;
         }
 
-        OrderedListIterator &operator++() noexcept {
+        Iterator &operator++() noexcept {
             increment();
             return *this;
         }
 
-        OrderedListIterator operator++(int) noexcept {
-            OrderedListIterator copy(*this);
+        Iterator operator++(int) noexcept {
+            Iterator copy(*this);
             increment();
             return copy;
         }
@@ -209,15 +208,15 @@ class OrderedList {
 
         pointer operator->() const noexcept { return &current_->value; }
 
-        friend bool operator==(const OrderedListIterator &left, const OrderedListIterator &right) {
+        friend bool operator==(const Iterator &left, const Iterator &right) {
             return left.current_ == right.current_;
         }
 
-        friend bool operator!=(const OrderedListIterator &left, const OrderedListIterator &right) {
+        friend bool operator!=(const Iterator &left, const Iterator &right) {
             return !(left == right);
         }
 
-        void swap(OrderedListIterator &other) {
+        void swap(Iterator &other) {
             std::swap(guard_, other.guard_);
             std::swap(current_, other.current_);
             std::swap(list_, other.list_);
@@ -231,7 +230,7 @@ class OrderedList {
             if (next.is_marked()) {
                 next_guard = lu::hazard_pointer();
                 position new_pos;
-                list_->find(list_->select_key(current_->value), new_pos);
+                list_->find(list_->key_select_(current_->value), new_pos);
 
                 guard_ = std::move(new_pos.cur_guard);
                 current_ = new_pos.cur;
@@ -265,8 +264,8 @@ public:
     using guarded_ptr
             = std::conditional_t<is_key_value, lu::guarded_ptr<ValueType>, lu::guarded_ptr<const ValueType>>;
 
-    using iterator = OrderedListIterator<OrderedList, !is_key_value>;
-    using const_iterator = OrderedListIterator<OrderedList, true>;
+    using iterator = Iterator<OrderedList, !is_key_value>;
+    using const_iterator = Iterator<OrderedList, true>;
 
 public:
     explicit OrderedList(const compare &compare = {}, const key_select &key_select = {})
@@ -287,8 +286,6 @@ public:
     }
 
 private:
-    decltype(auto) select_key(const value_type &value) const { return key_select_(value); }
-
     bool find(const key_type &key, position &pos) const {
         Backoff backoff;
         return find(key, pos, backoff);
