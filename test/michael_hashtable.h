@@ -47,6 +47,10 @@ class MichaelHashTable {
     using Algo = MichaelHashTableAlgo<node_traits>;
     using position = typename Algo::position;
 
+    struct Bucket {
+        CACHE_LINE_ALIGNAS std::atomic<node_marked_ptr> head_{};
+    };
+
 private:
     template <class Types, bool IsConst>
     class Iterator;
@@ -96,13 +100,51 @@ public:
     }
 
 private:
-    
+    static std::size_t get_bucket_idx(std::size_t hash) noexcept {
+        if constexpr ((NumOfBuckets & (NumOfBuckets - 1)) == 0) {
+            return hash & (NumOfBuckets - 1);
+        } else {
+            return hash % NumOfBuckets;
+        }
+    }
+
+    bool find(std::atomic<node_marked_ptr> *head, const key_type &key, position &pos) const {
+        Backoff backoff;
+        return find(key, pos, backoff);
+    }
+
+    bool find(std::atomic<node_marked_ptr> *head, const key_type &key, position &pos,
+              Backoff &backoff) const {
+        return Algo::find(head, key, pos, backoff, key_compare_, key_select_);
+    }
+
+    bool insert_node(std::atomic<node_marked_ptr> *head, node_ptr new_node) noexcept {
+        Backoff backoff;
+        position pos;
+        while (true) {
+            if (find(head, key_select_(new_node->value), pos, backoff)) {
+                return false;
+            }
+            if (Algo::link(pos, new_node)) {
+                return true;
+            }
+            backoff();
+        }
+    }
+
+    bool erase(std::atomic<node_marked_ptr> *head, const key_type &key) {
+        Backoff backoff;
+        position pos;
+        while (find(head, key, pos, backoff)) {
+            if (Algo::unlink(pos)) {
+                return true;
+            }
+            backoff();
+        }
+        return false;
+    }
 
 private:
-    struct Bucket {
-        CACHE_LINE_ALIGNAS std::atomic<node_marked_ptr> head_{};
-    };
-
     std::array<Bucket, NumOfBuckets> buckets_{};
     NO_UNIQUE_ADDRESS hasher hash_;
     NO_UNIQUE_ADDRESS compare key_compare_;
