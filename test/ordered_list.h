@@ -9,6 +9,7 @@
 
 #include <atomic>
 #include <cstddef>
+#include <memory>
 #include <type_traits>
 
 
@@ -261,7 +262,7 @@ public:
 
     static constexpr bool is_key_value = !std::is_same_v<value_type, key_type>;
 
-    using guarded_ptr
+    using accessor
             = std::conditional_t<is_key_value, lu::guarded_ptr<ValueType>, lu::guarded_ptr<const ValueType>>;
 
     using iterator = Iterator<OrderedList, !is_key_value>;
@@ -317,11 +318,11 @@ public:
 
     template <class... Args>
     bool emplace(Args &&...args) {
-        node_ptr new_node = new node(std::forward<Args>(args)...);
-        if (!insert_node(new_node)) {
-            delete new_node;
+        auto new_node = std::make_unique<node>(std::forward<Args>(args)...);
+        if (!insert_node(new_node.get())) {
             return false;
         }
+        new_node.release();
         return true;
     }
 
@@ -337,16 +338,16 @@ public:
         return false;
     }
 
-    guarded_ptr extract(const key_type &key) {
+    accessor extract(const key_type &key) {
         Backoff backoff;
         position pos;
         while (find(key, pos, backoff)) {
             if (Algo::unlink(pos)) {
-                return guarded_ptr(std::move(pos.cur_guard), &pos.cur->value);
+                return accessor(std::move(pos.cur_guard), &pos.cur->value);
             }
             backoff();
         }
-        return guarded_ptr();
+        return accessor();
     }
 
     void clear() {

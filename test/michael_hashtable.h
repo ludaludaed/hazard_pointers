@@ -48,7 +48,7 @@ class MichaelHashTable {
     using position = typename Algo::position;
 
     struct Bucket {
-        CACHE_LINE_ALIGNAS std::atomic<node_marked_ptr> head_{};
+        CACHE_LINE_ALIGNAS std::atomic<node_marked_ptr> head{};
     };
 
 private:
@@ -80,7 +80,7 @@ public:
 public:
     explicit MichaelHashTable(const hasher &hasher = {}, const compare &compare = {},
                               const key_select &key_select = {})
-        : hash_(hasher)
+        : key_hash_(hasher)
         , key_compare_(compare)
         , key_select_(key_select) {}
 
@@ -108,45 +108,31 @@ private:
         }
     }
 
-    bool find(std::atomic<node_marked_ptr> *head, const key_type &key, position &pos) const {
-        Backoff backoff;
-        return find(key, pos, backoff);
-    }
+public:
+    bool insert(const value_type &value);
 
-    bool find(std::atomic<node_marked_ptr> *head, const key_type &key, position &pos,
-              Backoff &backoff) const {
-        return Algo::find(head, key, pos, backoff, key_compare_, key_select_);
-    }
+    bool insert(value_type &&value);
 
-    bool insert_node(std::atomic<node_marked_ptr> *head, node_ptr new_node) noexcept {
-        Backoff backoff;
-        position pos;
-        while (true) {
-            if (find(head, key_select_(new_node->value), pos, backoff)) {
-                return false;
-            }
-            if (Algo::link(pos, new_node)) {
-                return true;
-            }
-            backoff();
-        }
-    }
+    template <class... Args>
+    bool emplace(Args &&...args);
 
-    bool erase(std::atomic<node_marked_ptr> *head, const key_type &key) {
-        Backoff backoff;
-        position pos;
-        while (find(head, key, pos, backoff)) {
-            if (Algo::unlink(pos)) {
-                return true;
-            }
-            backoff();
-        }
-        return false;
-    }
+    bool erase(const key_type &key);
+
+    iterator find(const key_type &key) const;
+
+    bool contains(const key_type &key) const;
+
+    iterator begin();
+
+    iterator end();
+
+    const_iterator begin() const;
+
+    const_iterator end() const;
 
 private:
     std::array<Bucket, NumOfBuckets> buckets_{};
-    NO_UNIQUE_ADDRESS hasher hash_;
+    NO_UNIQUE_ADDRESS hasher key_hash_;
     NO_UNIQUE_ADDRESS compare key_compare_;
     NO_UNIQUE_ADDRESS key_select key_select_;
 };
