@@ -11,6 +11,7 @@
 
 #include <array>
 #include <atomic>
+#include <utility>
 
 namespace lu {
 namespace detail {
@@ -71,7 +72,7 @@ public:
 
     static constexpr bool is_key_value = !std::is_same_v<value_type, key_type>;
 
-    using guarded_ptr
+    using accessor
             = std::conditional_t<is_key_value, lu::guarded_ptr<ValueType>, lu::guarded_ptr<const ValueType>>;
 
     using iterator = Iterator<MichaelHashTable, !is_key_value>;
@@ -118,7 +119,11 @@ public:
 
     bool erase(const key_type &key);
 
-    iterator find(const key_type &key) const;
+    accessor extract(const key_type &key);
+
+    iterator find(const key_type &key);
+
+    const_iterator find(const key_type &key) const;
 
     bool contains(const key_type &key) const;
 

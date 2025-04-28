@@ -67,7 +67,7 @@ struct OrderedListAlgo {
         if (pos.prev_pointer->compare_exchange_weak(cur, node_marked_ptr(new_node, 0))) {
             return true;
         } else {
-            new_node->next.store({});
+            new_node->next.store(nullptr);
             return false;
         }
     }
@@ -128,8 +128,7 @@ class OrderedList {
         friend class OrderedList;
 
         class DummyNonConstIter;
-        using NonConstIter
-                = std::conditional_t<IsConst, Iterator<Types, false>, DummyNonConstIter>;
+        using NonConstIter = std::conditional_t<IsConst, Iterator<Types, false>, DummyNonConstIter>;
 
         using node_ptr = typename Types::node_ptr;
         using node_marked_ptr = typename Types::node_marked_ptr;
@@ -213,9 +212,7 @@ class OrderedList {
             return left.current_ == right.current_;
         }
 
-        friend bool operator!=(const Iterator &left, const Iterator &right) {
-            return !(left == right);
-        }
+        friend bool operator!=(const Iterator &left, const Iterator &right) { return !(left == right); }
 
         void swap(Iterator &other) {
             std::swap(guard_, other.guard_);
@@ -297,20 +294,6 @@ private:
         return Algo::find(head_ptr, key, pos, backoff, key_compare_, key_select_);
     }
 
-    bool insert_node(node_ptr new_node) {
-        Backoff backoff;
-        position pos;
-        while (true) {
-            if (find(key_select_(new_node->value), pos, backoff)) {
-                return false;
-            }
-            if (Algo::link(pos, new_node)) {
-                return true;
-            }
-            backoff();
-        }
-    }
-
 public:
     bool insert(const value_type &value) { return emplace(value); }
 
@@ -319,11 +302,18 @@ public:
     template <class... Args>
     bool emplace(Args &&...args) {
         auto new_node = std::make_unique<node>(std::forward<Args>(args)...);
-        if (!insert_node(new_node.get())) {
-            return false;
+        Backoff backoff;
+        position pos;
+        while (true) {
+            if (find(key_select_(new_node->value), pos, backoff)) {
+                return false;
+            }
+            if (Algo::link(pos, new_node.get())) {
+                new_node.release();
+                return true;
+            }
+            backoff();
         }
-        new_node.release();
-        return true;
     }
 
     bool erase(const key_type &key) {
