@@ -25,11 +25,15 @@ struct CircularSlistAlgo {
     using node_ptr = typename node_traits::node_ptr;
     using const_node_ptr = typename node_traits::const_node_ptr;
 
-    static void init_head(node_ptr this_node) noexcept { node_traits::set_next(this_node, this_node); }
+    static void init_head(node_ptr this_node) noexcept {
+        node_traits::set_next(this_node, this_node);
+    }
 
     static void init(node_ptr this_node) noexcept { node_traits::set_next(this_node, node_ptr{}); }
 
-    static bool inited(const_node_ptr this_node) noexcept { return !node_traits::get_next(this_node); }
+    static bool inited(const_node_ptr this_node) noexcept {
+        return !node_traits::get_next(this_node);
+    }
 
     static bool is_linked(const_node_ptr this_node) noexcept { return !inited(this_node); }
 
@@ -106,18 +110,22 @@ struct CircularSlistAlgo {
             node_ptr other_next = node_traits::get_next(other_node);
 
             if (!unique(other_node)) {
-                node_traits::set_next(this_next == other_node ? other_node : get_prev(other_node), this_node);
+                node_traits::set_next(this_next == other_node ? other_node : get_prev(other_node),
+                                      this_node);
             }
             if (!unique(this_node)) {
-                node_traits::set_next(other_next == this_node ? this_node : get_prev(this_node), other_node);
+                node_traits::set_next(other_next == this_node ? this_node : get_prev(this_node),
+                                      other_node);
             }
 
-            node_traits::set_next(this_node, other_node == other_next
-                                                     ? this_node
-                                                     : (other_next == this_node ? other_node : other_next));
-            node_traits::set_next(other_node, this_node == this_next
-                                                      ? other_node
-                                                      : (this_next == other_node ? this_node : this_next));
+            node_traits::set_next(this_node,
+                                  other_node == other_next
+                                          ? this_node
+                                          : (other_next == this_node ? other_node : other_next));
+            node_traits::set_next(other_node,
+                                  this_node == this_next
+                                          ? other_node
+                                          : (this_next == other_node ? this_node : this_next));
         }
     }
 
@@ -134,7 +142,8 @@ struct CircularSlistAlgo {
         return head_node;
     }
 
-    static void transfer_after(node_ptr where, node_ptr before_first, node_ptr before_last) noexcept {
+    static void transfer_after(node_ptr where, node_ptr before_first,
+                               node_ptr before_last) noexcept {
         if (where != before_first && where != before_last && before_first != before_last) {
             node_ptr first = node_traits::get_next(before_last);
             node_ptr start = node_traits::get_next(before_first);
@@ -178,7 +187,8 @@ struct CircularSlistAlgo {
 
 private:
     template <class Compare>
-    static node_ptr linear_merge(node_ptr left_first, node_ptr right_first, Compare &&comp) noexcept {
+    static node_ptr linear_merge(node_ptr left_first, node_ptr right_first,
+                                 Compare &&comp) noexcept {
         if (!left_first) {
             return right_first;
         }
@@ -262,7 +272,8 @@ class SlistIterator {
     friend class SlistIterator<Types, true>;
 
     class DummyNonConstIter;
-    using NonConstIter = typename std::conditional_t<IsConst, SlistIterator<Types, false>, DummyNonConstIter>;
+    using NonConstIter =
+            typename std::conditional_t<IsConst, SlistIterator<Types, false>, DummyNonConstIter>;
 
     using value_traits = typename Types::value_traits;
     using value_traits_ptr = typename Types::value_traits_ptr;
@@ -272,8 +283,10 @@ class SlistIterator {
 
 public:
     using value_type = typename Types::value_type;
-    using pointer = std::conditional_t<IsConst, typename Types::const_pointer, typename Types::pointer>;
-    using reference = std::conditional_t<IsConst, typename Types::const_reference, typename Types::reference>;
+    using pointer
+            = std::conditional_t<IsConst, typename Types::const_pointer, typename Types::pointer>;
+    using reference = std::conditional_t<IsConst, typename Types::const_reference,
+                                         typename Types::reference>;
     using difference_type = typename Types::difference_type;
     using iterator_category = std::forward_iterator_tag;
 
@@ -311,7 +324,8 @@ public:
     pointer operator->() const noexcept { return value_traits_->to_value_ptr(current_node_); }
 
     friend bool operator==(const SlistIterator &left, const SlistIterator &right) noexcept {
-        return left.current_node_ == right.current_node_ && left.value_traits_ == right.value_traits_;
+        return left.current_node_ == right.current_node_
+               && left.value_traits_ == right.value_traits_;
     }
 
     friend bool operator!=(const SlistIterator &left, const SlistIterator &right) noexcept {
@@ -432,8 +446,8 @@ private:
     void SpliceAfter(node_ptr where, IntrusiveSlist &other, node_ptr before_first,
                      node_ptr before_last) noexcept {
         if constexpr (size_traits::is_tracking_size) {
-            size_type distance(
-                    Algo::distance(node_traits::get_next(before_first), node_traits::get_next(before_last)));
+            size_type distance(Algo::distance(node_traits::get_next(before_first),
+                                              node_traits::get_next(before_last)));
 
             other.size_traits_.decrease(distance);
             size_traits_.increase(distance);
@@ -517,7 +531,9 @@ public:
 
     const_reference front() const noexcept { return *value_traits_.to_value_ptr(GetFirst()); }
 
-    void push_front(reference value) noexcept { InsertAfter(GetNilPtr(), value_traits_.to_node_ptr(value)); }
+    void push_front(reference value) noexcept {
+        InsertAfter(GetNilPtr(), value_traits_.to_node_ptr(value));
+    }
 
     void pop_front() noexcept { EraseAfter(GetNilPtr()); }
 
@@ -567,13 +583,15 @@ public:
         splice_after(position, other);
     }
 
-    void splice_after(const_iterator position, IntrusiveSlist &other, const_iterator before) noexcept {
+    void splice_after(const_iterator position, IntrusiveSlist &other,
+                      const_iterator before) noexcept {
         node_ptr where_node = position.current_node_;
         node_ptr before_node = before.current_node_;
         SpliceAfter(where_node, other, before_node);
     }
 
-    void splice_after(const_iterator position, IntrusiveSlist &&other, const_iterator before) noexcept {
+    void splice_after(const_iterator position, IntrusiveSlist &&other,
+                      const_iterator before) noexcept {
         splice_after(position, other, before);
     }
 
@@ -591,8 +609,9 @@ public:
     }
 
     size_type remove(const_reference value) noexcept {
-        return remove_if(
-                [&value](const_reference other) { return std::equal_to<value_type>()(value, other); });
+        return remove_if([&value](const_reference other) {
+            return std::equal_to<value_type>()(value, other);
+        });
     }
 
     template <class UnaryPredicate>
@@ -636,19 +655,27 @@ public:
 
     iterator end() noexcept { return iterator(GetEnd(), GetValueTraitsPtr()); }
 
-    const_iterator before_begin() const noexcept { return const_iterator(GetNilPtr(), GetValueTraitsPtr()); }
+    const_iterator before_begin() const noexcept {
+        return const_iterator(GetNilPtr(), GetValueTraitsPtr());
+    }
 
     const_iterator last() const noexcept { return const_iterator(GetLast(), GetValueTraitsPtr()); }
 
-    const_iterator begin() const noexcept { return const_iterator(GetFirst(), GetValueTraitsPtr()); }
+    const_iterator begin() const noexcept {
+        return const_iterator(GetFirst(), GetValueTraitsPtr());
+    }
 
     const_iterator end() const noexcept { return const_iterator(GetEnd(), GetValueTraitsPtr()); }
 
-    const_iterator cbefore_begin() const noexcept { return const_iterator(GetNilPtr(), GetValueTraitsPtr()); }
+    const_iterator cbefore_begin() const noexcept {
+        return const_iterator(GetNilPtr(), GetValueTraitsPtr());
+    }
 
     const_iterator clast() const noexcept { return const_iterator(GetLast(), GetValueTraitsPtr()); }
 
-    const_iterator cbegin() const noexcept { return const_iterator(GetFirst(), GetValueTraitsPtr()); }
+    const_iterator cbegin() const noexcept {
+        return const_iterator(GetFirst(), GetValueTraitsPtr());
+    }
 
     const_iterator cend() const noexcept { return const_iterator(GetEnd(), GetValueTraitsPtr()); }
 
@@ -694,13 +721,14 @@ struct SlistDefaultHook {
 };
 
 template <class VoidPointer, class Tag, bool IsAutoUnlink>
-class SlistBaseHook : public GenericHook<CircularSlistAlgo<SlistNodeTraits<VoidPointer>>,
-                                         SlistNodeTraits<VoidPointer>, Tag, IsAutoUnlink>,
-                      public std::conditional_t<
-                              std::is_same_v<Tag, DefaultHookTag>,
-                              SlistDefaultHook<GenericHook<CircularSlistAlgo<SlistNodeTraits<VoidPointer>>,
-                                                           SlistNodeTraits<VoidPointer>, Tag, IsAutoUnlink>>,
-                              NotDefaultHook> {};
+class SlistBaseHook
+    : public GenericHook<CircularSlistAlgo<SlistNodeTraits<VoidPointer>>,
+                         SlistNodeTraits<VoidPointer>, Tag, IsAutoUnlink>,
+      public std::conditional_t<
+              std::is_same_v<Tag, DefaultHookTag>,
+              SlistDefaultHook<GenericHook<CircularSlistAlgo<SlistNodeTraits<VoidPointer>>,
+                                           SlistNodeTraits<VoidPointer>, Tag, IsAutoUnlink>>,
+              NotDefaultHook> {};
 
 struct DefaultSlistHook : public UseDefaultHookTag {
     template <class ValueType>

@@ -89,14 +89,17 @@ private:
         struct KeyOfValue {
             using type = const thread_local_list *;
 
-            type operator()(const Hook &value) const noexcept { return static_cast<type>(value.key_); }
+            type operator()(const Hook &value) const noexcept {
+                return static_cast<type>(value.key_);
+            }
         };
 
         using BucketTraits = detail::StaticBucketTraits<
                 8, lu::unordered_bucket_type<lu::base_hook<lu::unordered_set_base_hook<>>>>;
         using UnorderedSet
-                = lu::unordered_set<value_type, lu::key_of_value<KeyOfValue>, lu::is_power_2_buckets<true>,
-                                    lu::hash<detail::PointerHash>, lu::bucket_traits<BucketTraits>>;
+                = lu::unordered_set<value_type, lu::key_of_value<KeyOfValue>,
+                                    lu::is_power_2_buckets<true>, lu::hash<detail::PointerHash>,
+                                    lu::bucket_traits<BucketTraits>>;
 
     public:
         ThreadLocalOwner() noexcept = default;

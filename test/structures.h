@@ -211,7 +211,9 @@ public:
             if (tail_next) {
                 tail_.compare_exchange_weak(tail, tail_next, std::memory_order_release);
             } else {
-                if (tail->next.compare_exchange_weak(tail_next, new_node, std::memory_order_release)) {
+                if (tail->next.compare_exchange_weak(tail_next,
+                                                     new_node,
+                                                     std::memory_order_release)) {
                     tail_.compare_exchange_weak(tail, new_node, std::memory_order_release);
                     return;
                 }

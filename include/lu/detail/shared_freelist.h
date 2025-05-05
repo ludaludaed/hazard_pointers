@@ -22,7 +22,8 @@ class SharedFreeListNode {
     friend struct SharedFreeListNodeTraits;
 
     using pointer = std::pointer_traits<VoidPointer>::template rebind<SharedFreeListNode>;
-    using const_pointer = std::pointer_traits<VoidPointer>::template rebind<const SharedFreeListNode>;
+    using const_pointer
+            = std::pointer_traits<VoidPointer>::template rebind<const SharedFreeListNode>;
 
     pointer next{};
 };
@@ -76,7 +77,9 @@ public:
         node_ptr head = global_head_.load(std::memory_order_relaxed);
         do {
             node_traits::set_next(new_node, head);
-        } while (!global_head_.compare_exchange_weak(head, new_node, std::memory_order_release,
+        } while (!global_head_.compare_exchange_weak(head,
+                                                     new_node,
+                                                     std::memory_order_release,
                                                      std::memory_order_relaxed));
     }
 
@@ -119,7 +122,8 @@ template <class VoidPointer, class Tag>
 struct SharedFreeListBaseHook
     : public SharedFreeListHook<VoidPointer, Tag>,
       std::conditional_t<std::is_same_v<Tag, DefaultHookTag>,
-                         SharedFreeListDefaultHook<SharedFreeListHook<VoidPointer, Tag>>, NotDefaultHook> {};
+                         SharedFreeListDefaultHook<SharedFreeListHook<VoidPointer, Tag>>,
+                         NotDefaultHook> {};
 
 struct DefaultSharedFreeListHook : public UseDefaultHookTag {
     template <class ValueType>
@@ -156,7 +160,8 @@ struct make_shared_free_list_base_hook {
 template <class ValueType, class... Options>
 struct make_shared_free_list {
     using pack_options = typename GetPackOptions<SharedFreeListDefaults, Options...>::type;
-    using value_traits = typename GetValueTraits<ValueType, typename pack_options::proto_value_traits>::type;
+    using value_traits =
+            typename GetValueTraits<ValueType, typename pack_options::proto_value_traits>::type;
 
     using type = SharedFreeList<value_traits>;
 };
@@ -164,7 +169,8 @@ struct make_shared_free_list {
 }// namespace detail
 
 template <class... Options>
-using shared_free_list_base_hook = typename detail::make_shared_free_list_base_hook<Options...>::type;
+using shared_free_list_base_hook =
+        typename detail::make_shared_free_list_base_hook<Options...>::type;
 
 template <class ValueType, class... Options>
 using shared_free_list = typename detail::make_shared_free_list<ValueType, Options...>::type;

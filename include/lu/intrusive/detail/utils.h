@@ -17,46 +17,46 @@
 #define NO_UNIQUE_ADDRESS
 #endif
 
-#define HAS_METHOD(NAME, FUNC)                                                                               \
-    template <class Type, class Signature>                                                                   \
-    class NAME {                                                                                             \
-        using yes = int;                                                                                     \
-        using no = char;                                                                                     \
-                                                                                                             \
-        template <class T, T>                                                                                \
-        struct check_type;                                                                                   \
-                                                                                                             \
-        template <class>                                                                                     \
-        static no test(...);                                                                                 \
-                                                                                                             \
-        template <class T>                                                                                   \
-        static yes test(check_type<Signature, &T::FUNC> *);                                                  \
-                                                                                                             \
-    public:                                                                                                  \
-        static const bool value = sizeof(test<Type>(0)) == sizeof(yes);                                      \
-    };                                                                                                       \
-                                                                                                             \
-    template <class Type, class Signature>                                                                   \
+#define HAS_METHOD(NAME, FUNC)                                                                     \
+    template <class Type, class Signature>                                                         \
+    class NAME {                                                                                   \
+        using yes = int;                                                                           \
+        using no = char;                                                                           \
+                                                                                                   \
+        template <class T, T>                                                                      \
+        struct check_type;                                                                         \
+                                                                                                   \
+        template <class>                                                                           \
+        static no test(...);                                                                       \
+                                                                                                   \
+        template <class T>                                                                         \
+        static yes test(check_type<Signature, &T::FUNC> *);                                        \
+                                                                                                   \
+    public:                                                                                        \
+        static const bool value = sizeof(test<Type>(0)) == sizeof(yes);                            \
+    };                                                                                             \
+                                                                                                   \
+    template <class Type, class Signature>                                                         \
     static constexpr bool NAME##_v = NAME<Type, Signature>::value;
 
 
-#define HAS_TYPE_DEFINE(NAME, USING)                                                                         \
-    template <class Type>                                                                                    \
-    class NAME {                                                                                             \
-        using yes = int;                                                                                     \
-        using no = char;                                                                                     \
-                                                                                                             \
-        template <class>                                                                                     \
-        static no test(...);                                                                                 \
-                                                                                                             \
-        template <class T>                                                                                   \
-        static yes test(typename T::USING *);                                                                \
-                                                                                                             \
-    public:                                                                                                  \
-        static const bool value = sizeof(test<Type>(0)) == sizeof(yes);                                      \
-    };                                                                                                       \
-                                                                                                             \
-    template <class Type>                                                                                    \
+#define HAS_TYPE_DEFINE(NAME, USING)                                                               \
+    template <class Type>                                                                          \
+    class NAME {                                                                                   \
+        using yes = int;                                                                           \
+        using no = char;                                                                           \
+                                                                                                   \
+        template <class>                                                                           \
+        static no test(...);                                                                       \
+                                                                                                   \
+        template <class T>                                                                         \
+        static yes test(typename T::USING *);                                                      \
+                                                                                                   \
+    public:                                                                                        \
+        static const bool value = sizeof(test<Type>(0)) == sizeof(yes);                            \
+    };                                                                                             \
+                                                                                                   \
+    template <class Type>                                                                          \
     static constexpr bool NAME##_v = NAME<Type>::value;
 
 
@@ -88,8 +88,9 @@ struct pointer_cast_traits {
 
     template <class UPtr>
     static pointer static_cast_from(const UPtr &uptr) noexcept {
-        constexpr bool has_cast = detail::has_static_cast_from<pointer, pointer (*)(UPtr)>::value
-                                  || detail::has_static_cast_from<pointer, pointer (*)(const UPtr &)>::value;
+        constexpr bool has_cast
+                = detail::has_static_cast_from<pointer, pointer (*)(UPtr)>::value
+                  || detail::has_static_cast_from<pointer, pointer (*)(const UPtr &)>::value;
         if constexpr (has_cast) {
             return pointer::static_cast_from(uptr);
         } else {
@@ -102,8 +103,9 @@ struct pointer_cast_traits {
 
     template <class UPtr>
     static pointer const_cast_from(const UPtr &uptr) noexcept {
-        constexpr bool has_cast = detail::has_const_cast_from<pointer, pointer (*)(UPtr)>::value
-                                  || detail::has_const_cast_from<pointer, pointer (*)(const UPtr &)>::value;
+        constexpr bool has_cast
+                = detail::has_const_cast_from<pointer, pointer (*)(UPtr)>::value
+                  || detail::has_const_cast_from<pointer, pointer (*)(const UPtr &)>::value;
         if constexpr (has_cast) {
             return pointer::const_cast_from(uptr);
         } else {
@@ -116,8 +118,9 @@ struct pointer_cast_traits {
 
     template <class UPtr>
     static pointer dynamic_cast_from(const UPtr &uptr) noexcept {
-        constexpr bool has_cast = detail::has_dynamic_cast_from<pointer, pointer (*)(UPtr)>::value
-                                  || detail::has_dynamic_cast_from<pointer, pointer (*)(const UPtr &)>::value;
+        constexpr bool has_cast
+                = detail::has_dynamic_cast_from<pointer, pointer (*)(UPtr)>::value
+                  || detail::has_dynamic_cast_from<pointer, pointer (*)(const UPtr &)>::value;
         if constexpr (has_cast) {
             return pointer::dynamic_cast_from(uptr);
         } else {
@@ -157,11 +160,13 @@ template <class ConstPtr>
 struct erase_const_types {
     using const_element_type = typename std::pointer_traits<ConstPtr>::element_type;
     using non_const_element_type = std::remove_const_t<const_element_type>;
-    using non_const_pointer = typename std::pointer_traits<ConstPtr>::template rebind<non_const_element_type>;
+    using non_const_pointer =
+            typename std::pointer_traits<ConstPtr>::template rebind<non_const_element_type>;
 };
 
 template <class ConstPtr>
-typename detail::erase_const_types<ConstPtr>::non_const_pointer erase_const(const ConstPtr &ptr) noexcept {
+typename detail::erase_const_types<ConstPtr>::non_const_pointer
+        erase_const(const ConstPtr &ptr) noexcept {
     using pointer_cast_traits
             = pointer_cast_traits<typename detail::erase_const_types<ConstPtr>::non_const_pointer>;
     return pointer_cast_traits::const_cast_from(ptr);

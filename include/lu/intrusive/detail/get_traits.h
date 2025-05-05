@@ -35,9 +35,10 @@ enum ProtoValueTraitsType {
 
 template <class ProtoValueTraits>
 struct ProtoValueTraitsTypeDispatch {
-    static constexpr ProtoValueTraitsType value = is_default_hook_v<ProtoValueTraits> ? IS_DEFAULT_HOOK
-                                                  : is_hook_v<ProtoValueTraits>       ? IS_HOOK
-                                                                                      : IS_VALUE_TRAITS;
+    static constexpr ProtoValueTraitsType value = is_default_hook_v<ProtoValueTraits>
+                                                          ? IS_DEFAULT_HOOK
+                                                  : is_hook_v<ProtoValueTraits> ? IS_HOOK
+                                                                                : IS_VALUE_TRAITS;
 };
 
 template <class ValueType, class ProtoValueTraits,

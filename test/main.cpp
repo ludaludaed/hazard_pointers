@@ -27,6 +27,7 @@
 #include <string>
 #include <thread>
 #include <type_traits>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -87,8 +88,8 @@ void stressTest(int actions, int threads) {
     std::sort(all_extracted.begin(), all_extracted.end());
     for (int i = 0; i < all_extracted.size(); i++) {
         if (all_generated[i] != all_extracted[i]) {
-            throw std::runtime_error("the values must be equal: " + std::to_string(all_generated[i]) + ", "
-                                     + std::to_string(all_extracted[i]));
+            throw std::runtime_error("the values must be equal: " + std::to_string(all_generated[i])
+                                     + ", " + std::to_string(all_extracted[i]));
         }
     }
 }
@@ -106,7 +107,8 @@ void abstractStressTest(Func &&func) {
             std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
             func(i, j);
             std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
-            std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << "\t";
+            std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count()
+                      << "\t";
         }
         std::cout << std::endl;
         lu::detach_thread();
@@ -251,8 +253,8 @@ public:
         std::sort(inserted.begin(), inserted.end());
         std::sort(erased.begin(), erased.end());
         if (inserted.size() != erased.size()) {
-            throw std::runtime_error("Error non equals sizes " + std::to_string(inserted.size()) + " "
-                                     + std::to_string(erased.size()));
+            throw std::runtime_error("Error non equals sizes " + std::to_string(inserted.size())
+                                     + " " + std::to_string(erased.size()));
         }
         for (std::size_t i = 0; i < inserted.size(); ++i) {
             if (inserted[i] != erased[i]) {
@@ -285,9 +287,17 @@ private:
 };
 
 int main() {
+
+    lu::ordered_list_map<int, int, lu::backoff<lu::yield_backoff>> l;
+
+    l.emplace(1, 1);
+    l.emplace(std::pair(1, 1));
+    // l.emplace(1);
+
     for (int i = 0; i < 1000; ++i) {
         std::cout << "iteration: #" << i << std::endl;
-        abstractStressTest(SetFixture<lu::ordered_list_set<int, lu::backoff<lu::yield_backoff>>>({}));
+        abstractStressTest(
+                SetFixture<lu::ordered_list_set<int, lu::backoff<lu::yield_backoff>>>({}));
         // abstractStressTest(stressTest<lu::asp::TreiberStack<int, lu::yield_backoff>>);
         // abstractStressTest(stressTest<lu::asp::MSQueue<int, lu::yield_backoff>>);
         // abstractStressTest(stressTest<lu::hp::TreiberStack<int, lu::yield_backoff>>);

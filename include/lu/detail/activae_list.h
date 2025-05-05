@@ -1,11 +1,11 @@
 #ifndef __ACTIVE_LIST_H__
 #define __ACTIVE_LIST_H__
 
+#include <lu/detail/utils.h>
 #include <lu/intrusive/detail/generic_hook.h>
 #include <lu/intrusive/detail/get_traits.h>
 #include <lu/intrusive/detail/node_holder.h>
 #include <lu/intrusive/detail/pack_options.h>
-#include <lu/detail/utils.h>
 
 #include <atomic>
 #include <cassert>
@@ -69,7 +69,8 @@ class ActiveListNode {
     friend class ActiveListNodeTraits;
 
     using pointer = typename std::pointer_traits<VoidPointer>::template rebind<ActiveListNode>;
-    using const_pointer = typename std::pointer_traits<pointer>::template rebind<const ActiveListNode>;
+    using const_pointer =
+            typename std::pointer_traits<pointer>::template rebind<const ActiveListNode>;
 
     pointer next{};
     std::atomic<bool> is_active{};
@@ -143,8 +144,8 @@ class ActiveListIterator {
     friend class ActiveListIterator<Types, true>;
 
     class DummyNonConstIter;
-    using NonConstIter =
-            typename std::conditional_t<IsConst, ActiveListIterator<Types, false>, DummyNonConstIter>;
+    using NonConstIter = typename std::conditional_t<IsConst, ActiveListIterator<Types, false>,
+                                                     DummyNonConstIter>;
 
     using value_traits = typename Types::value_traits;
     using value_traits_ptr = typename Types::value_traits_ptr;
@@ -154,8 +155,10 @@ class ActiveListIterator {
 
 public:
     using value_type = typename Types::value_type;
-    using pointer = std::conditional_t<IsConst, typename Types::const_pointer, typename Types::pointer>;
-    using reference = std::conditional_t<IsConst, typename Types::const_reference, typename Types::reference>;
+    using pointer
+            = std::conditional_t<IsConst, typename Types::const_pointer, typename Types::pointer>;
+    using reference = std::conditional_t<IsConst, typename Types::const_reference,
+                                         typename Types::reference>;
     using difference_type = typename Types::difference_type;
     using iterator_category = std::forward_iterator_tag;
 
@@ -190,13 +193,17 @@ public:
 
     inline reference operator*() const noexcept { return *operator->(); }
 
-    inline pointer operator->() const noexcept { return value_traits_->to_value_ptr(current_node_); }
+    inline pointer operator->() const noexcept {
+        return value_traits_->to_value_ptr(current_node_);
+    }
 
-    friend bool operator==(const ActiveListIterator &left, const ActiveListIterator &right) noexcept {
+    friend bool operator==(const ActiveListIterator &left,
+                           const ActiveListIterator &right) noexcept {
         return left.current_node_ == right.current_node_;
     }
 
-    friend bool operator!=(const ActiveListIterator &left, const ActiveListIterator &right) noexcept {
+    friend bool operator!=(const ActiveListIterator &left,
+                           const ActiveListIterator &right) noexcept {
         return !(left == right);
     }
 
@@ -248,9 +255,12 @@ private:
     }
 
 public:
-    bool try_acquire(reference item) noexcept { return Algo::try_acquire(ValueTraits::to_node_ptr(item)); }
+    bool try_acquire(reference item) noexcept {
+        return Algo::try_acquire(ValueTraits::to_node_ptr(item));
+    }
 
-    bool is_acquired(reference item, std::memory_order order = std::memory_order_relaxed) const noexcept {
+    bool is_acquired(reference item,
+                     std::memory_order order = std::memory_order_relaxed) const noexcept {
         return Algo::is_acquired(ValueTraits::to_node_ptr(item), order);
     }
 
@@ -296,7 +306,8 @@ template <class VoidPointer, class Tag>
 struct ActiveListBaseHook
     : public ActiveListHook<VoidPointer, Tag>,
       public std::conditional_t<std::is_same_v<Tag, DefaultHookTag>,
-                                ActiveListDefaultHook<ActiveListHook<VoidPointer, Tag>>, NotDefaultHook> {};
+                                ActiveListDefaultHook<ActiveListHook<VoidPointer, Tag>>,
+                                NotDefaultHook> {};
 
 struct DefaultActiveListHook : public UseDefaultHookTag {
     template <class ValueType>
@@ -333,7 +344,8 @@ struct make_active_list_base_hook {
 template <class ValueType, class... Options>
 struct make_active_list {
     using pack_options = typename GetPackOptions<ActiveListDefaults, Options...>::type;
-    using value_traits = typename GetValueTraits<ValueType, typename pack_options::proto_value_traits>::type;
+    using value_traits =
+            typename GetValueTraits<ValueType, typename pack_options::proto_value_traits>::type;
 
     using type = ActiveList<value_traits>;
 };

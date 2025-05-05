@@ -9,8 +9,11 @@
 
 #include <atomic>
 #include <cstddef>
+#include <functional>
 #include <memory>
+#include <tuple>
 #include <type_traits>
+#include <utility>
 
 
 namespace lu {
@@ -73,8 +76,8 @@ struct OrderedListAlgo {
     }
 
     template <class KeyType, class Backoff, class KeyCompare, class KeySelect>
-    static bool find(std::atomic<node_marked_ptr> *head, const KeyType &key, position &pos, Backoff &backoff,
-                     KeyCompare &&comp, KeySelect &&key_select) {
+    static bool find(std::atomic<node_marked_ptr> *head, const KeyType &key, position &pos,
+                     Backoff &backoff, KeyCompare &&comp, KeySelect &&key_select) {
     try_again:
         pos.prev_pointer = head;
         pos.cur = pos.cur_guard.protect(*head, [](node_marked_ptr ptr) { return ptr.get(); });
@@ -86,7 +89,8 @@ struct OrderedListAlgo {
                 return false;
             }
 
-            pos.next = pos.next_guard.protect(pos.cur->next, [](node_marked_ptr ptr) { return ptr.get(); });
+            pos.next = pos.next_guard.protect(pos.cur->next,
+                                              [](node_marked_ptr ptr) { return ptr.get(); });
 
             if (pos.prev_pointer->load().raw() != pos.cur) {
                 backoff();
@@ -95,7 +99,8 @@ struct OrderedListAlgo {
 
             if (pos.next.is_marked()) {
                 node_marked_ptr not_marked_cur(pos.cur, 0);
-                if (!pos.prev_pointer->compare_exchange_weak(not_marked_cur, node_marked_ptr(pos.next, 0))) {
+                if (!pos.prev_pointer->compare_exchange_weak(not_marked_cur,
+                                                             node_marked_ptr(pos.next, 0))) {
                     backoff();
                     goto try_again;
                 }
@@ -115,14 +120,6 @@ struct OrderedListAlgo {
 
 template <class ValueType, class KeyCompare, class KeySelect, class Backoff>
 class OrderedList {
-    using node_traits = OrderedListNodeTraits<ValueType>;
-    using node = typename node_traits::node;
-    using node_ptr = typename node_traits::node_ptr;
-    using node_marked_ptr = typename node_traits::node_marked_ptr;
-
-    using Algo = OrderedListAlgo<node_traits>;
-    using position = typename Algo::position;
-
     template <class Types, bool IsConst>
     class Iterator {
         friend class OrderedList;
@@ -137,9 +134,10 @@ class OrderedList {
     public:
         using value_type = typename Types::value_type;
         using difference_type = typename Types::difference_type;
-        using pointer = std::conditional_t<IsConst, typename Types::const_pointer, typename Types::pointer>;
-        using reference
-                = std::conditional_t<IsConst, typename Types::const_reference, typename Types::reference>;
+        using pointer = std::conditional_t<IsConst, typename Types::const_pointer,
+                                           typename Types::pointer>;
+        using reference = std::conditional_t<IsConst, typename Types::const_reference,
+                                             typename Types::reference>;
         using iterator_category = std::forward_iterator_tag;
 
     private:
@@ -212,7 +210,9 @@ class OrderedList {
             return left.current_ == right.current_;
         }
 
-        friend bool operator!=(const Iterator &left, const Iterator &right) { return !(left == right); }
+        friend bool operator!=(const Iterator &left, const Iterator &right) {
+            return !(left == right);
+        }
 
         void swap(Iterator &other) {
             std::swap(guard_, other.guard_);
@@ -223,7 +223,8 @@ class OrderedList {
     private:
         void increment() noexcept {
             auto next_guard = lu::make_hazard_pointer();
-            auto next = next_guard.protect(current_->next, [](node_marked_ptr ptr) { return ptr.get(); });
+            auto next = next_guard.protect(current_->next,
+                                           [](node_marked_ptr ptr) { return ptr.get(); });
 
             if (next.is_marked()) {
                 next_guard = lu::hazard_pointer();
@@ -257,18 +258,24 @@ public:
     using compare = KeyCompare;
     using key_select = KeySelect;
 
-    static constexpr bool is_key_value = !std::is_same_v<value_type, key_type>;
+    using accessor = lu::guarded_ptr<
+            std::conditional_t<std::is_same_v<value_type, key_type>, const value_type, value_type>>;
 
-    using accessor
-            = std::conditional_t<is_key_value, lu::guarded_ptr<ValueType>, lu::guarded_ptr<const ValueType>>;
-
-    using iterator = Iterator<OrderedList, !is_key_value>;
+    using iterator = Iterator<OrderedList, std::is_same_v<value_type, key_type>>;
     using const_iterator = Iterator<OrderedList, true>;
 
+private:
+    using node_traits = OrderedListNodeTraits<value_type>;
+    using node = typename node_traits::node;
+    using node_ptr = typename node_traits::node_ptr;
+    using node_marked_ptr = typename node_traits::node_marked_ptr;
+
+    using Algo = OrderedListAlgo<node_traits>;
+    using position = typename Algo::position;
+
 public:
-    explicit OrderedList(const compare &compare = {}, const key_select &key_select = {})
-        : key_compare_(compare)
-        , key_select_(key_select) {}
+    explicit OrderedList(const compare &compare = {})
+        : key_compare_(compare) {}
 
     OrderedList(const OrderedList &other) = delete;
 
@@ -301,12 +308,55 @@ public:
 
     template <class... Args>
     bool emplace(Args &&...args) {
-        auto new_node = std::make_unique<node>(std::forward<Args>(args)...);
         Backoff backoff;
         position pos;
+        std::unique_ptr<node> new_node = nullptr;
+
+        if constexpr (key_select::template inplace_extractable<Args...>) {
+            const key_type &key = key_select_(args...);
+            while (true) {
+                if (find(key, pos, backoff)) {
+                    return false;
+                }
+                if (!new_node) {
+                    new_node = std::make_unique<node>(std::forward<Args>(args)...);
+                }
+                if (Algo::link(pos, new_node.get())) {
+                    new_node.release();
+                    return true;
+                }
+                backoff();
+            }
+        } else {
+            new_node = std::make_unique<node>(std::forward<Args>(args)...);
+            const key_type &key = key_select_(new_node->value);
+            while (true) {
+                if (find(key, pos, backoff)) {
+                    return false;
+                }
+                if (Algo::link(pos, new_node.get())) {
+                    new_node.release();
+                    return true;
+                }
+                backoff();
+            }
+        }
+    }
+
+    template <class KeyType, class... Args>
+    bool try_emplace(KeyType &&key, Args &&...args) {
+        Backoff backoff;
+        position pos;
+        std::unique_ptr<node> new_node = nullptr;
         while (true) {
-            if (find(key_select_(new_node->value), pos, backoff)) {
+            if (find(key, pos, backoff)) {
                 return false;
+            }
+            if (!new_node) {
+                new_node = std::make_unique<node>(
+                        std::piecewise_construct,
+                        std::forward_as_tuple(std::forward<KeyType>(key)),
+                        std::forward_as_tuple(std::forward<Args>(args)...));
             }
             if (Algo::link(pos, new_node.get())) {
                 new_node.release();
@@ -418,25 +468,8 @@ public:
 
 private:
     CACHE_LINE_ALIGNAS std::atomic<node_marked_ptr> head_{};
-    NO_UNIQUE_ADDRESS compare key_compare_;
-    NO_UNIQUE_ADDRESS key_select key_select_;
-};
-
-template <class KeyType, class ValueType>
-struct MapKeySelect {
-    using type = KeyType;
-
-    const KeyType &operator()(const std::pair<KeyType, ValueType> &value) const { return value.first; }
-};
-
-template <class KeyType>
-struct SetKeySelect {
-    using type = KeyType;
-
-    template <class T, class = std::enable_if_t<std::is_same_v<std::remove_cvref_t<T>, KeyType>>>
-    T &&operator()(T &&value) const {
-        return std::forward<T>(value);
-    }
+    NO_UNIQUE_ADDRESS compare key_compare_{};
+    NO_UNIQUE_ADDRESS key_select key_select_{};
 };
 
 struct OrderedListDefaults {
@@ -456,9 +489,30 @@ struct make_ordered_list_set {
 
     using compare = GetOrDefault<typename pack_options::compare, std::less<const ValueType>>;
     using backoff = GetOrDefault<typename pack_options::backoff, lu::none_backoff>;
-    using key_select = SetKeySelect<ValueType>;
 
-    using type = OrderedList<ValueType, compare, key_select, backoff>;
+    struct KeySelect {
+        using type = ValueType;
+
+        template <class... Args>
+        struct InplaceExtractable {
+            static constexpr bool value = false;
+        };
+
+        template <class Arg>
+        struct InplaceExtractable<Arg> {
+            static constexpr bool value = std::is_same_v<std::remove_cvref_t<Arg>, ValueType>;
+        };
+
+        template <class... Args>
+        static constexpr bool inplace_extractable = InplaceExtractable<Args...>::value;
+
+        template <class T, class = std::enable_if_t<std::is_same_v<std::remove_cvref_t<T>, type>>>
+        T &&operator()(T &&value) const noexcept {
+            return std::forward<T>(value);
+        }
+    };
+
+    using type = OrderedList<ValueType, compare, KeySelect, backoff>;
 };
 
 template <class KeyType, class ValueType, class... Options>
@@ -467,9 +521,44 @@ struct make_ordered_list_map {
 
     using compare = GetOrDefault<typename pack_options::compare, std::less<const KeyType>>;
     using backoff = GetOrDefault<typename pack_options::backoff, lu::none_backoff>;
-    using key_select = MapKeySelect<const KeyType, ValueType>;
 
-    using type = OrderedList<std::pair<const KeyType, ValueType>, compare, key_select, backoff>;
+    using value_type = std::pair<const KeyType, ValueType>;
+
+    struct KeySelect {
+        using type = KeyType;
+
+        template <class... Args>
+        struct InplaceExtractable {
+            static constexpr bool value = false;
+        };
+
+        template <class Arg1, class Arg2>
+        struct InplaceExtractable<Arg1, Arg2> {
+            static constexpr bool value = std::is_same_v<std::remove_cvref_t<Arg1>, KeyType>;
+        };
+
+        template <class Arg1, class Arg2>
+        struct InplaceExtractable<std::pair<Arg1, Arg2>> {
+            static constexpr bool value = std::is_same_v<std::remove_cvref_t<Arg1>, KeyType>;
+        };
+
+        template <class... Args>
+        static constexpr bool inplace_extractable = InplaceExtractable<Args...>::value;
+
+        template <class FirstType, class SecondType,
+                  class = std::enable_if_t<std::is_same_v<std::remove_cvref_t<FirstType>, KeyType>>>
+        const KeyType &operator()(const std::pair<FirstType, SecondType> &value) const {
+            return value.first;
+        }
+
+        template <class FirstType, class SecondType,
+                  class = std::enable_if_t<std::is_same_v<std::remove_cvref_t<FirstType>, KeyType>>>
+        const KeyType &operator()(const FirstType &key, const SecondType &) const {
+            return key;
+        }
+    };
+
+    using type = OrderedList<value_type, compare, KeySelect, backoff>;
 };
 
 }// namespace detail
@@ -478,7 +567,8 @@ template <class ValueType, class... Options>
 using ordered_list_set = typename detail::make_ordered_list_set<ValueType, Options...>::type;
 
 template <class KeyType, class ValueType, class... Options>
-using ordered_list_map = typename detail::make_ordered_list_map<KeyType, ValueType, Options...>::type;
+using ordered_list_map =
+        typename detail::make_ordered_list_map<KeyType, ValueType, Options...>::type;
 
 }// namespace lu
 

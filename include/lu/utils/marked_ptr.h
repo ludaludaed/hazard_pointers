@@ -19,15 +19,18 @@ public:
 
     marked_ptr(std::nullptr_t) noexcept {}
 
-    template <class _ValueType, class = std::enable_if_t<std::is_convertible_v<_ValueType *, ValueType *>>>
+    template <class _ValueType,
+              class = std::enable_if_t<std::is_convertible_v<_ValueType *, ValueType *>>>
     marked_ptr(_ValueType *other, bool marked = false) noexcept
         : ptr_(make_marked_ptr(other, marked)) {}
 
-    template <class _ValueType, class = std::enable_if_t<std::is_convertible_v<_ValueType *, ValueType *>>>
+    template <class _ValueType,
+              class = std::enable_if_t<std::is_convertible_v<_ValueType *, ValueType *>>>
     marked_ptr(const marked_ptr<_ValueType> &other, bool marked) noexcept
         : ptr_(make_marked_ptr(other.get(), marked)) {}
 
-    template <class _ValueType, class = std::enable_if_t<std::is_convertible_v<_ValueType *, ValueType *>>>
+    template <class _ValueType,
+              class = std::enable_if_t<std::is_convertible_v<_ValueType *, ValueType *>>>
     marked_ptr(const marked_ptr<_ValueType> &other) noexcept
         : ptr_(make_marked_ptr(other.get(), other.is_marked())) {}
 
@@ -69,7 +72,9 @@ public:
         return left.ptr_ < right.ptr_;
     }
 
-    friend bool operator>(const marked_ptr &left, const marked_ptr &right) noexcept { return right < left; }
+    friend bool operator>(const marked_ptr &left, const marked_ptr &right) noexcept {
+        return right < left;
+    }
 
     friend bool operator<=(const marked_ptr &left, const marked_ptr &right) noexcept {
         return !(right < left);
@@ -79,7 +84,8 @@ public:
         return !(left < right);
     }
 
-    template <class _ValueType, class = std::enable_if_t<std::is_convertible_v<_ValueType *, ValueType *>>>
+    template <class _ValueType,
+              class = std::enable_if_t<std::is_convertible_v<_ValueType *, ValueType *>>>
     static marked_ptr pointer_to(_ValueType &value) noexcept {
         return marked_ptr(&value);
     }

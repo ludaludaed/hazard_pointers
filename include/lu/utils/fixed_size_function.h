@@ -88,9 +88,13 @@ public:
         throw std::bad_function_call();
     }
 
-    friend bool operator==(const fixed_size_function &left, std::nullptr_t right) noexcept { return !left; }
+    friend bool operator==(const fixed_size_function &left, std::nullptr_t right) noexcept {
+        return !left;
+    }
 
-    friend bool operator==(std::nullptr_t left, const fixed_size_function &right) noexcept { return !right; }
+    friend bool operator==(std::nullptr_t left, const fixed_size_function &right) noexcept {
+        return !right;
+    }
 
     friend bool operator!=(const fixed_size_function &left, std::nullptr_t right) noexcept {
         return !(left == right);

@@ -35,8 +35,9 @@ namespace detail {
 
 class HazardPointerTag;
 
-using HazardRetiresHook = lu::unordered_set_base_hook<lu::tag<HazardPointerTag>, lu::store_hash<false>,
-                                                      lu::is_auto_unlink<false>>;
+using HazardRetiresHook
+        = lu::unordered_set_base_hook<lu::tag<HazardPointerTag>, lu::store_hash<false>,
+                                      lu::is_auto_unlink<false>>;
 
 class HazardObject : public HazardRetiresHook {
     template <class, class>
@@ -63,7 +64,9 @@ private:
 
     const void *get_key() const noexcept { return key_.get(); }
 
-    void set_key(const void *key) noexcept { key_ = lu::marked_ptr<const void>(key, key_.is_marked()); }
+    void set_key(const void *key) noexcept {
+        key_ = lu::marked_ptr<const void>(key, key_.is_marked());
+    }
 
     bool is_protected() const noexcept { return key_.is_marked(); }
 
@@ -87,8 +90,9 @@ struct HazardHash {
 };
 
 using HazardRetiresSet
-        = lu::unordered_set<HazardObject, lu::base_hook<HazardRetiresHook>, lu::is_power_2_buckets<true>,
-                            lu::key_of_value<HazardKeyOfValue>, lu::hash<HazardHash>>;
+        = lu::unordered_set<HazardObject, lu::base_hook<HazardRetiresHook>,
+                            lu::is_power_2_buckets<true>, lu::key_of_value<HazardKeyOfValue>,
+                            lu::hash<HazardHash>>;
 
 class HazardRetires : public HazardRetiresSet {
     using Base = HazardRetiresSet;
@@ -196,7 +200,8 @@ class hazard_pointer_domain {
 
     public:
         HazardThreadData(hazard_pointer_domain *domain, std::size_t scan_threshold,
-                         records_resource records_resource, retires_resource retires_resource) noexcept
+                         records_resource records_resource,
+                         retires_resource retires_resource) noexcept
             : domain_(domain)
             , scan_threshold_(scan_threshold)
             , records_(records_resource)
@@ -254,8 +259,8 @@ class hazard_pointer_domain {
     };
 
     struct Creator {
-        Creator(hazard_pointer_domain *domain, std::size_t num_of_records, std::size_t num_of_retires,
-                std::size_t scan_threshold)
+        Creator(hazard_pointer_domain *domain, std::size_t num_of_records,
+                std::size_t num_of_retires, std::size_t scan_threshold)
             : domain_(domain)
             , num_of_records_(num_of_records)
             , num_of_retires_(num_of_retires)
@@ -276,13 +281,16 @@ class hazard_pointer_domain {
 
             auto blob = new std::uint8_t[size];
             auto records = reinterpret_cast<records_element_type *>(blob + header_size);
-            auto retires
-                    = reinterpret_cast<retires_element_type *>(blob + header_size + records_resource_size);
+            auto retires = reinterpret_cast<retires_element_type *>(blob + header_size
+                                                                    + records_resource_size);
 
             records_resource _records_resource(records, num_of_records_);
             retires_resource _retires_resource(retires, num_of_retires_);
 
-            ::new (blob) HazardThreadData(domain_, scan_threshold_, _records_resource, _retires_resource);
+            ::new (blob) HazardThreadData(domain_,
+                                          scan_threshold_,
+                                          _records_resource,
+                                          _retires_resource);
             auto thread_data = reinterpret_cast<HazardThreadData *>(blob);
 
             auto deleter = [](HazardThreadData *thread_data) noexcept {
@@ -345,7 +353,9 @@ public:
                 this->set_key(value);
             }
 
-            static void reclaim_func(HazardObject *obj) { delete static_cast<NonIntrusiveHazardObj *>(obj); }
+            static void reclaim_func(HazardObject *obj) {
+                delete static_cast<NonIntrusiveHazardObj *>(obj);
+            }
 
         private:
             std::unique_ptr<ValueType, Deleter> obj_;
@@ -498,7 +508,8 @@ public:
     template <class Ptr>
     void reset_protection(const Ptr ptr) noexcept {
         assert(!empty() && "hazard_ptr must be initialized");
-        if constexpr (std::is_base_of_v<HazardObject, typename std::pointer_traits<Ptr>::element_type>) {
+        if constexpr (std::is_base_of_v<HazardObject,
+                                        typename std::pointer_traits<Ptr>::element_type>) {
             record_->reset(static_cast<const HazardObject *>(to_raw_pointer(ptr)));
         } else {// if non intrusive hazard obj
             record_->reset(to_raw_pointer(ptr));
@@ -573,14 +584,17 @@ protected:
 
 public:
     void retire(Deleter deleter, hazard_pointer_domain &domain = get_default_domain()) noexcept {
-        assert(!retired_.exchange(true, std::memory_order_relaxed) && "Double retire is not allowed");
+        assert(!retired_.exchange(true, std::memory_order_relaxed)
+               && "Double retire is not allowed");
         deleter_ = std::move(deleter);
         this->set_reclaim(reclaim_func);
         this->set_key(static_cast<HazardObject *>(this));
         domain.retire(this);
     }
 
-    void retire(hazard_pointer_domain &domain = get_default_domain()) noexcept { retire({}, domain); }
+    void retire(hazard_pointer_domain &domain = get_default_domain()) noexcept {
+        retire({}, domain);
+    }
 
 private:
     static void reclaim_func(HazardObject *obj) noexcept {

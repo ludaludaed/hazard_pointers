@@ -21,7 +21,9 @@ public:
 
     void swap(StaticBucketTraits &other) noexcept { std::swap(data_, other.data_); }
 
-    friend void swap(StaticBucketTraits &left, StaticBucketTraits &right) noexcept { left.swap(right); }
+    friend void swap(StaticBucketTraits &left, StaticBucketTraits &right) noexcept {
+        left.swap(right);
+    }
 
 private:
     Buckets data_{};

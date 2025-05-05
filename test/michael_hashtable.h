@@ -72,8 +72,8 @@ public:
 
     static constexpr bool is_key_value = !std::is_same_v<value_type, key_type>;
 
-    using accessor
-            = std::conditional_t<is_key_value, lu::guarded_ptr<ValueType>, lu::guarded_ptr<const ValueType>>;
+    using accessor = std::conditional_t<is_key_value, lu::guarded_ptr<ValueType>,
+                                        lu::guarded_ptr<const ValueType>>;
 
     using iterator = Iterator<MichaelHashTable, !is_key_value>;
     using const_iterator = Iterator<MichaelHashTable, true>;
@@ -109,6 +109,12 @@ private:
         }
     }
 
+    std::atomic<node_marked_ptr> *get_head(const key_type &key) noexcept {
+        std::size_t hash = key_hash_(key);
+        std::size_t bucket_idx = get_bucket_idx(hash);
+        return &buckets_[bucket_idx].head;
+    }
+
 public:
     bool insert(const value_type &value);
 
@@ -116,6 +122,9 @@ public:
 
     template <class... Args>
     bool emplace(Args &&...args);
+
+    template <class KeyType, class... Args>
+    bool try_emplace(KeyType &&key, Args &&...args);
 
     bool erase(const key_type &key);
 
