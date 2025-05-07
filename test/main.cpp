@@ -287,13 +287,6 @@ private:
 };
 
 int main() {
-
-    lu::ordered_list_map<int, int, lu::backoff<lu::yield_backoff>> l;
-
-    l.emplace(1, 1);
-    l.emplace(std::pair(1, 1));
-    // l.emplace(1);
-
     for (int i = 0; i < 1000; ++i) {
         std::cout << "iteration: #" << i << std::endl;
         abstractStressTest(

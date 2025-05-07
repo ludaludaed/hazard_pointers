@@ -312,7 +312,7 @@ public:
         position pos;
         std::unique_ptr<node> new_node = nullptr;
 
-        if constexpr (key_select::template inplace_extractable<Args...>) {
+        if constexpr (std::is_invocable_v<key_select, Args...>) {
             const key_type &key = key_select_(args...);
             while (true) {
                 if (find(key, pos, backoff)) {
@@ -493,22 +493,9 @@ struct make_ordered_list_set {
     struct KeySelect {
         using type = ValueType;
 
-        template <class... Args>
-        struct InplaceExtractable {
-            static constexpr bool value = false;
-        };
-
-        template <class Arg>
-        struct InplaceExtractable<Arg> {
-            static constexpr bool value = std::is_same_v<std::remove_cvref_t<Arg>, ValueType>;
-        };
-
-        template <class... Args>
-        static constexpr bool inplace_extractable = InplaceExtractable<Args...>::value;
-
         template <class T, class = std::enable_if_t<std::is_same_v<std::remove_cvref_t<T>, type>>>
-        T &&operator()(T &&value) const noexcept {
-            return std::forward<T>(value);
+        const T &operator()(const T &value) const noexcept {
+            return value;
         }
     };
 
@@ -526,24 +513,6 @@ struct make_ordered_list_map {
 
     struct KeySelect {
         using type = KeyType;
-
-        template <class... Args>
-        struct InplaceExtractable {
-            static constexpr bool value = false;
-        };
-
-        template <class Arg1, class Arg2>
-        struct InplaceExtractable<Arg1, Arg2> {
-            static constexpr bool value = std::is_same_v<std::remove_cvref_t<Arg1>, KeyType>;
-        };
-
-        template <class Arg1, class Arg2>
-        struct InplaceExtractable<std::pair<Arg1, Arg2>> {
-            static constexpr bool value = std::is_same_v<std::remove_cvref_t<Arg1>, KeyType>;
-        };
-
-        template <class... Args>
-        static constexpr bool inplace_extractable = InplaceExtractable<Args...>::value;
 
         template <class FirstType, class SecondType,
                   class = std::enable_if_t<std::is_same_v<std::remove_cvref_t<FirstType>, KeyType>>>

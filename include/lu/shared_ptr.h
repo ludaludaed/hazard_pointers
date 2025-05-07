@@ -116,7 +116,7 @@ public:
         , allocator_(allocator)
         , deleter_(std::move(deleter)) {}
 
-    void *get() const noexcept override { return lu::to_raw_pointer(value_ptr_); }
+    void *get() const noexcept override { return value_ptr_; }
 
 private:
     void delete_value() override { deleter_(value_ptr_); }
