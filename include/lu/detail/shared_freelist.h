@@ -40,7 +40,7 @@ struct SharedFreeListNodeTraits {
 };
 
 template <class ValueTraits>
-class SharedFreeList : private ValueTraits {
+class SharedFreeList {
 public:
     using value_traits = ValueTraits;
     using node_traits = typename value_traits::node_traits;
@@ -60,20 +60,20 @@ public:
 
 public:
     explicit SharedFreeList(const value_traits &value_traits = {}) noexcept
-        : ValueTraits(value_traits) {}
+        : value_traits_(value_traits) {}
 
     SharedFreeList(const SharedFreeList &) = delete;
 
     SharedFreeList(SharedFreeList &&) = delete;
 
     void push_to_local(reference value) noexcept {
-        node_ptr new_node = ValueTraits::to_node_ptr(value);
+        node_ptr new_node = value_traits_.to_node_ptr(value);
         node_traits::set_next(new_node, local_head_);
         local_head_ = new_node;
     }
 
     void push_to_global(reference value) noexcept {
-        node_ptr new_node = ValueTraits::to_node_ptr(value);
+        node_ptr new_node = value_traits_.to_node_ptr(value);
         node_ptr head = global_head_.load(std::memory_order_relaxed);
         do {
             node_traits::set_next(new_node, head);
@@ -90,7 +90,7 @@ public:
         if (local_head_) {
             node_ptr result = local_head_;
             local_head_ = node_traits::get_next(result);
-            return ValueTraits::to_value_ptr(result);
+            return value_traits_.to_value_ptr(result);
         }
         return nullptr;
     }
@@ -106,6 +106,7 @@ public:
 private:
     CACHE_LINE_ALIGNAS std::atomic<node_ptr> global_head_{};
     node_ptr local_head_{};
+    NO_UNIQUE_ADDRESS value_traits value_traits_;
 };
 
 template <class VoidPointer, class Tag>

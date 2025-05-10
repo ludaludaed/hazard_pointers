@@ -4,7 +4,7 @@
 namespace lu {
 namespace detail {
 
-template <class SizeType, bool TrackSize>
+template <class SizeType, bool IsTrackingSize>
 class SizeTraits;
 
 template <class SizeType>

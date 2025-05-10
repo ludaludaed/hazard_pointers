@@ -258,9 +258,9 @@ class hazard_pointer_domain {
         CACHE_LINE_ALIGNAS std::atomic<std::size_t> num_of_reclaimed;
     };
 
-    struct Creator {
-        Creator(hazard_pointer_domain *domain, std::size_t num_of_records,
-                std::size_t num_of_retires, std::size_t scan_threshold)
+    struct ThreadDataFactory {
+        ThreadDataFactory(hazard_pointer_domain *domain, std::size_t num_of_records,
+                          std::size_t num_of_retires, std::size_t scan_threshold)
             : domain_(domain)
             , num_of_records_(num_of_records)
             , num_of_retires_(num_of_retires)
@@ -291,6 +291,7 @@ class hazard_pointer_domain {
                                           scan_threshold_,
                                           _records_resource,
                                           _retires_resource);
+
             auto thread_data = reinterpret_cast<HazardThreadData *>(blob);
 
             auto deleter = [](HazardThreadData *thread_data) noexcept {
@@ -314,10 +315,10 @@ class hazard_pointer_domain {
     static constexpr std::size_t DEFAULT_SCAN_THRESHOLD = 64;
 
 public:
-    hazard_pointer_domain(std::size_t num_of_records = DEFAULT_NUM_OF_RECORDS,
-                          std::size_t num_of_retires = DEFAULT_NUM_OF_RETIRES,
-                          std::size_t scan_threshold = DEFAULT_SCAN_THRESHOLD)
-        : list_(Creator(this, num_of_records, num_of_retires, scan_threshold)) {}
+    explicit hazard_pointer_domain(std::size_t num_of_records = DEFAULT_NUM_OF_RECORDS,
+                                   std::size_t num_of_retires = DEFAULT_NUM_OF_RETIRES,
+                                   std::size_t scan_threshold = DEFAULT_SCAN_THRESHOLD)
+        : list_(ThreadDataFactory(this, num_of_records, num_of_retires, scan_threshold)) {}
 
     hazard_pointer_domain(const hazard_pointer_domain &) = delete;
 

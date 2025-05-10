@@ -18,7 +18,7 @@ namespace lu {
 namespace detail {
 
 template <class ValueType>
-struct DefaultCreator {
+struct DefaultFactory {
     ValueType *operator()() const { return new ValueType(); }
 };
 
@@ -55,7 +55,7 @@ private:
 
 private:
     const void *key_{};
-    lu::fixed_size_function<deleter_func, 64> deleter_{std::default_delete<ValueType>()};
+    lu::fixed_size_function<deleter_func, 64> deleter_{std::default_delete<ValueType>{}};
 };
 
 template <class ValueType>
@@ -76,13 +76,13 @@ public:
     using iterator = typename Base::iterator;
     using const_iterator = typename Base::const_iterator;
 
-    using creator_func = pointer();
-
     using Base::begin;
     using Base::end;
 
     using Base::cbegin;
     using Base::cend;
+
+    using factory_func = pointer();
 
 private:
     class ThreadLocalOwner {
@@ -144,9 +144,11 @@ private:
     };
 
 public:
-    template <class Creator = detail::DefaultCreator<value_type>>
-    explicit thread_local_list(Creator creator = {}) noexcept
-        : creator_(std::move(creator)) {}
+    thread_local_list() = default;
+
+    template <class Factory>
+    explicit thread_local_list(Factory factory) noexcept
+        : factory_(std::move(factory)) {}
 
     thread_local_list(const thread_local_list &) = delete;
 
@@ -174,7 +176,7 @@ private:
         if (found != end()) {
             return found.operator->();
         } else {
-            auto new_item = creator_();
+            auto new_item = factory_();
             new_item->key_ = this;
             this->push(*new_item);
             return new_item;
@@ -207,7 +209,7 @@ public:
     }
 
 private:
-    lu::fixed_size_function<creator_func, 64> creator_;
+    lu::fixed_size_function<factory_func, 64> factory_{detail::DefaultFactory<value_type>{}};
 };
 
 }// namespace lu

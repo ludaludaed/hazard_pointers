@@ -99,44 +99,6 @@ struct ActiveListNodeTraits {
     }
 };
 
-template <class VoidPointer, class Tag>
-class ActiveListHook : public NodeHolder<ActiveListNode<VoidPointer>, Tag> {
-    using NodeTraits = ActiveListNodeTraits<VoidPointer>;
-    using NodeAlgo = ActiveListAlgo<NodeTraits>;
-
-public:
-    using node_traits = NodeTraits;
-
-    using node = typename node_traits::node;
-    using node_ptr = typename node_traits::node_ptr;
-    using const_node_ptr = typename node_traits::const_node_ptr;
-
-    using hook_tags = HookTags<NodeTraits, Tag, false>;
-
-public:
-    ActiveListHook() noexcept { NodeAlgo::init(as_node_ptr()); }
-
-    ActiveListHook(const ActiveListHook &) noexcept { NodeAlgo::init(as_node_ptr()); }
-
-    ActiveListHook &operator=(const ActiveListHook &) noexcept { return *this; }
-
-    bool try_acquire() noexcept { return NodeAlgo::try_acquire(as_node_ptr()); }
-
-    bool is_acquired(std::memory_order order = std::memory_order_relaxed) noexcept {
-        return NodeAlgo::is_acquired(as_node_ptr(), order);
-    }
-
-    void release() noexcept { NodeAlgo::release(as_node_ptr()); }
-
-    node_ptr as_node_ptr() noexcept {
-        return std::pointer_traits<node_ptr>::pointer_to(static_cast<node &>(*this));
-    }
-
-    const_node_ptr as_node_ptr() const noexcept {
-        return std::pointer_traits<const_node_ptr>::pointer_to(static_cast<const node &>(*this));
-    }
-};
-
 template <class Types, bool IsConst>
 class ActiveListIterator {
     template <class>
@@ -216,7 +178,7 @@ private:
 };
 
 template <class ValueTraits>
-class ActiveList : private ValueTraits {
+class ActiveList {
     using Algo = ActiveListAlgo<typename ValueTraits::node_traits>;
 
 public:
@@ -243,7 +205,7 @@ public:
 
 public:
     explicit ActiveList(const value_traits &value_traits = {}) noexcept
-        : ValueTraits(value_traits) {}
+        : value_traits_(value_traits) {}
 
     ActiveList(const ActiveList &) = delete;
 
@@ -251,23 +213,23 @@ public:
 
 private:
     inline value_traits_ptr get_value_traits_ptr() const noexcept {
-        return static_cast<const ValueTraits *>(this);
+        return std::addressof(value_traits_);
     }
 
 public:
     bool try_acquire(reference item) noexcept {
-        return Algo::try_acquire(ValueTraits::to_node_ptr(item));
+        return Algo::try_acquire(value_traits_.to_node_ptr(item));
     }
 
     bool is_acquired(reference item,
                      std::memory_order order = std::memory_order_relaxed) const noexcept {
-        return Algo::is_acquired(ValueTraits::to_node_ptr(item), order);
+        return Algo::is_acquired(value_traits_.to_node_ptr(item), order);
     }
 
-    void release(reference item) noexcept { Algo::release(ValueTraits::to_node_ptr(item)); }
+    void release(reference item) noexcept { Algo::release(value_traits_.to_node_ptr(item)); }
 
     void push(reference new_element) noexcept {
-        Algo::push_front(head_, ValueTraits::to_node_ptr(new_element));
+        Algo::push_front(head_, value_traits_.to_node_ptr(new_element));
     }
 
     iterator acquire_free() noexcept {
@@ -295,11 +257,50 @@ public:
 
 private:
     CACHE_LINE_ALIGNAS std::atomic<node_ptr> head_;
+    NO_UNIQUE_ADDRESS value_traits value_traits_;
 };
 
 template <class HookType>
 struct ActiveListDefaultHook {
     using active_list_default_hook = HookType;
+};
+
+template <class VoidPointer, class Tag>
+class ActiveListHook : public NodeHolder<ActiveListNode<VoidPointer>, Tag> {
+    using NodeTraits = ActiveListNodeTraits<VoidPointer>;
+    using NodeAlgo = ActiveListAlgo<NodeTraits>;
+
+public:
+    using node_traits = NodeTraits;
+
+    using node = typename node_traits::node;
+    using node_ptr = typename node_traits::node_ptr;
+    using const_node_ptr = typename node_traits::const_node_ptr;
+
+    using hook_tags = HookTags<NodeTraits, Tag, false>;
+
+public:
+    ActiveListHook() noexcept { NodeAlgo::init(as_node_ptr()); }
+
+    ActiveListHook(const ActiveListHook &) noexcept { NodeAlgo::init(as_node_ptr()); }
+
+    ActiveListHook &operator=(const ActiveListHook &) noexcept { return *this; }
+
+    bool try_acquire() noexcept { return NodeAlgo::try_acquire(as_node_ptr()); }
+
+    bool is_acquired(std::memory_order order = std::memory_order_relaxed) noexcept {
+        return NodeAlgo::is_acquired(as_node_ptr(), order);
+    }
+
+    void release() noexcept { NodeAlgo::release(as_node_ptr()); }
+
+    node_ptr as_node_ptr() noexcept {
+        return std::pointer_traits<node_ptr>::pointer_to(static_cast<node &>(*this));
+    }
+
+    const_node_ptr as_node_ptr() const noexcept {
+        return std::pointer_traits<const_node_ptr>::pointer_to(static_cast<const node &>(*this));
+    }
 };
 
 template <class VoidPointer, class Tag>
