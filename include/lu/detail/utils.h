@@ -3,14 +3,10 @@
 
 #include <lu/intrusive/detail/utils.h>
 
-#include <algorithm>
-#include <cstdint>
 #include <memory>
 #include <type_traits>
 #include <utility>
 
-
-#define UNUSED(expr) (void) (expr)
 
 #define CACHE_LINE_ALIGNAS alignas(64)
 
@@ -18,54 +14,20 @@ namespace lu {
 namespace detail {
 
 template <std::size_t argument, std::size_t base = 2, bool = (argument < base)>
-constexpr std::size_t log = 1 + log<argument / base, base>;
+static constexpr std::size_t log = 1 + log<argument / base, base>;
 
 template <std::size_t argument, std::size_t base>
-constexpr std::size_t log<argument, base, true> = 0;
+static constexpr std::size_t log<argument, base, true> = 0;
 
-
-struct PointerHash {
+struct FastPointerHash {
     template <class T>
     std::size_t operator()(T *p) const noexcept {
-        std::uintptr_t ptr = reinterpret_cast<std::uintptr_t>(p);
-        std::uintptr_t hash = ptr >> log<std::max(sizeof(T), alignof(T))>;
+        std::size_t hash = reinterpret_cast<std::size_t>(p);
+        if constexpr (!std::is_void_v<T>) {
+            hash >>= log<alignof(T)>;
+        }
         return static_cast<std::size_t>(hash);
     }
-};
-
-template <class ValueType>
-class AlignedStorage {
-public:
-    using reference = ValueType &;
-    using pointer = ValueType *;
-    using const_pointer = const ValueType *;
-
-public:
-    AlignedStorage() = default;
-
-    template <class... Args>
-    AlignedStorage(Args &&...args) noexcept(std::is_nothrow_constructible_v<ValueType, Args...>) {
-        emplace(std::forward<Args>(args)...);
-    }
-
-public:
-    template <class... Args>
-    void emplace(Args &&...args) noexcept(std::is_nothrow_constructible_v<ValueType, Args...>) {
-        ::new (data_) ValueType(std::forward<Args>(args)...);
-    }
-
-    void destroy() noexcept { reinterpret_cast<ValueType *>(data_)->~ValueType(); }
-
-    reference operator*() noexcept { return *reinterpret_cast<pointer>(data_); }
-
-    pointer operator->() const noexcept {
-        return const_cast<pointer>(reinterpret_cast<const_pointer>(data_));
-    }
-
-    void *get_ptr() const noexcept { return reinterpret_cast<void *>(this->operator->()); }
-
-private:
-    alignas(alignof(ValueType)) unsigned char data_[sizeof(ValueType)]{};
 };
 
 template <class Allocator>

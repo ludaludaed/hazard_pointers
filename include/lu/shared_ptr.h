@@ -142,13 +142,14 @@ class InplaceControlBlock : public ControlBlock {
 public:
     template <class... Args>
     InplaceControlBlock(const Allocator &allocator, Args &&...args)
-        : allocator_(allocator)
-        , data_(std::forward<Args>(args)...) {}
+        : allocator_(allocator) {
+        ::new (data_) ValueType(std::forward<Args>(args)...);
+    }
 
-    void *get() const noexcept override { return data_.get_ptr(); }
+    void *get() const noexcept override { return get_value_ptr(); }
 
 private:
-    void delete_value() noexcept override { data_.destroy(); }
+    void delete_value() noexcept override { get_value_ptr()->~ValueType(); }
 
     void delete_control_block() override {
         allocator_type copy = allocator_;
@@ -156,8 +157,12 @@ private:
         allocator_traits::deallocate(copy, this, 1);
     }
 
+    ValueType *get_value_ptr() const noexcept {
+        return const_cast<ValueType *>(reinterpret_cast<const ValueType *>(data_));
+    }
+
 private:
-    AlignedStorage<ValueType> data_;
+    alignas(alignof(ValueType)) std::byte data_[sizeof(ValueType)];
     allocator_type allocator_;
 };
 

@@ -85,7 +85,7 @@ struct HazardKeyOfValue {
 
 struct HazardHash {
     std::size_t operator()(const void *ptr) const noexcept {
-        return detail::PointerHash()(static_cast<const HazardObject *>(ptr));
+        return detail::FastPointerHash()(static_cast<const HazardObject *>(ptr));
     }
 };
 

@@ -14,8 +14,6 @@ class fixed_size_function;
 
 template <class ResultType, class... Args, std::size_t BufferLen>
 class fixed_size_function<ResultType(Args...), BufferLen> {
-    using storage = unsigned char[BufferLen];
-
     struct vtable {
         using call_func_ptr = ResultType (*)(void *, Args &&...);
         using destruct_func_ptr = void (*)(void *);
@@ -81,9 +79,9 @@ public:
 
     explicit operator bool() const noexcept { return table_.call; }
 
-    ResultType operator()(Args &&...args) const {
+    ResultType operator()(Args... args) const {
         if (table_.call) {
-            return table_.call(const_cast<storage *>(&data_), std::forward<Args>(args)...);
+            return table_.call(get_buff_ptr(), std::forward<Args>(args)...);
         }
         throw std::bad_function_call();
     }
@@ -105,10 +103,14 @@ public:
     }
 
 private:
+    void *get_buff_ptr() const noexcept {
+        return const_cast<void *>(reinterpret_cast<const void *>(buffer_));
+    }
+
     template <class Functor, class = std::enable_if_t<sizeof(Functor) <= BufferLen>>
     void construct(Functor &&func) {
         using functor_type = typename std::decay_t<Functor>;
-        new (&data_) functor_type(std::forward<Functor>(func));
+        new (get_buff_ptr()) functor_type(std::forward<Functor>(func));
 
         table_.call = call<functor_type>;
         table_.destruct = destruct<functor_type>;
@@ -122,16 +124,15 @@ private:
 
     void copy(const fixed_size_function &other) {
         if (other.table_.copy) {
-            other.table_.copy(&data_, &other);
+            other.table_.copy(get_buff_ptr(), &other);
             table_ = other.table_;
         }
     }
 
     void move(fixed_size_function &&other) {
         if (other.table_.move) {
-            other.table_.move(&data_, &other);
+            other.table_.move(get_buff_ptr(), &other);
             table_ = other.table_;
-            other.destruct();
         } else if (other.table_.copy) {
             copy(other);
         }
@@ -139,34 +140,34 @@ private:
 
     void destruct() {
         if (table_.destruct) {
-            table_.destruct(&data_);
+            table_.destruct(get_buff_ptr());
             table_ = vtable();
         }
     }
 
     template <class Functor>
     static void copy_construct(void *this_ptr, const void *other) {
-        new (this_ptr) Functor(*reinterpret_cast<const Functor *>(other));
+        new (this_ptr) Functor(*static_cast<const Functor *>(other));
     }
 
     template <class Functor>
     static void move_construct(void *this_ptr, void *other) {
-        new (this_ptr) Functor(std::move(*reinterpret_cast<Functor *>(other)));
+        new (this_ptr) Functor(std::move(*static_cast<Functor *>(other)));
     }
 
     template <class Functor>
     static void destruct(void *this_ptr) {
-        reinterpret_cast<Functor *>(this_ptr)->~Functor();
+        static_cast<Functor *>(this_ptr)->~Functor();
     }
 
     template <class Functor>
     static ResultType call(void *this_ptr, Args &&...args) {
-        return reinterpret_cast<Functor *>(this_ptr)->operator()(std::forward<Args>(args)...);
+        return static_cast<Functor *>(this_ptr)->operator()(std::forward<Args>(args)...);
     }
 
 private:
     vtable table_;
-    storage data_;
+    alignas(alignof(std::max_align_t)) std::byte buffer_[BufferLen];
 };
 
 }// namespace lu

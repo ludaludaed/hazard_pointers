@@ -8,6 +8,7 @@
 #include <lu/utils/backoff.h>
 #include <lu/utils/marked_ptr.h>
 
+#include "lu/utils/fixed_size_function.h"
 #include "ordered_list.h"
 #include "structures.h"
 

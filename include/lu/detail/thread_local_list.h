@@ -98,7 +98,7 @@ private:
                 8, lu::unordered_bucket_type<lu::base_hook<lu::unordered_set_base_hook<>>>>;
         using UnorderedSet
                 = lu::unordered_set<value_type, lu::key_of_value<KeyOfValue>,
-                                    lu::is_power_2_buckets<true>, lu::hash<detail::PointerHash>,
+                                    lu::is_power_2_buckets<true>, lu::hash<detail::FastPointerHash>,
                                     lu::bucket_traits<BucketTraits>>;
 
     public:
@@ -144,10 +144,10 @@ private:
     };
 
 public:
-    thread_local_list() = default;
+    thread_local_list() noexcept = default;
 
     template <class Factory>
-    explicit thread_local_list(Factory factory) noexcept
+    explicit thread_local_list(Factory factory)
         : factory_(std::move(factory)) {}
 
     thread_local_list(const thread_local_list &) = delete;
@@ -160,7 +160,7 @@ public:
             auto prev = current++;
             bool acquired = prev->is_acquired(std::memory_order_acquire);
             assert(!acquired && "Can't clear while all threads aren't detached");
-            UNUSED(acquired);
+            (void) acquired;
             prev->do_delete();
         }
     }
