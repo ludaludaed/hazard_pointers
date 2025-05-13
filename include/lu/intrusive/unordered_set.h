@@ -2,7 +2,6 @@
 #define __INTRUSIVE_UNORDERED_SET_H__
 
 #include <lu/intrusive/detail/get_traits.h>
-#include <lu/intrusive/detail/hash.h>
 #include <lu/intrusive/detail/pack_options.h>
 #include <lu/intrusive/hashtable.h>
 
@@ -25,7 +24,7 @@ struct make_unordered_set {
     using key_of_value
             = GetOrDefault<typename pack_options::key_of_value, DefaultKeyOfValue<ValueType>>;
     using key_type = typename key_of_value::type;
-    using hash = GetOrDefault<typename pack_options::hash, detail::hash<key_type>>;
+    using hash = GetOrDefault<typename pack_options::hash, std::hash<key_type>>;
     using equal = GetOrDefault<typename pack_options::equal, std::equal_to<key_type>>;
 
     using size_type = typename pack_options::size_type;
@@ -47,7 +46,7 @@ struct make_unordered_multiset {
     using key_of_value
             = GetOrDefault<typename pack_options::key_of_value, DefaultKeyOfValue<ValueType>>;
     using key_type = typename key_of_value::type;
-    using hash = GetOrDefault<typename pack_options::hash, detail::hash<key_type>>;
+    using hash = GetOrDefault<typename pack_options::hash, std::hash<key_type>>;
     using equal = GetOrDefault<typename pack_options::equal, std::equal_to<key_type>>;
 
     using size_type = typename pack_options::size_type;

@@ -30,7 +30,6 @@ class thread_local_list_base_hook : public lu::unordered_set_base_hook<lu::is_au
     template <class>
     friend class thread_local_list;
 
-public:
     using deleter_func = void(ValueType *);
 
 protected:
@@ -38,7 +37,7 @@ protected:
 
 public:
     template <class Deleter>
-    void set_deleter(Deleter deleter) noexcept(std::is_nothrow_move_assignable_v<Deleter>) {
+    void set_deleter(Deleter deleter) {
         deleter_ = std::move(deleter);
     }
 

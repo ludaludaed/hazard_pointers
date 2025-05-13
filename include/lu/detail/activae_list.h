@@ -213,7 +213,7 @@ public:
 
 private:
     inline value_traits_ptr get_value_traits_ptr() const noexcept {
-        return std::addressof(value_traits_);
+        return std::pointer_traits<value_traits_ptr>::pointer_to(value_traits_);
     }
 
 public:
