@@ -115,6 +115,16 @@ private:
         return &buckets_[bucket_idx].head;
     }
 
+    bool find(const key_type &key, position &pos) const {
+        Backoff backoff;
+        return find(key, pos, backoff);
+    }
+
+    bool find(const key_type &key, position &pos, Backoff &backoff) const {
+        auto head_ptr = const_cast<std::atomic<node_marked_ptr> *>(get_head(key));
+        return Algo::find(head_ptr, key, pos, backoff, key_compare_, key_select_);
+    }
+
 public:
     bool insert(const value_type &value);
 
