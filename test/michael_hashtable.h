@@ -346,7 +346,7 @@ public:
 
 private:
     buckets buckets_{};
-    NO_UNIQUE_ADDRESS hasher key_hash_;
+    NO_UNIQUE_ADDRESS hasher key_hash_{};
     NO_UNIQUE_ADDRESS key_select key_select_{};
 };
 
