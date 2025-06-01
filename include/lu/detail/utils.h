@@ -50,7 +50,9 @@ public:
         return ptr_;
     }
 
-    pointer release() noexcept { return std::exchange(ptr_, pointer{}); }
+    pointer release() noexcept {
+        return std::exchange(ptr_, pointer{});
+    }
 
 private:
     Allocator &allocator_;
@@ -70,7 +72,9 @@ public:
         }
     }
 
-    Ptr release() noexcept { return std::exchange(ptr_, Ptr{}); }
+    Ptr release() noexcept {
+        return std::exchange(ptr_, Ptr{});
+    }
 
 private:
     Ptr ptr_;

@@ -34,9 +34,13 @@ struct SharedFreeListNodeTraits {
     using node_ptr = typename node::pointer;
     using const_node_ptr = typename node::const_pointer;
 
-    static void set_next(node_ptr this_node, node_ptr next) noexcept { this_node->next = next; }
+    static void set_next(node_ptr this_node, node_ptr next) noexcept {
+        this_node->next = next;
+    }
 
-    static node_ptr get_next(const_node_ptr this_node) noexcept { return this_node->next; }
+    static node_ptr get_next(const_node_ptr this_node) noexcept {
+        return this_node->next;
+    }
 };
 
 template <class ValueTraits>
@@ -126,15 +130,13 @@ struct SharedFreeListBaseHook
                          SharedFreeListDefaultHook<SharedFreeListHook<VoidPointer, Tag>>,
                          NotDefaultHook> {};
 
-struct DefaultSharedFreeListHook : public UseDefaultHookTag {
-    template <class ValueType>
-    struct GetDefaultHook {
-        using type = typename ValueType::free_list_default_hook;
-    };
-};
-
 struct SharedFreeListDefaults {
-    using proto_value_traits = DefaultSharedFreeListHook;
+    struct proto_value_traits : public UseDefaultHookTag {
+        template <class ValueType>
+        struct GetDefaultHook {
+            using type = typename ValueType::free_list_default_hook;
+        };
+    };
 };
 
 struct SharedFreeListHookDefaults {

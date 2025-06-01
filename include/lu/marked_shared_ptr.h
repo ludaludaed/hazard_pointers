@@ -51,7 +51,9 @@ public:
         construct(value_ptr, std::move(deleter), allocator);
     }
 
-    marked_shared_ptr(const marked_shared_ptr &other) noexcept { this->copy_construct(other); }
+    marked_shared_ptr(const marked_shared_ptr &other) noexcept {
+        this->copy_construct(other);
+    }
 
     template <
             class _ValuePtr, class _ControlBlockPtr,
@@ -92,7 +94,9 @@ public:
         this->construct_from_weak(other);
     }
 
-    ~marked_shared_ptr() { this->dec_ref(); }
+    ~marked_shared_ptr() {
+        this->dec_ref();
+    }
 
     marked_shared_ptr &operator=(const marked_shared_ptr &other) noexcept {
         marked_shared_ptr temp(other);
@@ -146,11 +150,17 @@ public:
         left.swap(right);
     }
 
-    void mark() noexcept { this->control_block_.mark(); }
+    void mark() noexcept {
+        this->control_block_.mark();
+    }
 
-    void unmark() noexcept { this->control_block_.unmark(); }
+    void unmark() noexcept {
+        this->control_block_.unmark();
+    }
 
-    bool is_marked() const noexcept { return this->control_block_.is_marked(); }
+    bool is_marked() const noexcept {
+        return this->control_block_.is_marked();
+    }
 
     friend bool operator==(const marked_shared_ptr &left, const marked_shared_ptr &right) noexcept {
         return left.get() == right.get() && left.control_block_ == right.control_block_;

@@ -53,24 +53,38 @@ protected:
 
     HazardObject(const HazardObject &other) noexcept {};
 
-    HazardObject &operator=(const HazardObject &) { return *this; }
+    HazardObject &operator=(const HazardObject &) {
+        return *this;
+    }
 
-    ~HazardObject() { assert(!this->is_linked()); }
+    ~HazardObject() {
+        assert(!this->is_linked());
+    }
 
 private:
-    void reclaim() { reclaim_func_(this); }
+    void reclaim() {
+        reclaim_func_(this);
+    }
 
-    void set_reclaim(ReclaimFuncPtr reclaim) noexcept { reclaim_func_ = reclaim; }
+    void set_reclaim(ReclaimFuncPtr reclaim) noexcept {
+        reclaim_func_ = reclaim;
+    }
 
-    const void *get_key() const noexcept { return key_.get(); }
+    const void *get_key() const noexcept {
+        return key_.get();
+    }
 
     void set_key(const void *key) noexcept {
         key_ = lu::marked_ptr<const void>(key, key_.is_marked());
     }
 
-    bool is_protected() const noexcept { return key_.is_marked(); }
+    bool is_protected() const noexcept {
+        return key_.is_marked();
+    }
 
-    void set_protection(bool value) noexcept { key_.set_mark(value); }
+    void set_protection(bool value) noexcept {
+        key_.set_mark(value);
+    }
 
 private:
     ReclaimFuncPtr reclaim_func_{};
@@ -80,7 +94,9 @@ private:
 struct HazardKeyOfValue {
     using type = const void *;
 
-    const void *operator()(const HazardObject &value) const noexcept { return value.get_key(); }
+    const void *operator()(const HazardObject &value) const noexcept {
+        return value.get_key();
+    }
 };
 
 struct HazardHash {
@@ -123,13 +139,21 @@ public:
 
     HazardRecord(HazardRecord &&) = delete;
 
-    inline void reset(const void *ptr = {}) { protected_.store(ptr, std::memory_order_release); }
+    inline void reset(const void *ptr = {}) {
+        protected_.store(ptr, std::memory_order_release);
+    }
 
-    inline const void *get() const noexcept { return protected_.load(std::memory_order_acquire); }
+    inline const void *get() const noexcept {
+        return protected_.load(std::memory_order_acquire);
+    }
 
-    inline bool empty() const noexcept { return !protected_.load(std::memory_order_acquire); }
+    inline bool empty() const noexcept {
+        return !protected_.load(std::memory_order_acquire);
+    }
 
-    inline HazardRecords *get_owner() const noexcept { return owner_; }
+    inline HazardRecords *get_owner() const noexcept {
+        return owner_;
+    }
 
 private:
     std::atomic<const void *> protected_{};
@@ -166,13 +190,21 @@ public:
     HazardRecords(HazardRecords &&) = delete;
 
 public:
-    iterator begin() noexcept { return data_.data(); }
+    iterator begin() noexcept {
+        return data_.data();
+    }
 
-    iterator end() noexcept { return data_.data() + data_.size(); }
+    iterator end() noexcept {
+        return data_.data() + data_.size();
+    }
 
-    const_iterator begin() const noexcept { return data_.data(); }
+    const_iterator begin() const noexcept {
+        return data_.data();
+    }
 
-    const_iterator end() const noexcept { return data_.data() + data_.size(); }
+    const_iterator end() const noexcept {
+        return data_.data() + data_.size();
+    }
 
 private:
     resource data_;
@@ -211,7 +243,9 @@ class hazard_pointer_domain {
 
         HazardThreadData(HazardThreadData &&) = delete;
 
-        ~HazardThreadData() { clear(); }
+        ~HazardThreadData() {
+            clear();
+        }
 
         void clear() {
             auto current = retires_.begin();
@@ -233,9 +267,13 @@ class hazard_pointer_domain {
             return retires_.size() >= scan_threshold_;
         }
 
-        void merge(HazardThreadData &other) noexcept { retires_.merge(other.retires_); }
+        void merge(HazardThreadData &other) noexcept {
+            retires_.merge(other.retires_);
+        }
 
-        HazardRecord *acquire_record() noexcept { return records_.pop(); }
+        HazardRecord *acquire_record() noexcept {
+            return records_.pop();
+        }
 
         void release_record(HazardRecord *record) noexcept {
             auto owner = record->get_owner();
@@ -246,7 +284,9 @@ class hazard_pointer_domain {
             }
         }
 
-        void on_detach() { domain_->help_scan(); }
+        void on_detach() {
+            domain_->help_scan();
+        }
 
     private:
         hazard_pointer_domain *domain_;
@@ -324,9 +364,13 @@ public:
 
     hazard_pointer_domain(hazard_pointer_domain &&) = delete;
 
-    void attach_thread() { list_.attach_thread(); }
+    void attach_thread() {
+        list_.attach_thread();
+    }
 
-    void detach_thread() { list_.detach_thread(); }
+    void detach_thread() {
+        list_.detach_thread();
+    }
 
     std::size_t num_of_retired() noexcept {
         std::size_t result{};
@@ -471,9 +515,13 @@ public:
         }
     }
 
-    bool empty() const noexcept { return !record_; }
+    bool empty() const noexcept {
+        return !record_;
+    }
 
-    explicit operator bool() const noexcept { return !empty(); }
+    explicit operator bool() const noexcept {
+        return !empty();
+    }
 
     template <class Ptr>
     Ptr protect(const std::atomic<Ptr> &src) noexcept {
@@ -528,7 +576,9 @@ public:
         std::swap(record_, other.record_);
     }
 
-    friend void swap(hazard_pointer &left, hazard_pointer &right) noexcept { left.swap(right); }
+    friend void swap(hazard_pointer &left, hazard_pointer &right) noexcept {
+        left.swap(right);
+    }
 
 private:
     hazard_pointer_domain *domain_{};
@@ -559,15 +609,37 @@ public:
 
     guarded_ptr &operator=(const guarded_ptr &) = delete;
 
-    pointer operator->() const noexcept { return ptr_; }
+    guarded_ptr(guarded_ptr &&) = default;
 
-    reference operator*() noexcept { return *ptr_; }
+    guarded_ptr &operator=(guarded_ptr &&) = default;
 
-    const_reference operator*() const noexcept { return *ptr_; }
+    pointer operator->() const noexcept {
+        return ptr_;
+    }
 
-    explicit operator bool() const noexcept { return ptr_; }
+    reference operator*() const noexcept {
+        return *ptr_;
+    }
 
-    std::pair<hazard_pointer, pointer> unpack() && noexcept { return {std::move(guard_), ptr_}; }
+    pointer get() const noexcept {
+        return ptr_;
+    }
+
+    explicit operator bool() const noexcept {
+        return ptr_;
+    }
+
+    friend bool operator==(const guarded_ptr &left, const guarded_ptr &right) {
+        return left.ptr_ == right.ptr_;
+    }
+
+    friend bool operator!=(const guarded_ptr &left, const guarded_ptr &right) {
+        return !(left == right);
+    }
+
+    std::pair<hazard_pointer, pointer> unpack() && noexcept {
+        return {std::move(guard_), ptr_};
+    }
 
 private:
     hazard_pointer guard_{};
@@ -605,10 +677,10 @@ private:
     }
 
 private:
-    NO_UNIQUE_ADDRESS Deleter deleter_;
 #ifndef NDEBUG
     std::atomic<bool> retired_{false};
 #endif
+    NO_UNIQUE_ADDRESS Deleter deleter_;
 };
 
 }// namespace lu

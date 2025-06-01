@@ -9,6 +9,7 @@
 #include <lu/utils/marked_ptr.h>
 
 #include "lu/utils/fixed_size_function.h"
+#include "michael_hashtable.h"
 #include "ordered_list.h"
 #include "structures.h"
 
@@ -21,6 +22,7 @@
 #include <functional>
 #include <iostream>
 #include <memory>
+#include <mutex>
 #include <ostream>
 #include <random>
 #include <span>
@@ -28,6 +30,7 @@
 #include <string>
 #include <thread>
 #include <type_traits>
+#include <unordered_map>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -245,7 +248,9 @@ public:
           In a regular iteration, this might not be crucial, but for this particular test,
           we must ensure that all elements marked for deletion are indeed removed from the list.
         */
-        set.find(config_.num_of_keys + 1);
+        for (auto &el: set) {
+            (void) el;
+        }
 
         for (auto it = set.begin(); it != set.end(); ++it) {
             erased.emplace_back(*it);
@@ -287,11 +292,70 @@ private:
     Config config_{};
 };
 
+template <class Key>
+class MutexSet {
+public:
+    using key_type = Key;
+
+    MutexSet() = default;
+
+    auto find(const Key &key) const {
+        std::lock_guard g(m_);
+        return set_.find(key);
+    }
+
+    bool insert(const Key &key) {
+        std::lock_guard g(m_);
+        if (set_.find(key) == set_.end()) {
+            set_.insert(key);
+            return true;
+        }
+        return false;
+    }
+
+    bool erase(const Key &key) {
+        std::lock_guard g(m_);
+        auto found = set_.find(key);
+        if (found == set_.end()) {
+            return false;
+        }
+        set_.erase(found);
+        return true;
+    }
+
+    auto begin() const {
+        std::lock_guard g(m_);
+        return set_.begin();
+    }
+
+    auto end() const {
+        std::lock_guard g(m_);
+        return set_.end();
+    }
+
+private:
+    mutable std::mutex m_;
+    std::unordered_set<Key> set_;
+};
+
+struct Hash {
+    std::size_t operator()(int i) const {
+        return static_cast<std::size_t>(i);
+    }
+};
+
 int main() {
     for (int i = 0; i < 1000; ++i) {
         std::cout << "iteration: #" << i << std::endl;
+
         abstractStressTest(
-                SetFixture<lu::ordered_list_set<int, lu::backoff<lu::yield_backoff>>>({}));
+                SetFixture<lu::michael_set<int, 32, lu::backoff<lu::yield_backoff>>>({}));
+
+        // abstractStressTest(SetFixture<MutexSet<int>>({}));
+
+        // abstractStressTest(
+        //         SetFixture<lu::ordered_list_set<int, lu::backoff<lu::yield_backoff>>>({}));
+
         // abstractStressTest(stressTest<lu::asp::TreiberStack<int, lu::yield_backoff>>);
         // abstractStressTest(stressTest<lu::asp::MSQueue<int, lu::yield_backoff>>);
         // abstractStressTest(stressTest<lu::hp::TreiberStack<int, lu::yield_backoff>>);

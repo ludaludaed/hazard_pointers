@@ -122,11 +122,17 @@ public:
         swap(size_, other.size_);
     }
 
-    friend void swap(BucketTraitsImpl &left, BucketTraitsImpl &right) noexcept { left.swap(right); }
+    friend void swap(BucketTraitsImpl &left, BucketTraitsImpl &right) noexcept {
+        left.swap(right);
+    }
 
-    bucket_ptr data() const noexcept { return buckets_; }
+    bucket_ptr data() const noexcept {
+        return buckets_;
+    }
 
-    size_type size() const noexcept { return size_; }
+    size_type size() const noexcept {
+        return size_;
+    }
 
 private:
     bucket_ptr buckets_;
@@ -150,7 +156,9 @@ struct HashtableAlgo {
         return !node_traits::get_prev(this_node) && !node_traits::get_next(this_node);
     }
 
-    static bool is_linked(const_node_ptr this_node) noexcept { return !inited(this_node); }
+    static bool is_linked(const_node_ptr this_node) noexcept {
+        return !inited(this_node);
+    }
 
     static std::size_t distance(const_node_ptr first, const_node_ptr last) noexcept {
         std::size_t result = 0;
@@ -283,7 +291,7 @@ class HashtableNode {
 
     using pointer = typename std::pointer_traits<VoidPointer>::template rebind<HashtableNode>;
     using const_pointer =
-            typename std::pointer_traits<pointer>::template rebind<const HashtableNode>;
+            typename std::pointer_traits<VoidPointer>::template rebind<const HashtableNode>;
 
     pointer next{};
     pointer prev{};
@@ -298,7 +306,7 @@ class HashtableNode<VoidPointer, false> {
 
     using pointer = typename std::pointer_traits<VoidPointer>::template rebind<HashtableNode>;
     using const_pointer =
-            typename std::pointer_traits<pointer>::template rebind<const HashtableNode>;
+            typename std::pointer_traits<VoidPointer>::template rebind<const HashtableNode>;
 
     pointer next{};
     pointer prev{};
@@ -311,22 +319,34 @@ struct HashtableNodeTraits {
     using const_node_ptr = typename node::const_pointer;
     static constexpr bool store_hash = StoreHash;
 
-    static void set_next(node_ptr this_node, node_ptr next) noexcept { this_node->next = next; }
+    static void set_next(node_ptr this_node, node_ptr next) noexcept {
+        this_node->next = next;
+    }
 
-    static node_ptr get_next(const_node_ptr this_node) noexcept { return this_node->next; }
+    static node_ptr get_next(const_node_ptr this_node) noexcept {
+        return this_node->next;
+    }
 
-    static void set_prev(node_ptr this_node, node_ptr prev) noexcept { this_node->prev = prev; }
+    static void set_prev(node_ptr this_node, node_ptr prev) noexcept {
+        this_node->prev = prev;
+    }
 
-    static node_ptr get_prev(const_node_ptr this_node) noexcept { return this_node->prev; }
+    static node_ptr get_prev(const_node_ptr this_node) noexcept {
+        return this_node->prev;
+    }
 
-    static std::size_t get_hash(const_node_ptr this_node) noexcept { return this_node->hash; }
+    static std::size_t get_hash(const_node_ptr this_node) noexcept {
+        return this_node->hash;
+    }
 
-    static void set_hash(node_ptr this_node, std::size_t hash) noexcept { this_node->hash = hash; }
+    static void set_hash(node_ptr this_node, std::size_t hash) noexcept {
+        this_node->hash = hash;
+    }
 };
 
 template <class Types, bool IsConst>
 class HashIterator {
-    template <class, class, class, class, class, class, class>
+    template <class, class, class, class, class, class, bool, bool>
     friend class IntrusiveHashtable;
     friend class HashIterator<Types, true>;
 
@@ -378,9 +398,13 @@ public:
         return result;
     }
 
-    reference operator*() const noexcept { return *operator->(); }
+    reference operator*() const noexcept {
+        return *operator->();
+    }
 
-    pointer operator->() const noexcept { return value_traits_->to_value_ptr(current_node_); }
+    pointer operator->() const noexcept {
+        return value_traits_->to_value_ptr(current_node_);
+    }
 
     friend bool operator==(const HashIterator &left, const HashIterator &right) noexcept {
         return left.current_node_ == right.current_node_
@@ -392,7 +416,9 @@ public:
     }
 
 private:
-    void increment() noexcept { current_node_ = node_traits::get_next(current_node_); }
+    void increment() noexcept {
+        current_node_ = node_traits::get_next(current_node_);
+    }
 
 private:
     node_ptr current_node_{};
@@ -401,7 +427,7 @@ private:
 
 template <class Types, class Algo, bool IsConst>
 class HashLocalIterator {
-    template <class, class, class, class, class, class, class>
+    template <class, class, class, class, class, class, bool, bool>
     friend class IntrusiveHashtable;
 
     friend class HashLocalIterator<Types, Algo, true>;
@@ -454,9 +480,13 @@ public:
         return result;
     }
 
-    reference operator*() const noexcept { return *operator->(); }
+    reference operator*() const noexcept {
+        return *operator->();
+    }
 
-    pointer operator->() const noexcept { return value_traits_->to_value_ptr(current_node_); }
+    pointer operator->() const noexcept {
+        return value_traits_->to_value_ptr(current_node_);
+    }
 
     friend bool operator==(const HashLocalIterator &left, const HashLocalIterator &right) noexcept {
         return left.current_node_ == right.current_node_
@@ -481,14 +511,8 @@ private:
     value_traits_ptr value_traits_{};
 };
 
-template <bool IsPower2Buckets, bool IsMulti>
-struct HashtableFlags {
-    static const bool is_power_2_buckets = IsPower2Buckets;
-    static const bool is_multi = IsMulti;
-};
-
 template <class ValueTraits, class BucketTraits, class KeyOfValue, class KeyHash, class KeyEqual,
-          class SizeType, class Flags>
+          class SizeType, bool IsPower2Buckets, bool IsMulti>
 class IntrusiveHashtable {
     using size_traits = SizeTraits<SizeType, !ValueTraits::is_auto_unlink>;
     using Algo = HashtableAlgo<typename ValueTraits::node_traits>;
@@ -550,7 +574,9 @@ public:
         insert(begin, end);
     }
 
-    ~IntrusiveHashtable() { clear(); }
+    ~IntrusiveHashtable() {
+        clear();
+    }
 
     IntrusiveHashtable(const IntrusiveHashtable &other) = delete;
 
@@ -568,28 +594,38 @@ public:
     }
 
 private:
-    void Construct() noexcept { Algo::init(GetNilPtr()); }
+    void Construct() noexcept {
+        Algo::init(GetNilPtr());
+    }
 
     value_traits_ptr GetValueTraitsPtr() const noexcept {
         return std::pointer_traits<value_traits_ptr>::pointer_to(value_traits_);
     }
 
-    node_ptr GetNilPtr() noexcept { return std::pointer_traits<node_ptr>::pointer_to(nil_node_); }
+    node_ptr GetNilPtr() noexcept {
+        return std::pointer_traits<node_ptr>::pointer_to(nil_node_);
+    }
 
     const_node_ptr GetNilPtr() const noexcept {
         return std::pointer_traits<const_node_ptr>::pointer_to(nil_node_);
     }
 
-    node_ptr GetFirst() const noexcept { return node_traits::get_next(GetNilPtr()); }
+    node_ptr GetFirst() const noexcept {
+        return node_traits::get_next(GetNilPtr());
+    }
 
-    node_ptr GetEnd() const noexcept { return node_ptr{}; }
+    node_ptr GetEnd() const noexcept {
+        return node_ptr{};
+    }
 
     decltype(auto) GetKey(const_node_ptr node) const noexcept {
         const_pointer value_ptr = value_traits_.to_value_ptr(node);
         return key_of_value_(*value_ptr);
     }
 
-    decltype(auto) GetKey(const_reference value) const noexcept { return key_of_value_(value); }
+    decltype(auto) GetKey(const_reference value) const noexcept {
+        return key_of_value_(value);
+    }
 
     std::size_t GetHash(node_ptr node) const noexcept {
         if constexpr (node_traits::store_hash) {
@@ -618,7 +654,7 @@ private:
     }
 
     size_type GetBucketIdx(std::size_t hash) const noexcept {
-        if constexpr (Flags::is_power_2_buckets) {
+        if constexpr (IsPower2Buckets) {
             return hash & (bucket_traits_.size() - 1);
         } else {
             return hash % bucket_traits_.size();
@@ -761,8 +797,7 @@ private:
 
 public:
     auto insert(reference value) noexcept {
-        bool v = Flags::is_multi;
-        if constexpr (Flags::is_multi) {
+        if constexpr (IsMulti) {
             return InsertEqual(value);
         } else {
             return InsertUnique(value);
@@ -776,9 +811,13 @@ public:
         }
     }
 
-    size_type erase(const key_type &key) noexcept { return EraseImpl(key); }
+    size_type erase(const key_type &key) noexcept {
+        return EraseImpl(key);
+    }
 
-    void erase(const_iterator position) noexcept { EraseNode(position.current_node_); }
+    void erase(const_iterator position) noexcept {
+        EraseNode(position.current_node_);
+    }
 
     void erase(const_iterator begin, const_iterator end) noexcept {
         for (; begin != end; ++begin) {
@@ -807,9 +846,11 @@ public:
     }
 
     template <class OtherBucketTraits, class OtherKeyOfValue, class OtherKeyHash,
-              class OtherKeyEqual, class OtherSizeType, class OtherFlags>
+              class OtherKeyEqual, class OtherSizeType, bool OtherIsPower2Buckets,
+              bool OtherIsMulti>
     void merge(IntrusiveHashtable<ValueTraits, OtherBucketTraits, OtherKeyOfValue, OtherKeyHash,
-                                  OtherKeyEqual, OtherSizeType, OtherFlags> &other) noexcept {
+                                  OtherKeyEqual, OtherSizeType, OtherIsPower2Buckets, OtherIsMulti>
+                       &other) noexcept {
         for (iterator it = other.begin(); it != other.end();) {
             iterator next = std::next(it);
             other.erase(it);
@@ -819,9 +860,11 @@ public:
     }
 
     template <class OtherBucketTraits, class OtherKeyOfValue, class OtherKeyHash,
-              class OtherKeyEqual, class OtherSizeType, class OtherFlags>
+              class OtherKeyEqual, class OtherSizeType, bool OtherIsPower2Buckets,
+              bool OtherIsMulti>
     void merge(IntrusiveHashtable<ValueTraits, OtherBucketTraits, OtherKeyOfValue, OtherKeyHash,
-                                  OtherKeyEqual, OtherSizeType, OtherFlags> &&other) noexcept {
+                                  OtherKeyEqual, OtherSizeType, OtherIsPower2Buckets, OtherIsMulti>
+                       &&other) noexcept {
         merge(other);
     }
 
@@ -858,7 +901,9 @@ public:
         return Algo::distance(range.first, range.second);
     }
 
-    bool contains(const key_type &key) const noexcept { return FindImpl(key); }
+    bool contains(const key_type &key) const noexcept {
+        return FindImpl(key);
+    }
 
     std::pair<iterator, iterator> equal_range(const key_type &key) noexcept {
         std::pair<node_ptr, node_ptr> res = EqualRangeImpl(key);
@@ -900,27 +945,41 @@ public:
         return const_local_iterator(node, GetValueTraitsPtr());
     }
 
-    hasher hash_function() const noexcept { return hasher_; }
+    hasher hash_function() const noexcept {
+        return hasher_;
+    }
 
-    key_equal key_eq() const noexcept { return key_equal_; }
+    key_equal key_eq() const noexcept {
+        return key_equal_;
+    }
 
-    iterator begin() noexcept { return iterator(GetFirst(), GetValueTraitsPtr()); }
+    iterator begin() noexcept {
+        return iterator(GetFirst(), GetValueTraitsPtr());
+    }
 
-    iterator end() noexcept { return iterator(GetEnd(), GetValueTraitsPtr()); }
+    iterator end() noexcept {
+        return iterator(GetEnd(), GetValueTraitsPtr());
+    }
 
     const_iterator begin() const noexcept {
         return const_iterator(GetFirst(), GetValueTraitsPtr());
     }
 
-    const_iterator end() const noexcept { return const_iterator(GetEnd(), GetValueTraitsPtr()); }
+    const_iterator end() const noexcept {
+        return const_iterator(GetEnd(), GetValueTraitsPtr());
+    }
 
     const_iterator cbegin() const noexcept {
         return const_iterator(GetFirst(), GetValueTraitsPtr());
     }
 
-    const_iterator cend() const noexcept { return const_iterator(GetEnd(), GetValueTraitsPtr()); }
+    const_iterator cend() const noexcept {
+        return const_iterator(GetEnd(), GetValueTraitsPtr());
+    }
 
-    size_type bucket_count() const noexcept { return bucket_traits_.size(); }
+    size_type bucket_count() const noexcept {
+        return bucket_traits_.size();
+    }
 
     size_type bucket_size(size_type bucket_index) const noexcept {
         size_type size = 0;
@@ -959,9 +1018,13 @@ public:
         return const_local_iterator(GetEnd(), GetValueTraitsPtr());
     }
 
-    size_type size() const noexcept { return GetSize(); }
+    size_type size() const noexcept {
+        return GetSize();
+    }
 
-    bool empty() const noexcept { return Algo::inited(GetNilPtr()); }
+    bool empty() const noexcept {
+        return Algo::inited(GetNilPtr());
+    }
 
     friend bool operator==(const IntrusiveHashtable &left,
                            const IntrusiveHashtable &right) noexcept {
@@ -1020,30 +1083,20 @@ class HashtableBaseHook
                                   HashtableNodeTraits<VoidPointer, StoreHash>, Tag, IsAutoUnlink>>,
               NotDefaultHook> {};
 
-template <class ValueType>
-struct DefaultKeyOfValue {
-    using type = ValueType;
-
-    template <class T, class = std::enable_if_t<std::is_same_v<std::decay_t<T>, type>>>
-    T &&operator()(T &&value) const noexcept {
-        return std::forward<T>(value);
-    }
-};
-
-struct DefaultHashTableHook : public UseDefaultHookTag {
-    template <class ValueType>
-    struct GetDefaultHook {
-        using type = typename ValueType::hashtable_default_hook_type;
-    };
-};
-
 struct HashtableDefaults {
-    using proto_value_traits = DefaultHashTableHook;
+    struct proto_value_traits : public UseDefaultHookTag {
+        template <class ValueType>
+        struct GetDefaultHook {
+            using type = typename ValueType::hashtable_default_hook_type;
+        };
+    };
+
+    using proto_bucket_traits = void;
+
     using size_type = std::size_t;
     using key_of_value = void;
-    using equal = void;
-    using hash = void;
-    using proto_bucket_traits = void;
+    using key_equal = void;
+    using hasher = void;
     static const bool is_power_2_buckets = false;
 };
 

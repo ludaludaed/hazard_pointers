@@ -11,7 +11,6 @@
 #include <atomic>
 #include <cassert>
 #include <memory>
-#include <type_traits>
 
 
 namespace lu {
@@ -19,7 +18,9 @@ namespace detail {
 
 template <class ValueType>
 struct DefaultFactory {
-    ValueType *operator()() const { return new ValueType(); }
+    ValueType *operator()() const {
+        return new ValueType();
+    }
 };
 
 }// namespace detail
@@ -46,11 +47,17 @@ public:
     void on_detach() {}
 
 private:
-    void do_attach() { static_cast<ValueType *>(this)->on_attach(); }
+    void do_attach() {
+        static_cast<ValueType *>(this)->on_attach();
+    }
 
-    void do_detach() { static_cast<ValueType *>(this)->on_detach(); }
+    void do_detach() {
+        static_cast<ValueType *>(this)->on_detach();
+    }
 
-    void do_delete() { deleter_(static_cast<ValueType *>(this)); }
+    void do_delete() {
+        deleter_(static_cast<ValueType *>(this));
+    }
 
 private:
     const void *key_{};

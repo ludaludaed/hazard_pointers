@@ -29,30 +29,49 @@ struct OrderedListNode : public lu::hazard_pointer_obj_base<OrderedListNode<Valu
     std::atomic<lu::marked_ptr<OrderedListNode>> next{};
 };
 
-template <class ValueType>
-struct OrderedListNodeTraits {
+template <class ValueType, class KeyCompare, class KeySelect, class Backoff>
+struct OrderedListBase {
+    using value_type = ValueType;
+    using key_type = typename KeySelect::type;
+
+    using difference_type = std::ptrdiff_t;
+    using pointer = value_type *;
+    using const_pointer = const value_type *;
+    using reference = value_type &;
+    using const_reference = const value_type &;
+
+    using key_compare = KeyCompare;
+    using key_select = KeySelect;
+
     using node = OrderedListNode<ValueType>;
     using node_ptr = node *;
     using node_marked_ptr = lu::marked_ptr<node>;
-};
 
-template <class NodeTraits>
-struct OrderedListAlgo {
-    using node = typename NodeTraits::node;
-    using node_ptr = typename NodeTraits::node_ptr;
-    using node_marked_ptr = typename NodeTraits::node_marked_ptr;
+    using node_accessor = lu::guarded_ptr<node>;
 
     struct position {
-        node_ptr cur;
-        node_marked_ptr next;
-        std::atomic<node_marked_ptr> *prev_pointer;
+        node_ptr cur{};
+        node_marked_ptr next{};
+        std::atomic<node_marked_ptr> *prev_pointer{};
 
         lu::hazard_pointer prev_guard{lu::make_hazard_pointer()};
         lu::hazard_pointer cur_guard{lu::make_hazard_pointer()};
         lu::hazard_pointer next_guard{lu::make_hazard_pointer()};
     };
 
-    static bool unlink(position &pos) {
+    explicit OrderedListBase(const key_compare &compare = {})
+        : key_compare_(compare) {}
+
+    ~OrderedListBase() {
+        auto current = head_.load();
+        while (current) {
+            auto next = current->next.load();
+            delete current.get();
+            current = next;
+        }
+    }
+
+    bool unlink(const position &pos) {
         node_marked_ptr next(pos.next, 0);
         if (pos.cur->next.compare_exchange_weak(next, node_marked_ptr(pos.next, 1))) {
             node_marked_ptr cur(pos.cur, 0);
@@ -64,7 +83,7 @@ struct OrderedListAlgo {
         return false;
     }
 
-    static bool link(position &pos, node_ptr new_node) {
+    bool link(const position &pos, node_ptr new_node) {
         node_marked_ptr cur(pos.cur, 0);
         new_node->next.store(cur);
         if (pos.prev_pointer->compare_exchange_weak(cur, node_marked_ptr(new_node, 0))) {
@@ -75,9 +94,14 @@ struct OrderedListAlgo {
         }
     }
 
-    template <class KeyType, class Backoff, class KeyCompare, class KeySelect>
-    static bool find(std::atomic<node_marked_ptr> *head, const KeyType &key, position &pos,
-                     Backoff &backoff, KeyCompare &&comp, KeySelect &&key_select) {
+    bool find(const key_type &key, position &pos) const {
+        Backoff backoff;
+        return find(key, pos, backoff);
+    }
+
+    bool find(const key_type &key, position &pos, Backoff &backoff) const {
+        auto head = const_cast<std::atomic<node_marked_ptr> *>(&head_);
+
     try_again:
         pos.prev_pointer = head;
         pos.cur = pos.cur_guard.protect(*head, [](node_marked_ptr ptr) { return ptr.get(); });
@@ -106,8 +130,8 @@ struct OrderedListAlgo {
                 }
                 pos.cur->retire();
             } else {
-                if (!comp(key_select(pos.cur->value), key)) {
-                    return !comp(key, key_select(pos.cur->value));
+                if (!key_compare_(key_select_(pos.cur->value), key)) {
+                    return !key_compare_(key, key_select_(pos.cur->value));
                 }
                 pos.prev_pointer = &(pos.cur->next);
                 pos.prev_guard.reset_protection(pos.cur);
@@ -116,249 +140,17 @@ struct OrderedListAlgo {
             pos.cur = pos.next;
         }
     }
-};
 
-template <class ValueType, class KeyCompare, class KeySelect, class Backoff>
-class OrderedList {
-    template <class Types, bool IsConst>
-    class Iterator {
-        friend class OrderedList;
-
-        class DummyNonConstIter;
-        using NonConstIter = std::conditional_t<IsConst, Iterator<Types, false>, DummyNonConstIter>;
-
-        using node_ptr = typename Types::node_ptr;
-        using node_marked_ptr = typename Types::node_marked_ptr;
-        using position = typename Types::position;
-
-    public:
-        using value_type = typename Types::value_type;
-        using difference_type = typename Types::difference_type;
-        using pointer = std::conditional_t<IsConst, typename Types::const_pointer,
-                                           typename Types::pointer>;
-        using reference = std::conditional_t<IsConst, typename Types::const_reference,
-                                             typename Types::reference>;
-        using iterator_category = std::forward_iterator_tag;
-
-    private:
-        Iterator(lu::hazard_pointer guard, node_ptr current, const OrderedList *list) noexcept
-            : guard_(std::move(guard))
-            , current_(current)
-            , list_(list) {}
-
-    public:
-        Iterator() = default;
-
-        Iterator(const Iterator &other) noexcept
-            : guard_(lu::make_hazard_pointer())
-            , current_(other.current_)
-            , list_(other.list_) {
-            guard_.reset_protection(current_);
-        }
-
-        Iterator(const NonConstIter &other) noexcept
-            : guard_(lu::make_hazard_pointer())
-            , current_(other.current_)
-            , list_(other.list_) {
-            guard_.reset_protection(current_);
-        }
-
-        Iterator(Iterator &&other) noexcept { swap(other); }
-
-        Iterator(NonConstIter &&other) noexcept { swap(other); }
-
-        Iterator &operator=(const Iterator &other) noexcept {
-            Iterator temp(other);
-            swap(temp);
-            return *this;
-        }
-
-        Iterator &operator=(const NonConstIter &other) noexcept {
-            Iterator temp(other);
-            swap(temp);
-            return *this;
-        }
-
-        Iterator &operator=(Iterator &&other) noexcept {
-            Iterator temp(std::move(other));
-            swap(temp);
-            return *this;
-        }
-
-        Iterator &operator=(NonConstIter &&other) noexcept {
-            Iterator temp(std::move(other));
-            swap(temp);
-            return *this;
-        }
-
-        Iterator &operator++() noexcept {
-            increment();
-            return *this;
-        }
-
-        Iterator operator++(int) noexcept {
-            Iterator copy(*this);
-            increment();
-            return copy;
-        }
-
-        reference operator*() const noexcept { return *this->operator->(); }
-
-        pointer operator->() const noexcept { return &current_->value; }
-
-        friend bool operator==(const Iterator &left, const Iterator &right) {
-            return left.current_ == right.current_;
-        }
-
-        friend bool operator!=(const Iterator &left, const Iterator &right) {
-            return !(left == right);
-        }
-
-        void swap(Iterator &other) {
-            std::swap(guard_, other.guard_);
-            std::swap(current_, other.current_);
-            std::swap(list_, other.list_);
-        }
-
-    private:
-        void increment() noexcept {
-            auto next_guard = lu::make_hazard_pointer();
-            auto next = next_guard.protect(current_->next,
-                                           [](node_marked_ptr ptr) { return ptr.get(); });
-
-            if (next.is_marked()) {
-                next_guard = lu::hazard_pointer();
-                position new_pos;
-                list_->find(list_->key_select_(current_->value), new_pos);
-
-                guard_ = std::move(new_pos.cur_guard);
-                current_ = new_pos.cur;
-            } else {
-                guard_ = std::move(next_guard);
-                current_ = next;
-            }
-        }
-
-    private:
-        lu::hazard_pointer guard_{};
-        node_ptr current_{};
-        const OrderedList *list_{};
-    };
-
-public:
-    using value_type = ValueType;
-    using key_type = typename KeySelect::type;
-
-    using difference_type = std::ptrdiff_t;
-    using pointer = value_type *;
-    using const_pointer = const value_type *;
-    using reference = value_type &;
-    using const_reference = const value_type &;
-
-    using compare = KeyCompare;
-    using key_select = KeySelect;
-
-    using accessor = lu::guarded_ptr<
-            std::conditional_t<std::is_same_v<value_type, key_type>, const value_type, value_type>>;
-
-    using iterator = Iterator<OrderedList, std::is_same_v<value_type, key_type>>;
-    using const_iterator = Iterator<OrderedList, true>;
-
-private:
-    using node_traits = OrderedListNodeTraits<value_type>;
-    using node = typename node_traits::node;
-    using node_ptr = typename node_traits::node_ptr;
-    using node_marked_ptr = typename node_traits::node_marked_ptr;
-
-    using Algo = OrderedListAlgo<node_traits>;
-    using position = typename Algo::position;
-
-public:
-    explicit OrderedList(const compare &compare = {})
-        : key_compare_(compare) {}
-
-    OrderedList(const OrderedList &other) = delete;
-
-    OrderedList(OrderedList &&other) = delete;
-
-    ~OrderedList() {
-        auto current = head_.load();
-        while (current) {
-            auto next = current->next.load();
-            delete current.get();
-            current = next;
-        }
-    }
-
-private:
-    bool find(const key_type &key, position &pos) const {
-        Backoff backoff;
-        return find(key, pos, backoff);
-    }
-
-    bool find(const key_type &key, position &pos, Backoff &backoff) const {
-        auto head_ptr = const_cast<std::atomic<node_marked_ptr> *>(&head_);
-        return Algo::find(head_ptr, key, pos, backoff, key_compare_, key_select_);
-    }
-
-public:
-    bool insert(const value_type &value) { return emplace(value); }
-
-    bool insert(value_type &&value) { return emplace(std::move(value)); }
-
-    template <class... Args>
-    bool emplace(Args &&...args) {
+    bool insert_node(std::unique_ptr<node> new_node) {
         Backoff backoff;
         position pos;
-        std::unique_ptr<node> new_node = nullptr;
+        const key_type &key = key_select_(new_node->value);
 
-        if constexpr (std::is_invocable_v<key_select, Args...>) {
-            const key_type &key = key_select_(args...);
-            while (true) {
-                if (find(key, pos, backoff)) {
-                    return false;
-                }
-                if (!new_node) {
-                    new_node = std::make_unique<node>(std::forward<Args>(args)...);
-                }
-                if (Algo::link(pos, new_node.get())) {
-                    new_node.release();
-                    return true;
-                }
-                backoff();
-            }
-        } else {
-            new_node = std::make_unique<node>(std::forward<Args>(args)...);
-            const key_type &key = key_select_(new_node->value);
-            while (true) {
-                if (find(key, pos, backoff)) {
-                    return false;
-                }
-                if (Algo::link(pos, new_node.get())) {
-                    new_node.release();
-                    return true;
-                }
-                backoff();
-            }
-        }
-    }
-
-    template <class KeyType, class... Args>
-    bool try_emplace(KeyType &&key, Args &&...args) {
-        Backoff backoff;
-        position pos;
-        std::unique_ptr<node> new_node = nullptr;
         while (true) {
             if (find(key, pos, backoff)) {
                 return false;
             }
-            if (!new_node) {
-                new_node = std::make_unique<node>(
-                        std::piecewise_construct,
-                        std::forward_as_tuple(std::forward<KeyType>(key)),
-                        std::forward_as_tuple(std::forward<Args>(args)...));
-            }
-            if (Algo::link(pos, new_node.get())) {
+            if (link(pos, new_node.get())) {
                 new_node.release();
                 return true;
             }
@@ -366,28 +158,37 @@ public:
         }
     }
 
-    bool erase(const key_type &key) {
+    template <class NodeFactory>
+    bool insert_node(const key_type &key, NodeFactory &&factory) {
         Backoff backoff;
         position pos;
-        while (find(key, pos, backoff)) {
-            if (Algo::unlink(pos)) {
+        std::unique_ptr<node> new_node;
+
+        while (true) {
+            if (find(key, pos, backoff)) {
+                return false;
+            }
+            if (!new_node) {
+                new_node = factory();
+            }
+            if (link(pos, new_node.get())) {
+                new_node.release();
                 return true;
             }
             backoff();
         }
-        return false;
     }
 
-    accessor extract(const key_type &key) {
+    node_accessor extract_node(const key_type &key) {
         Backoff backoff;
         position pos;
         while (find(key, pos, backoff)) {
-            if (Algo::unlink(pos)) {
-                return accessor(std::move(pos.cur_guard), &pos.cur->value);
+            if (unlink(pos)) {
+                return node_accessor(std::move(pos.cur_guard), pos.cur);
             }
             backoff();
         }
-        return accessor();
+        return node_accessor();
     }
 
     void clear() {
@@ -400,43 +201,9 @@ public:
                 break;
             }
             if (find(key_select_(head->value), pos, backoff) && pos.cur == head.get()) {
-                Algo::unlink(pos);
+                unlink(pos);
             }
         }
-    }
-
-    iterator find(const key_type &key) {
-        position pos;
-        if (find(key, pos)) {
-            return iterator(std::move(pos.cur_guard), pos.cur, this);
-        }
-        return end();
-    }
-
-    const_iterator find(const key_type &key) const {
-        position pos;
-        if (find(key, pos)) {
-            return const_iterator(std::move(pos.cur_guard), pos.cur, this);
-        }
-        return end();
-    }
-
-    iterator find_no_less(const key_type &key) {
-        position pos;
-        find(key, pos);
-        if (pos.cur) {
-            return iterator(std::move(pos.cur_guard), pos.cur, this);
-        }
-        return end();
-    }
-
-    const_iterator find_no_less(const key_type &key) const {
-        position pos;
-        find(key, pos);
-        if (pos.cur) {
-            return const_iterator(std::move(pos.cur_guard), pos.cur, this);
-        }
-        return end();
     }
 
     bool contains(const key_type &key) const {
@@ -444,36 +211,298 @@ public:
         return find(key, pos);
     }
 
-    bool empty() const { return !head_.load(); }
-
-    iterator begin() {
-        auto head_guard = lu::make_hazard_pointer();
-        auto head = head_guard.protect(head_, [](node_marked_ptr ptr) { return ptr.get(); });
-        return iterator(std::move(head_guard), head, this);
+    bool empty() const {
+        return !head_.load();
     }
 
-    iterator end() { return iterator(); }
-
-    const_iterator cbegin() const {
+    node_accessor front() const {
         auto head_guard = lu::make_hazard_pointer();
         auto head = head_guard.protect(head_, [](node_marked_ptr ptr) { return ptr.get(); });
-        return const_iterator(std::move(head_guard), head, this);
+        if (head) {
+            return node_accessor(std::move(head_guard), head);
+        } else {
+            return node_accessor();
+        }
     }
 
-    const_iterator cend() const { return const_iterator(); }
-
-    const_iterator begin() const { return cbegin(); }
-
-    const_iterator end() const { return cend(); }
-
-private:
     CACHE_LINE_ALIGNAS std::atomic<node_marked_ptr> head_{};
-    NO_UNIQUE_ADDRESS compare key_compare_{};
+    NO_UNIQUE_ADDRESS key_compare key_compare_{};
     NO_UNIQUE_ADDRESS key_select key_select_{};
 };
 
+template <class Container, bool IsConst>
+class OrderedListIterator {
+    template <class, class, class, class>
+    friend class OrderedList;
+
+    class DummyNonConstIter;
+    using NonConstIter
+            = std::conditional_t<IsConst, OrderedListIterator<Container, false>, DummyNonConstIter>;
+
+    using node_ptr = typename Container::node_ptr;
+    using node_marked_ptr = typename Container::node_marked_ptr;
+    using node_accessor = typename Container::node_accessor;
+
+    using position = typename Container::position;
+
+public:
+    using value_type = typename Container::value_type;
+    using difference_type = typename Container::difference_type;
+    using pointer = std::conditional_t<IsConst, typename Container::const_pointer,
+                                       typename Container::pointer>;
+    using reference = std::conditional_t<IsConst, typename Container::const_reference,
+                                         typename Container::reference>;
+    using iterator_category = std::forward_iterator_tag;
+
+private:
+    OrderedListIterator(node_accessor current_node, const Container *list) noexcept
+        : current_node_(std::move(current_node))
+        , list_(list) {}
+
+public:
+    OrderedListIterator() = default;
+
+    OrderedListIterator(const OrderedListIterator &other) noexcept
+        : list_(other.list_) {
+        if (other.current_node_) {
+            auto guard = lu::make_hazard_pointer();
+            guard.reset_protection(other.current_node_.get());
+            current_node_ = node_accessor(std::move(guard), other.current_node_.get());
+        }
+    }
+
+    OrderedListIterator(const NonConstIter &other) noexcept
+        : list_(other.list_) {
+        if (other.current_node_) {
+            auto guard = lu::make_hazard_pointer();
+            guard.reset_protection(other.current_node_.get());
+            current_node_ = node_accessor(std::move(guard), other.current_node_.get());
+        }
+    }
+
+    OrderedListIterator(OrderedListIterator &&other) noexcept {
+        swap(other);
+    }
+
+    OrderedListIterator(NonConstIter &&other) noexcept {
+        swap(other);
+    }
+
+    OrderedListIterator &operator=(const OrderedListIterator &other) noexcept {
+        OrderedListIterator temp(other);
+        swap(temp);
+        return *this;
+    }
+
+    OrderedListIterator &operator=(const NonConstIter &other) noexcept {
+        OrderedListIterator temp(other);
+        swap(temp);
+        return *this;
+    }
+
+    OrderedListIterator &operator=(OrderedListIterator &&other) noexcept {
+        OrderedListIterator temp(std::move(other));
+        swap(temp);
+        return *this;
+    }
+
+    OrderedListIterator &operator=(NonConstIter &&other) noexcept {
+        OrderedListIterator temp(std::move(other));
+        swap(temp);
+        return *this;
+    }
+
+    OrderedListIterator &operator++() noexcept {
+        increment();
+        return *this;
+    }
+
+    OrderedListIterator operator++(int) noexcept {
+        OrderedListIterator copy(*this);
+        increment();
+        return copy;
+    }
+
+    reference operator*() const noexcept {
+        return *this->operator->();
+    }
+
+    pointer operator->() const noexcept {
+        return &current_node_->value;
+    }
+
+    friend bool operator==(const OrderedListIterator &left, const OrderedListIterator &right) {
+        return left.current_node_ == right.current_node_;
+    }
+
+    friend bool operator!=(const OrderedListIterator &left, const OrderedListIterator &right) {
+        return !(left == right);
+    }
+
+    void swap(OrderedListIterator &other) {
+        using std::swap;
+        swap(current_node_, other.current_node_);
+        swap(list_, other.list_);
+    }
+
+    friend void swap(OrderedListIterator &left, OrderedListIterator &right) {
+        left.swap(right);
+    }
+
+private:
+    void increment() noexcept {
+        position pos;
+        auto next = pos.next_guard.protect(current_node_->next,
+                                           [](node_marked_ptr ptr) { return ptr.get(); });
+
+        if (next.is_marked()) {
+            list_->find(list_->key_select_(current_node_->value), pos);
+            current_node_ = node_accessor(std::move(pos.cur_guard), pos.cur);
+        } else {
+            current_node_ = node_accessor(std::move(pos.next_guard), next);
+        }
+    }
+
+private:
+    node_accessor current_node_{};
+    const Container *list_{};
+};
+
+template <class ValueType, class KeyCompare, class KeySelect, class Backoff>
+class OrderedList : private OrderedListBase<ValueType, KeyCompare, KeySelect, Backoff> {
+    template <class, bool>
+    friend class OrderedListIterator;
+
+    using Base = OrderedListBase<ValueType, KeyCompare, KeySelect, Backoff>;
+
+    using position = typename Base::position;
+
+    using node = typename Base::node;
+    using node_ptr = typename Base::node_ptr;
+    using node_marked_ptr = typename Base::node_marked_ptr;
+    using node_accessor = typename Base::node_accessor;
+
+public:
+    using value_type = typename Base::value_type;
+    using key_type = typename Base::key_type;
+
+    using difference_type = typename Base::difference_type;
+    using pointer = typename Base::pointer;
+    using const_pointer = typename Base::const_pointer;
+    using reference = typename Base::reference;
+    using const_reference = typename Base::const_reference;
+
+    using key_compare = typename Base::key_compare;
+    using key_select = typename Base::key_select;
+
+    using accessor = lu::guarded_ptr<
+            std::conditional_t<std::is_same_v<value_type, key_type>, const value_type, value_type>>;
+
+    using iterator = OrderedListIterator<Base, std::is_same_v<value_type, key_type>>;
+    using const_iterator = OrderedListIterator<Base, true>;
+
+public:
+    using Base::Base;
+    using Base::clear;
+    using Base::contains;
+    using Base::empty;
+
+    bool insert(const value_type &value) {
+        return emplace(value);
+    }
+
+    bool insert(value_type &&value) {
+        return emplace(std::move(value));
+    }
+
+    template <class... Args>
+    bool emplace(Args &&...args) {
+        if constexpr (std::is_invocable_v<key_select, Args...>) {
+            const key_type &key = Base::key_select_(args...);
+            auto node_factory = [args = std::forward_as_tuple(args...)]() {
+                return std::apply(
+                        [](auto &&...args) {
+                            return std::make_unique<node>(std::forward<decltype(args)>(args)...);
+                        },
+                        std::move(args));
+            };
+            return Base::insert_node(key, std::move(node_factory));
+        } else {
+            auto new_node = std::make_unique<node>(std::forward<Args>(args)...);
+            return Base::insert_node(std::move(new_node));
+        }
+    }
+
+    bool erase(const key_type &key) {
+        return bool(Base::extract_node(key));
+    }
+
+    accessor extract(const key_type &key) {
+        auto [guard, node_ptr] = Base::extract_node(key).unpack();
+        return accessor(std::move(guard), std::addressof(node_ptr->value));
+    }
+
+    iterator find(const key_type &key) {
+        position pos;
+        if (!Base::find(key, pos)) {
+            return end();
+        }
+        return iterator(node_accessor(std::move(pos.cur_guard), pos.cur), this);
+    }
+
+    const_iterator find(const key_type &key) const {
+        position pos;
+        if (!Base::find(key, pos)) {
+            return end();
+        }
+        return const_iterator(node_accessor(std::move(pos.cur_guard), pos.cur), this);
+    }
+
+    iterator lower_bound(const key_type &key) {
+        position pos;
+        Base::find(key, pos);
+        if (!pos.cur) {
+            return end();
+        }
+        return iterator(node_accessor(std::move(pos.cur_guard), pos.cur), this);
+    }
+
+    const_iterator lower_bound(const key_type &key) const {
+        position pos;
+        Base::find(key, pos);
+        if (!pos.cur) {
+            return end();
+        }
+        return const_iterator(node_accessor(std::move(pos.cur_guard), pos.cur), this);
+    }
+
+    iterator begin() {
+        return iterator(Base::front(), this);
+    }
+
+    iterator end() {
+        return iterator();
+    }
+
+    const_iterator cbegin() const {
+        return const_iterator(Base::front(), this);
+    }
+
+    const_iterator cend() const {
+        return const_iterator();
+    }
+
+    const_iterator begin() const {
+        return cbegin();
+    }
+
+    const_iterator end() const {
+        return cend();
+    }
+};
+
 struct OrderedListDefaults {
-    using compare = void;
+    using key_compare = void;
     using backoff = void;
 };
 
@@ -487,7 +516,8 @@ template <class ValueType, class... Options>
 struct make_ordered_list_set {
     using pack_options = typename GetPackOptions<OrderedListDefaults, Options...>::type;
 
-    using compare = GetOrDefault<typename pack_options::compare, std::less<const ValueType>>;
+    using key_compare
+            = GetOrDefault<typename pack_options::key_compare, std::less<const ValueType>>;
     using backoff = GetOrDefault<typename pack_options::backoff, lu::none_backoff>;
 
     struct KeySelect {
@@ -499,14 +529,14 @@ struct make_ordered_list_set {
         }
     };
 
-    using type = OrderedList<ValueType, compare, KeySelect, backoff>;
+    using type = OrderedList<ValueType, key_compare, KeySelect, backoff>;
 };
 
 template <class KeyType, class ValueType, class... Options>
 struct make_ordered_list_map {
     using pack_options = typename GetPackOptions<OrderedListDefaults, Options...>::type;
 
-    using compare = GetOrDefault<typename pack_options::compare, std::less<const KeyType>>;
+    using key_compare = GetOrDefault<typename pack_options::key_compare, std::less<const KeyType>>;
     using backoff = GetOrDefault<typename pack_options::backoff, lu::none_backoff>;
 
     using value_type = std::pair<const KeyType, ValueType>;
@@ -527,7 +557,7 @@ struct make_ordered_list_map {
         }
     };
 
-    using type = OrderedList<value_type, compare, KeySelect, backoff>;
+    using type = OrderedList<value_type, key_compare, KeySelect, backoff>;
 };
 
 }// namespace detail

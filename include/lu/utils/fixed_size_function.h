@@ -36,36 +36,42 @@ public:
 
     template <class Functor, class = std::enable_if_t<sizeof(Functor) <= BufferLen>>
     fixed_size_function(Functor &&func) {
-        construct(std::forward<Functor>(func));
+        Construct(std::forward<Functor>(func));
     }
 
-    fixed_size_function(const fixed_size_function &other) { copy(other); }
+    fixed_size_function(const fixed_size_function &other) {
+        CopyConstruct(other);
+    }
 
-    fixed_size_function(fixed_size_function &&other) { move(std::move(other)); }
+    fixed_size_function(fixed_size_function &&other) {
+        MoveConstruct(std::move(other));
+    }
 
-    ~fixed_size_function() { destruct(); }
+    ~fixed_size_function() {
+        Destruct();
+    }
 
     fixed_size_function &operator=(const fixed_size_function &other) {
-        destruct();
-        copy(other);
+        Destruct();
+        CopyConstruct(other);
         return *this;
     }
 
     fixed_size_function &operator=(fixed_size_function &&other) {
-        destruct();
-        move(std::move(other));
+        Destruct();
+        MoveConstruct(std::move(other));
         return *this;
     }
 
     fixed_size_function &operator=(std::nullptr_t) {
-        destruct();
+        Destruct();
         return *this;
     }
 
     template <class Functor, class = std::enable_if_t<sizeof(Functor) <= BufferLen>>
     fixed_size_function &operator=(Functor &&func) {
-        destruct();
-        construct(std::forward<Functor>(func));
+        Destruct();
+        Construct(std::forward<Functor>(func));
         return *this;
     }
 
@@ -75,13 +81,17 @@ public:
         *this = std::move(temp);
     }
 
-    friend void swap(fixed_size_function &left, fixed_size_function &right) { left.swap(right); }
+    friend void swap(fixed_size_function &left, fixed_size_function &right) {
+        left.swap(right);
+    }
 
-    explicit operator bool() const noexcept { return table_.call; }
+    explicit operator bool() const noexcept {
+        return table_.call;
+    }
 
     ResultType operator()(Args... args) const {
         if (table_.call) {
-            return table_.call(get_buff_ptr(), std::forward<Args>(args)...);
+            return table_.call(GetBuffPtr(), std::forward<Args>(args)...);
         }
         throw std::bad_function_call();
     }
@@ -103,71 +113,71 @@ public:
     }
 
 private:
-    void *get_buff_ptr() const noexcept {
+    void *GetBuffPtr() const noexcept {
         return const_cast<void *>(reinterpret_cast<const void *>(buffer_));
     }
 
     template <class Functor, class = std::enable_if_t<sizeof(Functor) <= BufferLen>>
-    void construct(Functor &&func) {
+    void Construct(Functor &&func) {
         using functor_type = typename std::decay_t<Functor>;
-        new (get_buff_ptr()) functor_type(std::forward<Functor>(func));
+        new (GetBuffPtr()) functor_type(std::forward<Functor>(func));
 
-        table_.call = call<functor_type>;
-        table_.destruct = destruct<functor_type>;
+        table_.call = CallFunc<functor_type>;
+        table_.destruct = DestructFunc<functor_type>;
         if constexpr (std::is_copy_constructible_v<functor_type>) {
-            table_.copy = copy_construct<functor_type>;
+            table_.copy = CopyConstructFunc<functor_type>;
         }
         if constexpr (std::is_move_constructible_v<functor_type>) {
-            table_.move = move_construct<functor_type>;
+            table_.move = MoveConstructFunc<functor_type>;
         }
     }
 
-    void copy(const fixed_size_function &other) {
+    void CopyConstruct(const fixed_size_function &other) {
         if (other.table_.copy) {
-            other.table_.copy(get_buff_ptr(), &other);
+            other.table_.copy(GetBuffPtr(), &other);
             table_ = other.table_;
         }
     }
 
-    void move(fixed_size_function &&other) {
+    void MoveConstruct(fixed_size_function &&other) {
         if (other.table_.move) {
-            other.table_.move(get_buff_ptr(), &other);
+            other.table_.move(GetBuffPtr(), &other);
             table_ = other.table_;
         } else if (other.table_.copy) {
-            copy(other);
+            CopyConstruct(other);
         }
     }
 
-    void destruct() {
+    void Destruct() {
         if (table_.destruct) {
-            table_.destruct(get_buff_ptr());
+            table_.destruct(GetBuffPtr());
             table_ = vtable();
         }
     }
 
     template <class Functor>
-    static void copy_construct(void *this_ptr, const void *other) {
+    static void CopyConstructFunc(void *this_ptr, const void *other) {
         new (this_ptr) Functor(*static_cast<const Functor *>(other));
     }
 
     template <class Functor>
-    static void move_construct(void *this_ptr, void *other) {
+    static void MoveConstructFunc(void *this_ptr, void *other) {
         new (this_ptr) Functor(std::move(*static_cast<Functor *>(other)));
     }
 
     template <class Functor>
-    static void destruct(void *this_ptr) {
+    static void DestructFunc(void *this_ptr) {
         static_cast<Functor *>(this_ptr)->~Functor();
     }
 
     template <class Functor>
-    static ResultType call(void *this_ptr, Args &&...args) {
+    static ResultType CallFunc(void *this_ptr, Args &&...args) {
         return static_cast<Functor *>(this_ptr)->operator()(std::forward<Args>(args)...);
     }
 
 private:
-    vtable table_;
     alignas(alignof(std::max_align_t)) std::byte buffer_[BufferLen];
+    vtable table_;
 };
 
 }// namespace lu

@@ -9,6 +9,16 @@
 namespace lu {
 namespace detail {
 
+template <class ValueType>
+struct DefaultKeyOfValue {
+    using type = ValueType;
+
+    template <class T, class = std::enable_if_t<std::is_same_v<std::remove_cvref_t<T>, type>>>
+    T &&operator()(T &&value) const noexcept {
+        return std::forward<T>(value);
+    }
+};
+
 template <class... Options>
 struct make_unordered_set_base_hook {
     using pack_options = typename GetPackOptions<HashtableHookDefaults, Options...>::type;
@@ -24,19 +34,18 @@ struct make_unordered_set {
     using key_of_value
             = GetOrDefault<typename pack_options::key_of_value, DefaultKeyOfValue<ValueType>>;
     using key_type = typename key_of_value::type;
-    using hash = GetOrDefault<typename pack_options::hash, std::hash<key_type>>;
-    using equal = GetOrDefault<typename pack_options::equal, std::equal_to<key_type>>;
+    using hasher = GetOrDefault<typename pack_options::hasher, std::hash<key_type>>;
+    using key_equal = GetOrDefault<typename pack_options::key_equal, std::equal_to<key_type>>;
 
     using size_type = typename pack_options::size_type;
-    using flags = HashtableFlags<pack_options::is_power_2_buckets, false>;
 
     using value_traits =
             typename GetValueTraits<ValueType, typename pack_options::proto_value_traits>::type;
     using bucket_traits = typename GetBucketTraits<typename pack_options::proto_bucket_traits,
                                                    value_traits, size_type>::type;
 
-    using type = IntrusiveHashtable<value_traits, bucket_traits, key_of_value, hash, equal,
-                                    size_type, flags>;
+    using type = IntrusiveHashtable<value_traits, bucket_traits, key_of_value, hasher, key_equal,
+                                    size_type, pack_options::is_power_2_buckets, false>;
 };
 
 template <class ValueType, class... Options>
@@ -46,19 +55,18 @@ struct make_unordered_multiset {
     using key_of_value
             = GetOrDefault<typename pack_options::key_of_value, DefaultKeyOfValue<ValueType>>;
     using key_type = typename key_of_value::type;
-    using hash = GetOrDefault<typename pack_options::hash, std::hash<key_type>>;
-    using equal = GetOrDefault<typename pack_options::equal, std::equal_to<key_type>>;
+    using hasher = GetOrDefault<typename pack_options::hasher, std::hash<key_type>>;
+    using key_equal = GetOrDefault<typename pack_options::key_equal, std::equal_to<key_type>>;
 
     using size_type = typename pack_options::size_type;
-    using flags = HashtableFlags<pack_options::is_power_2_buckets, true>;
 
     using value_traits =
             typename GetValueTraits<ValueType, typename pack_options::proto_value_traits>::type;
     using bucket_traits = typename GetBucketTraits<typename pack_options::proto_bucket_traits,
                                                    value_traits, size_type>::type;
 
-    using type = IntrusiveHashtable<value_traits, bucket_traits, key_of_value, hash, equal,
-                                    size_type, flags>;
+    using type = IntrusiveHashtable<value_traits, bucket_traits, key_of_value, hasher, key_equal,
+                                    size_type, pack_options::is_power_2_buckets, true>;
 };
 
 template <class... Options>

@@ -70,7 +70,7 @@ class ActiveListNode {
 
     using pointer = typename std::pointer_traits<VoidPointer>::template rebind<ActiveListNode>;
     using const_pointer =
-            typename std::pointer_traits<pointer>::template rebind<const ActiveListNode>;
+            typename std::pointer_traits<VoidPointer>::template rebind<const ActiveListNode>;
 
     pointer next{};
     std::atomic<bool> is_active{};
@@ -82,9 +82,13 @@ struct ActiveListNodeTraits {
     using node_ptr = typename node::pointer;
     using const_node_ptr = typename node::const_pointer;
 
-    static node_ptr get_next(const_node_ptr this_node) noexcept { return this_node->next; }
+    static node_ptr get_next(const_node_ptr this_node) noexcept {
+        return this_node->next;
+    }
 
-    static void set_next(node_ptr this_node, node_ptr next) noexcept { this_node->next = next; }
+    static void set_next(node_ptr this_node, node_ptr next) noexcept {
+        this_node->next = next;
+    }
 
     static bool exchange_active(node_ptr this_node, bool value, std::memory_order order) noexcept {
         return this_node->is_active.exchange(value, order);
@@ -153,7 +157,9 @@ public:
         return result;
     }
 
-    inline reference operator*() const noexcept { return *operator->(); }
+    inline reference operator*() const noexcept {
+        return *operator->();
+    }
 
     inline pointer operator->() const noexcept {
         return value_traits_->to_value_ptr(current_node_);
@@ -170,7 +176,9 @@ public:
     }
 
 private:
-    void increment() noexcept { current_node_ = node_traits::get_next(current_node_); }
+    void increment() noexcept {
+        current_node_ = node_traits::get_next(current_node_);
+    }
 
 private:
     node_ptr current_node_{};
@@ -226,7 +234,9 @@ public:
         return Algo::is_acquired(value_traits_.to_node_ptr(item), order);
     }
 
-    void release(reference item) noexcept { Algo::release(value_traits_.to_node_ptr(item)); }
+    void release(reference item) noexcept {
+        Algo::release(value_traits_.to_node_ptr(item));
+    }
 
     void push(reference new_element) noexcept {
         Algo::push_front(head_, value_traits_.to_node_ptr(new_element));
@@ -242,27 +252,30 @@ public:
         return iterator(head, get_value_traits_ptr());
     }
 
-    iterator end() noexcept { return iterator({}, get_value_traits_ptr()); }
+    iterator end() noexcept {
+        return iterator({}, get_value_traits_ptr());
+    }
 
     const_iterator cbegin() const noexcept {
         auto head = head_.load(std::memory_order_acquire);
         return const_iterator(head, get_value_traits_ptr());
     }
 
-    const_iterator cend() const noexcept { return const_iterator({}, get_value_traits_ptr()); }
+    const_iterator cend() const noexcept {
+        return const_iterator({}, get_value_traits_ptr());
+    }
 
-    const_iterator begin() const noexcept { return cbegin(); }
+    const_iterator begin() const noexcept {
+        return cbegin();
+    }
 
-    const_iterator end() const noexcept { return cend(); }
+    const_iterator end() const noexcept {
+        return cend();
+    }
 
 private:
     CACHE_LINE_ALIGNAS std::atomic<node_ptr> head_;
     NO_UNIQUE_ADDRESS value_traits value_traits_;
-};
-
-template <class HookType>
-struct ActiveListDefaultHook {
-    using active_list_default_hook = HookType;
 };
 
 template <class VoidPointer, class Tag>
@@ -272,7 +285,6 @@ class ActiveListHook : public NodeHolder<ActiveListNode<VoidPointer>, Tag> {
 
 public:
     using node_traits = NodeTraits;
-
     using node = typename node_traits::node;
     using node_ptr = typename node_traits::node_ptr;
     using const_node_ptr = typename node_traits::const_node_ptr;
@@ -280,19 +292,29 @@ public:
     using hook_tags = HookTags<NodeTraits, Tag, false>;
 
 public:
-    ActiveListHook() noexcept { NodeAlgo::init(as_node_ptr()); }
+    ActiveListHook() noexcept {
+        NodeAlgo::init(as_node_ptr());
+    }
 
-    ActiveListHook(const ActiveListHook &) noexcept { NodeAlgo::init(as_node_ptr()); }
+    ActiveListHook(const ActiveListHook &) noexcept {
+        NodeAlgo::init(as_node_ptr());
+    }
 
-    ActiveListHook &operator=(const ActiveListHook &) noexcept { return *this; }
+    ActiveListHook &operator=(const ActiveListHook &) noexcept {
+        return *this;
+    }
 
-    bool try_acquire() noexcept { return NodeAlgo::try_acquire(as_node_ptr()); }
+    bool try_acquire() noexcept {
+        return NodeAlgo::try_acquire(as_node_ptr());
+    }
 
     bool is_acquired(std::memory_order order = std::memory_order_relaxed) noexcept {
         return NodeAlgo::is_acquired(as_node_ptr(), order);
     }
 
-    void release() noexcept { NodeAlgo::release(as_node_ptr()); }
+    void release() noexcept {
+        NodeAlgo::release(as_node_ptr());
+    }
 
     node_ptr as_node_ptr() noexcept {
         return std::pointer_traits<node_ptr>::pointer_to(static_cast<node &>(*this));
@@ -303,6 +325,11 @@ public:
     }
 };
 
+template <class HookType>
+struct ActiveListDefaultHook {
+    using active_list_default_hook = HookType;
+};
+
 template <class VoidPointer, class Tag>
 struct ActiveListBaseHook
     : public ActiveListHook<VoidPointer, Tag>,
@@ -310,15 +337,13 @@ struct ActiveListBaseHook
                                 ActiveListDefaultHook<ActiveListHook<VoidPointer, Tag>>,
                                 NotDefaultHook> {};
 
-struct DefaultActiveListHook : public UseDefaultHookTag {
-    template <class ValueType>
-    struct GetDefaultHook {
-        using type = typename ValueType::active_list_default_hook;
-    };
-};
-
 struct ActiveListDefaults {
-    using proto_value_traits = DefaultActiveListHook;
+    struct proto_value_traits : public UseDefaultHookTag {
+        template <class ValueType>
+        struct GetDefaultHook {
+            using type = typename ValueType::active_list_default_hook;
+        };
+    };
 };
 
 struct ActiveListHookDefaults {

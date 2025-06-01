@@ -48,7 +48,7 @@ template <class Hash>
 struct hash {
     template <class Base>
     struct pack : public Base {
-        using hash = Hash;
+        using hasher = Hash;
     };
 };
 
@@ -64,7 +64,7 @@ template <class Equal>
 struct equal {
     template <class Base>
     struct pack : public Base {
-        using equal = Equal;
+        using key_equal = Equal;
     };
 };
 
@@ -72,7 +72,7 @@ template <class Compare>
 struct compare {
     template <class Base>
     struct pack : public Base {
-        using compare = Compare;
+        using key_compare = Compare;
     };
 };
 

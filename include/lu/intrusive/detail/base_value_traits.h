@@ -17,23 +17,21 @@ struct BaseValueTraits {
     using node = typename node_traits::node;
     using node_ptr = typename node_traits::node_ptr;
     using const_node_ptr = typename node_traits::const_node_ptr;
-
     using node_reference = node &;
     using const_node_reference = const node &;
 
     using value_type = ValueType;
     using pointer = typename std::pointer_traits<node_ptr>::template rebind<value_type>;
     using const_pointer = typename std::pointer_traits<node_ptr>::template rebind<const value_type>;
-    using difference_type = typename std::pointer_traits<pointer>::difference_type;
     using reference = value_type &;
     using const_reference = const value_type &;
 
-    using node_holder = NodeHolder<node, Tag>;
+    using difference_type = typename std::pointer_traits<pointer>::difference_type;
 
+    using node_holder = NodeHolder<node, Tag>;
     using node_holder_ptr = typename std::pointer_traits<node_ptr>::template rebind<node_holder>;
     using const_node_holder_ptr =
             typename std::pointer_traits<const_node_ptr>::template rebind<const node_holder>;
-
     using node_holder_reference = node_holder &;
     using const_node_holder_reference = const node_holder &;
 

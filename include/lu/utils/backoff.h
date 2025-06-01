@@ -10,7 +10,9 @@ struct none_backoff {
 };
 
 struct yield_backoff {
-    void operator()() const noexcept { std::this_thread::yield(); }
+    void operator()() const noexcept {
+        std::this_thread::yield();
+    }
 };
 
 template <class Backoff>

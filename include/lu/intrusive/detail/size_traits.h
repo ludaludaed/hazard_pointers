@@ -14,17 +14,29 @@ public:
     static constexpr bool is_tracking_size = true;
 
 public:
-    inline void increase(size_type n) noexcept { size_ += n; }
+    inline void increase(size_type n) noexcept {
+        size_ += n;
+    }
 
-    inline void decrease(size_type n) noexcept { size_ -= n; }
+    inline void decrease(size_type n) noexcept {
+        size_ -= n;
+    }
 
-    inline void increment() noexcept { ++size_; }
+    inline void increment() noexcept {
+        ++size_;
+    }
 
-    inline void decrement() noexcept { --size_; }
+    inline void decrement() noexcept {
+        --size_;
+    }
 
-    inline size_type get_size() const noexcept { return size_; }
+    inline size_type get_size() const noexcept {
+        return size_;
+    }
 
-    inline void set_size(size_type size) noexcept { size_ = size; }
+    inline void set_size(size_type size) noexcept {
+        size_ = size;
+    }
 
 private:
     size_type size_{};
@@ -45,7 +57,9 @@ public:
 
     inline void decrement() noexcept {}
 
-    inline size_type get_size() const noexcept { return size_type{}; }
+    inline size_type get_size() const noexcept {
+        return size_type{};
+    }
 
     inline void set_size(size_type) {}
 };

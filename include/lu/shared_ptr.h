@@ -73,7 +73,9 @@ public:
         }
     }
 
-    std::int64_t use_count() const noexcept { return ref_count_.load(std::memory_order_relaxed); }
+    std::int64_t use_count() const noexcept {
+        return ref_count_.load(std::memory_order_relaxed);
+    }
 
     virtual void *get() const noexcept = 0;
 
@@ -116,10 +118,14 @@ public:
         , allocator_(allocator)
         , deleter_(std::move(deleter)) {}
 
-    void *get() const noexcept override { return value_ptr_; }
+    void *get() const noexcept override {
+        return value_ptr_;
+    }
 
 private:
-    void delete_value() override { deleter_(value_ptr_); }
+    void delete_value() override {
+        deleter_(value_ptr_);
+    }
 
     void delete_control_block() override {
         allocator_type copy = allocator_;
@@ -146,10 +152,14 @@ public:
         ::new (data_) ValueType(std::forward<Args>(args)...);
     }
 
-    void *get() const noexcept override { return get_value_ptr(); }
+    void *get() const noexcept override {
+        return get_value_ptr();
+    }
 
 private:
-    void delete_value() noexcept override { get_value_ptr()->~ValueType(); }
+    void delete_value() noexcept override {
+        get_value_ptr()->~ValueType();
+    }
 
     void delete_control_block() override {
         allocator_type copy = allocator_;
@@ -255,13 +265,21 @@ public:
         return control_block_ < other.control_block_;
     }
 
-    element_ptr get() const noexcept { return value_; }
+    element_ptr get() const noexcept {
+        return value_;
+    }
 
-    explicit operator bool() const noexcept { return this->control_block_; }
+    explicit operator bool() const noexcept {
+        return this->control_block_;
+    }
 
-    std::add_lvalue_reference_t<element_type> operator*() const noexcept { return *this->value_; }
+    std::add_lvalue_reference_t<element_type> operator*() const noexcept {
+        return *this->value_;
+    }
 
-    element_ptr operator->() const noexcept { return this->value_; }
+    element_ptr operator->() const noexcept {
+        return this->value_;
+    }
 
     friend bool operator==(const SharedPtrBase &left, const SharedPtrBase &right) noexcept {
         return left.get() == right.get();
@@ -339,7 +357,9 @@ protected:
         }
     }
 
-    control_block_ptr get_control_block() const noexcept { return control_block_; }
+    control_block_ptr get_control_block() const noexcept {
+        return control_block_;
+    }
 
     control_block_ptr release() noexcept {
         auto old = control_block_;
@@ -394,7 +414,9 @@ public:
         return control_block_ < other.control_block_;
     }
 
-    element_ptr get() const noexcept { return value_; }
+    element_ptr get() const noexcept {
+        return value_;
+    }
 
 protected:
     template <class _ValuePtr, class _ControlBlockPtr,
@@ -455,7 +477,9 @@ protected:
         }
     }
 
-    control_block_ptr get_control_block() const noexcept { return control_block_; }
+    control_block_ptr get_control_block() const noexcept {
+        return control_block_;
+    }
 
     control_block_ptr release() noexcept {
         auto old = control_block_;
@@ -523,7 +547,9 @@ public:
         construct(value_ptr, std::move(deleter), allocator);
     }
 
-    shared_ptr(const shared_ptr &other) noexcept { this->copy_construct(other); }
+    shared_ptr(const shared_ptr &other) noexcept {
+        this->copy_construct(other);
+    }
 
     template <
             class _ValuePtr, class _ControlBlockPtr,
@@ -533,7 +559,9 @@ public:
         this->copy_construct(other);
     }
 
-    shared_ptr(shared_ptr &&other) noexcept { this->move_construct(std::move(other)); }
+    shared_ptr(shared_ptr &&other) noexcept {
+        this->move_construct(std::move(other));
+    }
 
     template <
             class _ValuePtr, class _ControlBlockPtr,
@@ -551,7 +579,9 @@ public:
         this->construct_from_weak(other);
     }
 
-    ~shared_ptr() { this->dec_ref(); }
+    ~shared_ptr() {
+        this->dec_ref();
+    }
 
     shared_ptr &operator=(const shared_ptr &other) noexcept {
         shared_ptr temp(other);
@@ -600,7 +630,9 @@ public:
         std::swap(this->control_block_, other.control_block_);
     }
 
-    friend void swap(shared_ptr &left, shared_ptr &right) noexcept { left.swap(right); }
+    friend void swap(shared_ptr &left, shared_ptr &right) noexcept {
+        left.swap(right);
+    }
 
 private:
     template <class _ValueType, class Deleter = std::default_delete<_ValueType>,
@@ -645,7 +677,9 @@ public:
         this->construct_from_strong(other);
     }
 
-    weak_ptr(const weak_ptr &other) noexcept { this->copy_construct(other); }
+    weak_ptr(const weak_ptr &other) noexcept {
+        this->copy_construct(other);
+    }
 
     template <
             class _ValuePtr, class _ControlBlockPtr,
@@ -655,7 +689,9 @@ public:
         this->copy_construct(other);
     }
 
-    weak_ptr(weak_ptr &&other) noexcept { this->move_construct(std::move(other)); }
+    weak_ptr(weak_ptr &&other) noexcept {
+        this->move_construct(std::move(other));
+    }
 
     template <
             class _ValuePtr, class _ControlBlockPtr,
@@ -665,7 +701,9 @@ public:
         this->move_construct(std::move(other));
     }
 
-    ~weak_ptr() { this->dec_weak(); }
+    ~weak_ptr() {
+        this->dec_weak();
+    }
 
     weak_ptr &operator=(const weak_ptr &other) noexcept {
         weak_ptr temp(other);
@@ -719,11 +757,17 @@ public:
         std::swap(this->control_block_, other.control_block_);
     }
 
-    friend void swap(weak_ptr &left, weak_ptr &right) noexcept { left.swap(right); }
+    friend void swap(weak_ptr &left, weak_ptr &right) noexcept {
+        left.swap(right);
+    }
 
-    [[nodiscard]] bool expired() const noexcept { return !this->use_count(); }
+    [[nodiscard]] bool expired() const noexcept {
+        return !this->use_count();
+    }
 
-    shared_ptr<ValueType> lock() const noexcept { return shared_ptr<ValueType>(*this); }
+    shared_ptr<ValueType> lock() const noexcept {
+        return shared_ptr<ValueType>(*this);
+    }
 };
 
 template <class ValueType, class Allocator = std::allocator<ValueType>, class... Args>

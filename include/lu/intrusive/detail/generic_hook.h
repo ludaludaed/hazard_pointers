@@ -9,7 +9,7 @@
 namespace lu {
 namespace detail {
 
-class DefaultHookTag {};
+class DefaultHookTag;
 
 class NotDefaultHook {};
 
@@ -34,11 +34,17 @@ public:
     using hook_tags = HookTags<NodeTraits, Tag, IsAutoUnlink>;
 
 public:
-    GenericHook() noexcept { NodeAlgo::init(as_node_ptr()); }
+    GenericHook() noexcept {
+        NodeAlgo::init(as_node_ptr());
+    }
 
-    GenericHook(const GenericHook &) noexcept { NodeAlgo::init(as_node_ptr()); }
+    GenericHook(const GenericHook &) noexcept {
+        NodeAlgo::init(as_node_ptr());
+    }
 
-    GenericHook &operator=(const GenericHook &) noexcept { return *this; }
+    GenericHook &operator=(const GenericHook &) noexcept {
+        return *this;
+    }
 
     ~GenericHook() {
         if constexpr (IsAutoUnlink) {
@@ -54,7 +60,9 @@ public:
         return std::pointer_traits<const_node_ptr>::pointer_to(static_cast<const node &>(*this));
     }
 
-    bool is_linked() const noexcept { return NodeAlgo::is_linked(as_node_ptr()); }
+    bool is_linked() const noexcept {
+        return NodeAlgo::is_linked(as_node_ptr());
+    }
 
     void unlink() noexcept {
         static_assert(is_auto_unlink, "for unlinking the hook, there must be an auto unlink.");

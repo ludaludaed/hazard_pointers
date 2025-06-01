@@ -50,7 +50,9 @@ public:
         return *this;
     }
 
-    [[nodiscard]] bool is_lock_free() const noexcept { return true; }
+    [[nodiscard]] bool is_lock_free() const noexcept {
+        return true;
+    }
 
     void store(ref_count_ptr desired, std::memory_order order = std::memory_order_seq_cst) {
         auto desired_ptr = RefCountTraits::release_pointer(desired);

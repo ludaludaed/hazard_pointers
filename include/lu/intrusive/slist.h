@@ -29,13 +29,17 @@ struct CircularSlistAlgo {
         node_traits::set_next(this_node, this_node);
     }
 
-    static void init(node_ptr this_node) noexcept { node_traits::set_next(this_node, node_ptr{}); }
+    static void init(node_ptr this_node) noexcept {
+        node_traits::set_next(this_node, node_ptr{});
+    }
 
     static bool inited(const_node_ptr this_node) noexcept {
         return !node_traits::get_next(this_node);
     }
 
-    static bool is_linked(const_node_ptr this_node) noexcept { return !inited(this_node); }
+    static bool is_linked(const_node_ptr this_node) noexcept {
+        return !inited(this_node);
+    }
 
     static bool unique(const_node_ptr this_node) noexcept {
         const_node_ptr next = node_traits::get_next(this_node);
@@ -52,7 +56,9 @@ struct CircularSlistAlgo {
         return result;
     }
 
-    static node_ptr get_end(const_node_ptr this_node) noexcept { return erase_const(this_node); }
+    static node_ptr get_end(const_node_ptr this_node) noexcept {
+        return erase_const(this_node);
+    }
 
     static node_ptr get_prev(node_ptr head_node, node_ptr this_node) noexcept {
         node_ptr current = head_node;
@@ -62,9 +68,13 @@ struct CircularSlistAlgo {
         return current;
     }
 
-    static node_ptr get_prev(node_ptr this_node) noexcept { return get_prev(this_node, this_node); }
+    static node_ptr get_prev(node_ptr this_node) noexcept {
+        return get_prev(this_node, this_node);
+    }
 
-    static node_ptr get_last(node_ptr this_node) noexcept { return get_prev(this_node, this_node); }
+    static node_ptr get_last(node_ptr this_node) noexcept {
+        return get_prev(this_node, this_node);
+    }
 
     static node_ptr next(node_ptr this_node, std::size_t steps = 1) noexcept {
         while (steps != 0) {
@@ -249,7 +259,8 @@ class SlistNode {
     friend class SlistNodeTraits;
 
     using pointer = typename std::pointer_traits<VoidPointer>::template rebind<SlistNode>;
-    using const_pointer = typename std::pointer_traits<pointer>::template rebind<const SlistNode>;
+    using const_pointer =
+            typename std::pointer_traits<VoidPointer>::template rebind<const SlistNode>;
 
     pointer next{};
 };
@@ -260,9 +271,13 @@ struct SlistNodeTraits {
     using node_ptr = typename node::pointer;
     using const_node_ptr = typename node::const_pointer;
 
-    static void set_next(node_ptr this_node, node_ptr next) noexcept { this_node->next = next; }
+    static void set_next(node_ptr this_node, node_ptr next) noexcept {
+        this_node->next = next;
+    }
 
-    static node_ptr get_next(const_node_ptr this_node) noexcept { return this_node->next; }
+    static node_ptr get_next(const_node_ptr this_node) noexcept {
+        return this_node->next;
+    }
 };
 
 template <class Types, bool IsConst>
@@ -319,9 +334,13 @@ public:
         return result;
     }
 
-    reference operator*() const noexcept { return *operator->(); }
+    reference operator*() const noexcept {
+        return *operator->();
+    }
 
-    pointer operator->() const noexcept { return value_traits_->to_value_ptr(current_node_); }
+    pointer operator->() const noexcept {
+        return value_traits_->to_value_ptr(current_node_);
+    }
 
     friend bool operator==(const SlistIterator &left, const SlistIterator &right) noexcept {
         return left.current_node_ == right.current_node_
@@ -333,7 +352,9 @@ public:
     }
 
 private:
-    void increment() noexcept { current_node_ = node_traits::get_next(current_node_); }
+    void increment() noexcept {
+        current_node_ = node_traits::get_next(current_node_);
+    }
 
 private:
     node_ptr current_node_{};
@@ -396,10 +417,14 @@ public:
         return *this;
     }
 
-    ~IntrusiveSlist() { clear(); }
+    ~IntrusiveSlist() {
+        clear();
+    }
 
 private:
-    void Construct() noexcept { Algo::init_head(GetNilPtr()); }
+    void Construct() noexcept {
+        Algo::init_head(GetNilPtr());
+    }
 
     value_traits_ptr GetValueTraitsPtr() const noexcept {
         return std::pointer_traits<value_traits_ptr>::pointer_to(value_traits_);
@@ -409,11 +434,17 @@ private:
         return Algo::get_end(std::pointer_traits<const_node_ptr>::pointer_to(nil_node_));
     }
 
-    node_ptr GetEnd() const noexcept { return Algo::get_end(GetNilPtr()); }
+    node_ptr GetEnd() const noexcept {
+        return Algo::get_end(GetNilPtr());
+    }
 
-    node_ptr GetFirst() const noexcept { return node_traits::get_next(GetNilPtr()); }
+    node_ptr GetFirst() const noexcept {
+        return node_traits::get_next(GetNilPtr());
+    }
 
-    node_ptr GetLast() const noexcept { return Algo::get_last(GetNilPtr()); }
+    node_ptr GetLast() const noexcept {
+        return Algo::get_last(GetNilPtr());
+    }
 
     size_type GetSize() const noexcept {
         if constexpr (size_traits::is_tracking_size) {
@@ -423,7 +454,9 @@ private:
         }
     }
 
-    void SetSize(size_type new_size) noexcept { return size_traits_.set_size(new_size); }
+    void SetSize(size_type new_size) noexcept {
+        return size_traits_.set_size(new_size);
+    }
 
     node_ptr InsertAfter(node_ptr prev, node_ptr new_node) noexcept {
         Algo::link_after(prev, new_node);
@@ -525,17 +558,25 @@ public:
         insert_after(cbefore_begin(), first, last);
     }
 
-    void reverse() noexcept { Algo::reverse(GetNilPtr()); }
+    void reverse() noexcept {
+        Algo::reverse(GetNilPtr());
+    }
 
-    reference front() noexcept { return *value_traits_.to_value_ptr(GetFirst()); }
+    reference front() noexcept {
+        return *value_traits_.to_value_ptr(GetFirst());
+    }
 
-    const_reference front() const noexcept { return *value_traits_.to_value_ptr(GetFirst()); }
+    const_reference front() const noexcept {
+        return *value_traits_.to_value_ptr(GetFirst());
+    }
 
     void push_front(reference value) noexcept {
         InsertAfter(GetNilPtr(), value_traits_.to_node_ptr(value));
     }
 
-    void pop_front() noexcept { EraseAfter(GetNilPtr()); }
+    void pop_front() noexcept {
+        EraseAfter(GetNilPtr());
+    }
 
     iterator insert_after(const_iterator before, reference value) noexcept {
         node_ptr position = before.current_node_;
@@ -565,7 +606,9 @@ public:
         return iterator(result, GetValueTraitsPtr());
     }
 
-    void clear() noexcept { EraseAfter(GetNilPtr(), GetEnd()); }
+    void clear() noexcept {
+        EraseAfter(GetNilPtr(), GetEnd());
+    }
 
     void swap(IntrusiveSlist &other) noexcept {
         using std::swap;
@@ -619,16 +662,22 @@ public:
         return RemoveIf(std::forward<UnaryPredicate>(pred));
     }
 
-    size_type unique() noexcept { return unique(std::equal_to<value_type>()); }
+    size_type unique() noexcept {
+        return unique(std::equal_to<value_type>());
+    }
 
     template <class BinaryPredicate>
     size_type unique(BinaryPredicate &&pred) noexcept {
         return Unique(std::forward<BinaryPredicate>(pred));
     }
 
-    void merge(IntrusiveSlist &other) noexcept { Merge(other, std::less<value_type>()); }
+    void merge(IntrusiveSlist &other) noexcept {
+        Merge(other, std::less<value_type>());
+    }
 
-    void merge(IntrusiveSlist &&other) noexcept { merge(other); }
+    void merge(IntrusiveSlist &&other) noexcept {
+        merge(other);
+    }
 
     template <class Compare>
     void merge(IntrusiveSlist &other, Compare &&comp) noexcept {
@@ -640,48 +689,70 @@ public:
         merge(other, std::forward<Compare>(comp));
     }
 
-    void sort() noexcept { sort(std::less<value_type>()); }
+    void sort() noexcept {
+        sort(std::less<value_type>());
+    }
 
     template <class Compare>
     void sort(Compare &&comp) noexcept {
         Sort(std::forward<Compare>(comp));
     }
 
-    iterator before_begin() noexcept { return iterator(GetNilPtr(), GetValueTraitsPtr()); }
+    iterator before_begin() noexcept {
+        return iterator(GetNilPtr(), GetValueTraitsPtr());
+    }
 
-    iterator last() noexcept { return iterator(GetLast(), GetValueTraitsPtr()); }
+    iterator last() noexcept {
+        return iterator(GetLast(), GetValueTraitsPtr());
+    }
 
-    iterator begin() noexcept { return iterator(GetFirst(), GetValueTraitsPtr()); }
+    iterator begin() noexcept {
+        return iterator(GetFirst(), GetValueTraitsPtr());
+    }
 
-    iterator end() noexcept { return iterator(GetEnd(), GetValueTraitsPtr()); }
+    iterator end() noexcept {
+        return iterator(GetEnd(), GetValueTraitsPtr());
+    }
 
     const_iterator before_begin() const noexcept {
         return const_iterator(GetNilPtr(), GetValueTraitsPtr());
     }
 
-    const_iterator last() const noexcept { return const_iterator(GetLast(), GetValueTraitsPtr()); }
+    const_iterator last() const noexcept {
+        return const_iterator(GetLast(), GetValueTraitsPtr());
+    }
 
     const_iterator begin() const noexcept {
         return const_iterator(GetFirst(), GetValueTraitsPtr());
     }
 
-    const_iterator end() const noexcept { return const_iterator(GetEnd(), GetValueTraitsPtr()); }
+    const_iterator end() const noexcept {
+        return const_iterator(GetEnd(), GetValueTraitsPtr());
+    }
 
     const_iterator cbefore_begin() const noexcept {
         return const_iterator(GetNilPtr(), GetValueTraitsPtr());
     }
 
-    const_iterator clast() const noexcept { return const_iterator(GetLast(), GetValueTraitsPtr()); }
+    const_iterator clast() const noexcept {
+        return const_iterator(GetLast(), GetValueTraitsPtr());
+    }
 
     const_iterator cbegin() const noexcept {
         return const_iterator(GetFirst(), GetValueTraitsPtr());
     }
 
-    const_iterator cend() const noexcept { return const_iterator(GetEnd(), GetValueTraitsPtr()); }
+    const_iterator cend() const noexcept {
+        return const_iterator(GetEnd(), GetValueTraitsPtr());
+    }
 
-    bool empty() const noexcept { return Algo::unique(GetNilPtr()); }
+    bool empty() const noexcept {
+        return Algo::unique(GetNilPtr());
+    }
 
-    size_type size() const noexcept { return GetSize(); }
+    size_type size() const noexcept {
+        return GetSize();
+    }
 
     friend bool operator==(const IntrusiveSlist &left, const IntrusiveSlist &right) noexcept {
         return std::equal(left.begin(), left.end(), right.begin(), right.end());
@@ -707,7 +778,9 @@ public:
         return !(left < right);
     }
 
-    friend void swap(IntrusiveSlist &left, IntrusiveSlist &right) noexcept { left.swap(right); }
+    friend void swap(IntrusiveSlist &left, IntrusiveSlist &right) noexcept {
+        left.swap(right);
+    }
 
 private:
     node nil_node_;
@@ -730,15 +803,14 @@ class SlistBaseHook
                                            SlistNodeTraits<VoidPointer>, Tag, IsAutoUnlink>>,
               NotDefaultHook> {};
 
-struct DefaultSlistHook : public UseDefaultHookTag {
-    template <class ValueType>
-    struct GetDefaultHook {
-        using type = typename ValueType::slist_default_hook_type;
-    };
-};
-
 struct SlistDefaults {
-    using proto_value_traits = DefaultSlistHook;
+    struct proto_value_traits : public UseDefaultHookTag {
+        template <class ValueType>
+        struct GetDefaultHook {
+            using type = typename ValueType::slist_default_hook_type;
+        };
+    };
+
     using size_type = std::size_t;
 };
 

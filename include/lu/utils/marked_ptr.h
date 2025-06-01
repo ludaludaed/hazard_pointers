@@ -21,44 +21,73 @@ public:
 
     template <class _ValueType,
               class = std::enable_if_t<std::is_convertible_v<_ValueType *, ValueType *>>>
-    marked_ptr(_ValueType *other, bool marked = false) noexcept
-        : ptr_(make_marked_ptr(other, marked)) {}
+    marked_ptr(_ValueType *other) noexcept
+        : ptr_(make_marked_ptr(other, false)) {}
 
     template <class _ValueType,
               class = std::enable_if_t<std::is_convertible_v<_ValueType *, ValueType *>>>
-    marked_ptr(const marked_ptr<_ValueType> &other, bool marked) noexcept
-        : ptr_(make_marked_ptr(other.get(), marked)) {}
+    marked_ptr(_ValueType *other, bool marked) noexcept
+        : ptr_(make_marked_ptr(other, marked)) {}
 
     template <class _ValueType,
               class = std::enable_if_t<std::is_convertible_v<_ValueType *, ValueType *>>>
     marked_ptr(const marked_ptr<_ValueType> &other) noexcept
         : ptr_(make_marked_ptr(other.get(), other.is_marked())) {}
 
+    template <class _ValueType,
+              class = std::enable_if_t<std::is_convertible_v<_ValueType *, ValueType *>>>
+    marked_ptr(const marked_ptr<_ValueType> &other, bool marked) noexcept
+        : ptr_(make_marked_ptr(other.get(), marked)) {}
+
     marked_ptr(const marked_ptr &other) = default;
 
-    std::add_lvalue_reference_t<element_type> operator*() const noexcept { return *get(); }
+    std::add_lvalue_reference_t<element_type> operator*() const noexcept {
+        return *get();
+    }
 
-    element_type *operator->() const noexcept { return get(); }
+    element_type *operator->() const noexcept {
+        return get();
+    }
 
-    operator element_type *() const noexcept { return get(); }
+    operator element_type *() const noexcept {
+        return get();
+    }
 
-    explicit operator bool() const noexcept { return get(); }
+    explicit operator bool() const noexcept {
+        return get();
+    }
 
-    element_type *raw() const noexcept { return reinterpret_cast<element_type *>(ptr_); }
+    element_type *raw() const noexcept {
+        return reinterpret_cast<element_type *>(ptr_);
+    }
 
-    element_type *get() const noexcept { return reinterpret_cast<element_type *>(ptr_ & ~(1)); }
+    element_type *get() const noexcept {
+        return reinterpret_cast<element_type *>(ptr_ & ~(1));
+    }
 
-    void set_mark(bool value) noexcept { ptr_ = make_marked_ptr(get(), value); }
+    void set_mark(bool value) noexcept {
+        ptr_ = make_marked_ptr(get(), value);
+    }
 
-    void mark() noexcept { ptr_ |= 1; }
+    void mark() noexcept {
+        ptr_ |= 1;
+    }
 
-    void unmark() noexcept { ptr_ &= ~1; }
+    void unmark() noexcept {
+        ptr_ &= ~1;
+    }
 
-    bool is_marked() const noexcept { return ptr_ & 1; }
+    bool is_marked() const noexcept {
+        return ptr_ & 1;
+    }
 
-    void swap(marked_ptr &other) noexcept { std::swap(ptr_, other.ptr_); }
+    void swap(marked_ptr &other) noexcept {
+        std::swap(ptr_, other.ptr_);
+    }
 
-    friend void swap(marked_ptr &left, marked_ptr &right) noexcept { left.swap(right); }
+    friend void swap(marked_ptr &left, marked_ptr &right) noexcept {
+        left.swap(right);
+    }
 
     friend bool operator==(const marked_ptr &left, const marked_ptr &right) noexcept {
         return left.ptr_ == right.ptr_;
