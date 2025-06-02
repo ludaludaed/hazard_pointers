@@ -115,9 +115,7 @@ public:
         return !(left < right);
     }
 
-    template <class _ValueType,
-              class = std::enable_if_t<std::is_convertible_v<_ValueType *, ValueType *>>>
-    static marked_ptr pointer_to(_ValueType &value) noexcept {
+    static marked_ptr pointer_to(element_type &value) noexcept {
         return marked_ptr(&value);
     }
 
