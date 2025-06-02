@@ -26,7 +26,7 @@ public:
 
     using node = typename node_traits::node;
     using node_ptr = typename node_traits::node_ptr;
-    using const_node_ptr = typename node_traits::node_ptr;
+    using const_node_ptr = typename node_traits::const_node_ptr;
 
 public:
     BucketValue() = default;
@@ -69,7 +69,7 @@ public:
 
     using node = typename node_traits::node;
     using node_ptr = typename node_traits::node_ptr;
-    using const_node_ptr = typename node_traits::node_ptr;
+    using const_node_ptr = typename node_traits::const_node_ptr;
 
 public:
     BucketValue() = default;
