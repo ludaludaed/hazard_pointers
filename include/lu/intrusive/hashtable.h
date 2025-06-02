@@ -998,7 +998,7 @@ public:
         return local_iterator(GetBucketBegin(bucket_index), GetValueTraitsPtr());
     }
 
-    local_iterator end(size_type bucket_index) noexcept {
+    local_iterator end(size_type) noexcept {
         return local_iterator(GetEnd(), GetValueTraitsPtr());
     }
 
@@ -1006,7 +1006,7 @@ public:
         return const_local_iterator(GetBucketBegin(bucket_index), GetValueTraitsPtr());
     }
 
-    const_local_iterator end(size_type bucket_index) const noexcept {
+    const_local_iterator end(size_type) const noexcept {
         return const_local_iterator(GetEnd(), GetValueTraitsPtr());
     }
 
@@ -1014,7 +1014,7 @@ public:
         return const_local_iterator(GetBucketBegin(bucket_index), GetValueTraitsPtr());
     }
 
-    const_local_iterator cend(size_type bucket_index) const noexcept {
+    const_local_iterator cend(size_type) const noexcept {
         return const_local_iterator(GetEnd(), GetValueTraitsPtr());
     }
 

@@ -5,7 +5,6 @@
 #include <lu/detail/thread_local_list.h>
 #include <lu/detail/utils.h>
 #include <lu/intrusive/detail/utils.h>
-#include <lu/intrusive/forward_list.h>
 #include <lu/intrusive/options.h>
 #include <lu/intrusive/unordered_set.h>
 #include <lu/utils/marked_ptr.h>
@@ -51,7 +50,7 @@ class HazardObject : public HazardRetiresHook {
 protected:
     HazardObject() noexcept = default;
 
-    HazardObject(const HazardObject &other) noexcept {};
+    HazardObject(const HazardObject &) noexcept {};
 
     HazardObject &operator=(const HazardObject &) {
         return *this;

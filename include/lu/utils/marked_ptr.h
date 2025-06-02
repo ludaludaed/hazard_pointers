@@ -41,6 +41,8 @@ public:
 
     marked_ptr(const marked_ptr &other) = default;
 
+    marked_ptr &operator=(const marked_ptr &) = default;
+
     std::add_lvalue_reference_t<element_type> operator*() const noexcept {
         return *get();
     }
