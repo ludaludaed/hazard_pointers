@@ -381,7 +381,7 @@ public:
         : current_node_(other.current_node_)
         , value_traits_(other.value_traits_) {}
 
-    HashIterator &operator=(const HashIterator &other) noexcept {
+    HashIterator &operator=(const NonConstIter &other) noexcept {
         current_node_ = other.current_node_;
         value_traits_ = other.value_traits_;
         return *this;
